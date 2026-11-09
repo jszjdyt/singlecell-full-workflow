@@ -57,5 +57,13 @@
   "license": "MIT",
   "engines": {
     "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jszjdyt/singlecell-full-workflow.git"
+  },
+  "homepage": "https://github.com/jszjdyt/singlecell-full-workflow#readme",
+  "bugs": {
+    "url": "https://github.com/jszjdyt/singlecell-full-workflow/issues"
   }
 }

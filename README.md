@@ -106,7 +106,7 @@ Agent 会调 `singlecell` 工具完成，并在左栏实时看到同样的状态
 ### 安装
 
 ```bash
-git clone https://github.com/<you>/dsh-singlecell.git ~/dsh-plugins/dsh-singlecell
+git clone https://github.com/jszjdyt/singlecell-full-workflow.git ~/dsh-plugins/dsh-singlecell
 cd ~/dsh-plugins/dsh-singlecell
 python3 -m pip install -r requirements.txt
 ```
