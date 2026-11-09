@@ -1302,6 +1302,202 @@ test('静态：v4 样本 & 分组 UI 与接口接线', () => {
 })
 
 // ---------------------------------------------------------------------------
+// 8.7 v5：数据根目录扫描 → 样本表 → 确认导入（GEO 输入逻辑）
+// ---------------------------------------------------------------------------
+
+test('normalizeScanResult：扫描结果归一化（root/samples/errors）', () => {
+  const scan = SC.normalizeScanResult({
+    ok: true,
+    root: '/data/GSE246662_RAW',
+    samples: [
+      { id: 's1', name: 'GSM1_GC3', raw_name: 'GSM1_GC3', format: 'expr_matrix', format_label: '表达矩阵', path: '/data/a/GSM1_GC3.csv.gz', detail: '逗号分隔', trio_prefix: null },
+      { path: '/data/b', format: '10x_mtx' },
+    ],
+    errors: ['子目录 x 无法识别'],
+  })
+  assert.equal(scan.root, '/data/GSE246662_RAW')
+  assert.equal(scan.samples.length, 2)
+  assert.equal(scan.samples[0].formatLabel, '表达矩阵')
+  assert.equal(scan.samples[0].trioPrefix, '')
+  assert.equal(scan.samples[1].name, 'b', '缺 name 时用路径 basename')
+  assert.deepEqual(scan.errors, ['子目录 x 无法识别'])
+})
+
+test('createScanRows：默认全选、未分组、key 唯一', () => {
+  const rows = SC.createScanRows({
+    root: '/r',
+    samples: [
+      { name: 'S1', raw_name: 'S1', format: 'h5ad', path: '/r/a.h5ad' },
+      { name: 'S1', raw_name: 'S1', format: 'h5ad', path: '/r/a.h5ad' },
+    ],
+  })
+  assert.equal(rows.length, 2)
+  assert.equal(rows[0].selected, true)
+  assert.equal(rows[0].group, '')
+  assert.notEqual(rows[0].key, rows[1].key)
+  assert.deepEqual(SC.createScanRows(null), [])
+})
+
+test('findDuplicateSampleNames / validateSampleSelection：改名去重与开始分析校验', () => {
+  assert.deepEqual(SC.findDuplicateSampleNames([{ name: 'A' }, { name: 'a ' }, { name: 'B' }]), ['A'])
+  const rows = [
+    { key: '1', selected: true, name: 'PT1', group: 'young', rawName: 'GSM1', path: '/a' },
+    { key: '2', selected: true, name: 'PT1', group: 'old', rawName: 'GSM2', path: '/b' },
+    { key: '3', selected: false, name: '', group: '', rawName: 'GSM3', path: '/c' },
+  ]
+  const invalid = SC.validateSampleSelection(rows)
+  assert.equal(invalid.ok, false)
+  assert.ok(invalid.errors.some((item) => item.includes('样本名重复')))
+  const noGroup = SC.validateSampleSelection([
+    { key: '1', selected: true, name: 'PT1', group: '', rawName: 'GSM1', path: '/a' },
+    { key: '2', selected: true, name: 'PT2', group: 'old', rawName: 'GSM2', path: '/b' },
+  ])
+  assert.equal(noGroup.ok, false)
+  assert.ok(noGroup.errors.join('').includes('没有分组'))
+  assert.equal(SC.validateSampleSelection([{ key: '1', selected: false, name: 'x', group: 'y' }]).ok, false)
+  const valid = SC.validateSampleSelection([
+    { key: '1', selected: true, name: 'PT1', group: 'young', rawName: 'GSM1', path: '/a' },
+    { key: '2', selected: true, name: 'PT2', group: 'old', rawName: 'GSM2', path: '/b' },
+  ])
+  assert.equal(valid.ok, true)
+  assert.equal(valid.selectedCount, 2)
+})
+
+test('buildSamplesOpenPayload：只送勾选样本，带 name/group/trio_prefix/format', () => {
+  const payload = SC.buildSamplesOpenPayload([
+    { key: '1', selected: true, name: 'PT1', group: 'young', rawName: 'GSM1', path: '/a/GSM1.csv.gz', format: 'expr_matrix' },
+    { key: '2', selected: true, name: '  ', group: 'old', rawName: 'GSM2_RAW', path: '/a/GSM2', trioPrefix: 'GSM2' },
+    { key: '3', selected: false, name: 'PT3', group: 'old', rawName: 'GSM3', path: '/a/GSM3' },
+  ])
+  assert.deepEqual(payload.samples, [
+    { path: '/a/GSM1.csv.gz', name: 'PT1', group: 'young', format: 'expr_matrix' },
+    { path: '/a/GSM2', name: 'GSM2_RAW', group: 'old', trio_prefix: 'GSM2' },
+  ])
+  assert.equal(payload.name, undefined)
+  assert.equal(SC.buildSamplesOpenPayload([], { name: 'my-dataset' }).name, 'my-dataset')
+})
+
+test('setScanRowsSelected / applyGroupToRows：全选/清空与批量分组', () => {
+  const rows = [
+    { key: '1', selected: true, group: '' },
+    { key: '2', selected: false, group: 'old' },
+  ]
+  assert.deepEqual(SC.setScanRowsSelected(rows, false).map((row) => row.selected), [false, false])
+  assert.deepEqual(SC.setScanRowsSelected(rows, true).map((row) => row.selected), [true, true])
+  const grouped = SC.applyGroupToRows(rows, 'young', true)
+  assert.equal(grouped[0].group, 'young')
+  assert.equal(grouped[1].group, 'old', '未勾选行不受影响')
+  assert.equal(SC.applyGroupToRows(rows, 'x', false)[1].group, 'x')
+  assert.equal(rows[0].group, '', '原数组不变')
+})
+
+test('normalizeGeoResult / matchGeoToSamples：GSM 说明按文件名匹配到样本行', () => {
+  const geo = SC.normalizeGeoResult({
+    gse: 'GSE246662',
+    title: 'Test GEO',
+    samples: [
+      { gsm: 'GSM7874174', title: 'GC3 sample' },
+      { gsm: 'GSM7874175', title: 'GC4 sample' },
+    ],
+  })
+  assert.equal(geo.title, 'Test GEO')
+  assert.equal(geo.samples.length, 2)
+  const matched = SC.matchGeoToSamples([
+    { key: '1', name: 'GSM7874174_GC3', rawName: 'GSM7874174_GC3', trioPrefix: '', path: '/d/GSM7874174_GC3.csv.gz', geoTitle: '' },
+    { key: '2', name: 'other', rawName: 'other', trioPrefix: 'GSM7874175_x', path: '/d/other', geoTitle: '' },
+    { key: '3', name: 'none', rawName: 'none', trioPrefix: '', path: '/d/none', geoTitle: '' },
+  ], { gse: 'GSE246662', samples: [{ gsm: 'GSM7874174', title: 'GC3 sample' }, { gsm: 'GSM7874175', title: 'GC4 sample' }] })
+  assert.equal(matched.rows[0].geoTitle, 'GC3 sample')
+  assert.equal(matched.rows[1].geoTitle, 'GC4 sample')
+  assert.equal(matched.rows[2].geoTitle, '')
+  assert.equal(matched.matched, 2)
+  assert.equal(matched.unmatched.length, 0)
+  const partial = SC.matchGeoToSamples([{ key: '1', rawName: 'nothing', path: '/x' }], {
+    samples: [{ gsm: 'GSM1', title: 'a' }, { gsm: 'GSM2', title: 'b' }],
+  })
+  assert.equal(partial.unmatched.length, 2)
+})
+
+test('normalizeImportState / formatImportStateHint：已跑过一半的数据提示', () => {
+  const state = SC.normalizeImportState({
+    steps: ['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed', 'bogus'],
+    current: 'embed',
+    details: {},
+    mapped: { cluster_column: 'seurat_clusters', celltype_column: 'cell_type', n_clusters: 8, n_variable_features: 2000, has_pca: true, has_embed: true },
+  })
+  assert.deepEqual(state.steps, ['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed'])
+  assert.equal(state.mapped.clusterColumn, 'seurat_clusters')
+  assert.equal(state.mapped.hasEmbed, true)
+  const hint = SC.formatImportStateHint(state, ['已有细胞类型列：cell_type'])
+  assert.ok(hint.includes('检测到已有进度：已完成 8 步'))
+  assert.ok(hint.includes('聚类列 seurat_clusters（8 簇）'))
+  assert.ok(hint.includes('细胞类型列 cell_type'))
+  assert.ok(hint.includes('已有二维嵌入'))
+  assert.ok(hint.includes('可继续往下跑'))
+  assert.equal(SC.formatImportStateHint(null, []), '')
+})
+
+test('buildImportBody v5：samples 载荷（确认样本与分组后 open）', () => {
+  const body = SC.buildImportBody({
+    samples: [
+      { path: '/a/GSM1.csv.gz', name: 'PT1', group: 'young', format: 'expr_matrix' },
+      { path: '/a/GSM2.csv.gz', name: 'PT2', group: 'old', trio_prefix: 'GSM2' },
+      { name: '缺 path' },
+    ],
+    name: 'geo-merged',
+  })
+  assert.deepEqual(JSON.parse(JSON.stringify(body)), {
+    actor: 'user',
+    samples: [
+      { path: '/a/GSM1.csv.gz', name: 'PT1', group: 'young', format: 'expr_matrix' },
+      { path: '/a/GSM2.csv.gz', name: 'PT2', group: 'old', trio_prefix: 'GSM2' },
+    ],
+    name: 'geo-merged',
+  })
+})
+
+test('normalizePreview v5：带 notes 与 import_state', () => {
+  const preview = SC.normalizePreview({
+    genes: ['CD3D'],
+    obs_columns: [{ key: 'clusters', kind: 'categorical' }],
+    n_obs: 100,
+    n_vars: 200,
+    steps: ['qc', 'pca'],
+    notes: ['检测到已有进度'],
+    import_state: { steps: ['qc', 'pca'], current: 'pca', mapped: { has_pca: true } },
+  })
+  assert.deepEqual(preview.notes, ['检测到已有进度'])
+  assert.deepEqual(preview.importState.steps, ['qc', 'pca'])
+  assert.equal(preview.importState.mapped.hasPca, true)
+})
+
+test('api v5：POST /scan 与 POST /geo', async () => {
+  const { fake, calls } = createFakeFetch([])
+  const api = SC.createApi(fake)
+  await api.scanDataRoot('/data/GSE1_RAW', true)
+  await api.queryGeo('gse246662')
+  assert.deepEqual(calls.map((call) => call.url), ['/singlecell/scan', '/singlecell/geo'])
+  assert.equal(calls[0].options.method, 'POST')
+  assert.deepEqual(JSON.parse(calls[0].options.body), { path: '/data/GSE1_RAW', recursive: true, actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[1].options.body), { gse: 'GSE246662', actor: 'user' })
+})
+
+test('静态：v5 扫描样本表 UI 与 import_state 提示接线', () => {
+  assert.match(CLIENT_SOURCE, /function normalizeScanResult\(payload\)/)
+  assert.match(CLIENT_SOURCE, /function validateSampleSelection\(rows\)/)
+  assert.match(CLIENT_SOURCE, /function buildSamplesOpenPayload\(rows, options\)/)
+  assert.match(CLIENT_SOURCE, /function formatImportStateHint\(importState, notes\)/)
+  assert.match(CLIENT_SOURCE, /scanDataRoot\(root, scanRecursive !== false\)/)
+  assert.match(CLIENT_SOURCE, /queryGeo\(gse\)/)
+  assert.match(CLIENT_SOURCE, /onConfirmSamples: handleConfirmSamples/)
+  assert.match(CLIENT_SOURCE, /importStateHintText/)
+  assert.match(CLIENT_SOURCE, /scanAdvancedToggle/)
+  for (const route of ["'/scan'", "'/geo'"]) {
+    assert.ok(CLIENT_SOURCE.includes(route), `缺少 v5 接口接线：${route}`)
+  }
+})
+
+// ---------------------------------------------------------------------------
 // 9. 静态合规：模块形态 / 槽注册 / 样式约束
 // ---------------------------------------------------------------------------
 

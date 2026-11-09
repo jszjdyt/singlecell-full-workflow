@@ -573,6 +573,50 @@
     samplesGroupAdderHint: '也可直接在表格最后一列下拉里选现有大组。',
     samplesStatusPrefix: '当前分组列：',
     samplesOneSample: '当前只有 1 个样本；多文件合并导入才会出现样本表。',
+    // v5：数据根目录扫描 → 样本表
+    scanStepTitle: '第 1 步 · 数据根目录 → 识别样本',
+    scanRoot: '数据根目录',
+    scanRootRequired: '请先填写数据根目录（GEO 解压后的文件夹）',
+    scanRootPlaceholder: '粘贴 GEO 解压后的数据根目录，如 /Users/you/Downloads/GSE246662_RAW',
+    scanBrowse: '浏览选择…',
+    scanRecursive: '递归扫描所有子目录',
+    scanRun: '扫描识别',
+    scanRunning: '扫描中…',
+    scanErrors: '扫描提示',
+    scanEmpty: '还没有扫描结果：填数据根目录后点「扫描识别」。',
+    scanSamplesTitle: '识别到的样本（勾选参与分析的样本，可改名和指定大组）',
+    scanColSelect: '勾选',
+    scanColName: '样本名称',
+    scanColRaw: '原始名称',
+    scanColFormat: '格式',
+    scanColDetail: '详情',
+    scanColGroup: '所属分组',
+    scanColGeo: 'GEO 说明',
+    scanSelectAll: '全选',
+    scanClearAll: '清空',
+    scanSelectedCount: '已选 {v}',
+    scanNewGroup: '新增大组',
+    scanNewGroupPlaceholder: '新分组名（如 PT / NT）',
+    scanAddGroup: '添加分组',
+    scanGroupColor: '颜色',
+    scanBatchGroup: '批量分组',
+    scanBatchPlaceholder: '目标分组',
+    scanApplyBatch: '应用到勾选样本',
+    scanGroupPlaceholder: '请选择分组',
+    scanDuplicateNames: '样本名重复：{v}（请改成唯一名称）',
+    scanConfirm: '确认样本与分组，开始分析',
+    scanConfirmBusy: '正在导入…',
+    scanGeoTitle: 'GEO 数据库查询（辅助分组）',
+    scanGeoPlaceholder: 'GSE 编号，如 GSE246662',
+    scanGeoRun: '查询 GEO',
+    scanGeoRunning: '查询中…',
+    scanGeoMatched: '已按文件名匹配到 {v} 个样本说明',
+    scanGeoUnmatched: '未匹配到扫描样本的 GSM',
+    scanGeoEmpty: '没有查询到 GEO 样本说明',
+    scanAdvancedToggle: '高级：直接打开文件 / URL（单文件 / 多路径 / 目录合并 / 压缩包 / RData…）',
+    scanAdvancedHint: '原有导入方式保留在这里，不影响上面的扫描流程。',
+    scanBrowseUnavailable: '浏览器没有提供文件绝对路径，请手动粘贴数据根目录。',
+    scanGroupsEmpty: '还没有分组：先在上面「新增大组」建 young / old 等分组。',
   }
 
   var DICT_EN = {
@@ -904,6 +948,49 @@
     samplesGroupAdderHint: 'You can also pick an existing group from the per-row dropdown.',
     samplesStatusPrefix: 'Group column: ',
     samplesOneSample: 'Only one sample; the sample table appears after a multi-file merge import.',
+    scanStepTitle: 'Step 1 · Data root → detected samples',
+    scanRoot: 'Data root directory',
+    scanRootRequired: 'Enter a data root directory first (the unpacked GEO folder)',
+    scanRootPlaceholder: 'Paste the GEO data root, e.g. /Users/you/Downloads/GSE246662_RAW',
+    scanBrowse: 'Browse…',
+    scanRecursive: 'Scan all subdirectories recursively',
+    scanRun: 'Scan',
+    scanRunning: 'Scanning…',
+    scanErrors: 'Scan notes',
+    scanEmpty: 'No scan result yet: enter a data root and click Scan.',
+    scanSamplesTitle: 'Detected samples (tick the ones to include, rename and assign groups)',
+    scanColSelect: 'Include',
+    scanColName: 'Sample name',
+    scanColRaw: 'Original name',
+    scanColFormat: 'Format',
+    scanColDetail: 'Detail',
+    scanColGroup: 'Group',
+    scanColGeo: 'GEO note',
+    scanSelectAll: 'Select all',
+    scanClearAll: 'Clear',
+    scanSelectedCount: '{v} selected',
+    scanNewGroup: 'New group',
+    scanNewGroupPlaceholder: 'New group name (e.g. PT / NT)',
+    scanAddGroup: 'Add group',
+    scanGroupColor: 'Color',
+    scanBatchGroup: 'Batch group',
+    scanBatchPlaceholder: 'Target group',
+    scanApplyBatch: 'Apply to selected',
+    scanGroupPlaceholder: 'Choose a group',
+    scanDuplicateNames: 'Duplicate sample names: {v} (rename to unique names)',
+    scanConfirm: 'Confirm samples & groups, start analysis',
+    scanConfirmBusy: 'Importing…',
+    scanGeoTitle: 'GEO lookup (helps grouping)',
+    scanGeoPlaceholder: 'GSE accession, e.g. GSE246662',
+    scanGeoRun: 'Look up GEO',
+    scanGeoRunning: 'Looking up…',
+    scanGeoMatched: 'Matched GEO notes for {v} samples by file name',
+    scanGeoUnmatched: 'GSM entries not matched to scanned samples',
+    scanGeoEmpty: 'No GEO sample notes returned',
+    scanAdvancedToggle: 'Advanced: open a file / URL directly (single file / multiple paths / directory merge / archives / RData…)',
+    scanAdvancedHint: 'The previous import flow is kept here; it does not affect the scan flow above.',
+    scanBrowseUnavailable: 'The browser did not expose an absolute path; paste the data root manually.',
+    scanGroupsEmpty: 'No groups yet: create young / old with "New group" above.',
   }
 
   // ==========================================================================
@@ -1463,6 +1550,7 @@
       analysesRun: Array.isArray(item.analyses_run)
         ? item.analyses_run.filter(function (entry) { return entry && typeof entry === 'object' })
         : [],
+      importState: normalizeImportState(item.import_state || item.importState),
       samples: normalizeSamples(item.samples),
       groups: normalizeStringList(item.groups),
       groupColumn: typeof item.group_column === 'string' && item.group_column ? item.group_column : 'group',
@@ -1585,6 +1673,8 @@
       nVars: Number(raw.n_vars) || 0,
       steps: normalizeStepIds(raw.steps),
       current: typeof raw.current === 'string' ? raw.current : null,
+      notes: Array.isArray(raw.notes) ? raw.notes.map(String) : [],
+      importState: normalizeImportState(raw.import_state || raw.importState),
     }
   }
 
@@ -2045,6 +2135,19 @@
     else if (paths.length === 1) body.path = paths[0]
     if (url) body.url = url
     if (source.mergeDir === true || source.merge_dir === true) body.merge_dir = true
+    if (Array.isArray(source.samples) && source.samples.length) {
+      body.samples = source.samples.map(function (item) {
+        var entry = {
+          path: String(item && item.path ? item.path : ''),
+          name: item && item.name ? String(item.name) : undefined,
+          group: item && item.group ? String(item.group) : undefined,
+          trio_prefix: item && item.trio_prefix !== undefined && item.trio_prefix !== null ? String(item.trio_prefix) : undefined,
+          format: item && item.format ? String(item.format) : undefined,
+        }
+        return entry
+      }).filter(function (item) { return item.path })
+    }
+    if (typeof source.name === 'string' && source.name.trim()) body.name = source.name.trim()
     var format = typeof source.format === 'string' ? source.format.trim() : ''
     if (format && format !== 'auto') {
       // Host 的 HTTP/工具两条路径分别读 format 与 data_format；两个都发最稳。
@@ -2730,6 +2833,344 @@
   }
 
   // ==========================================================================
+  // v5：数据根目录扫描 → 样本表（改名/分组/GEO 说明）→ 确认导入
+  // ==========================================================================
+
+  function basenameOf(filePath) {
+    var text = String(filePath === null || filePath === undefined ? '' : filePath)
+    var parts = text.split(/[\\/]/)
+    return parts.length ? parts[parts.length - 1] : text
+  }
+
+  function stripDataExtension(name) {
+    return String(name || '').replace(/\.(h5ad|h5|loom|rds|rdata|rda|csv|tsv|txt|mtx|gz|zip|tar|tgz|bz2)+$/i, '')
+  }
+
+  /** POST /singlecell/scan 的归一化结果。 */
+  function normalizeScanResult(payload) {
+    var raw = payload && typeof payload === 'object' ? payload : {}
+    var list = Array.isArray(raw.samples) ? raw.samples : []
+    var samples = []
+    for (var index = 0; index < list.length; index++) {
+      var item = list[index]
+      if (!item || typeof item !== 'object') continue
+      var path = typeof item.path === 'string' ? item.path : ''
+      var rawName = typeof item.raw_name === 'string' && item.raw_name
+        ? item.raw_name
+        : (typeof item.name === 'string' && item.name ? item.name : stripDataExtension(basenameOf(path)))
+      samples.push({
+        name: typeof item.name === 'string' && item.name ? item.name : rawName,
+        rawName: rawName || ('样本' + (index + 1)),
+        format: typeof item.format === 'string' ? item.format : '',
+        formatLabel: typeof item.format_label === 'string' && item.format_label
+          ? item.format_label
+          : (typeof item.format === 'string' ? item.format : ''),
+        path: path,
+        detail: typeof item.detail === 'string' ? item.detail : '',
+        trioPrefix: item.trio_prefix === null || item.trio_prefix === undefined ? '' : String(item.trio_prefix),
+      })
+    }
+    return {
+      root: typeof raw.root === 'string' ? raw.root : '',
+      samples: samples,
+      errors: normalizeStringList(raw.errors),
+    }
+  }
+
+  /** 扫描结果 → 可编辑样本表行（默认全选、未分组）。 */
+  function createScanRows(scanResult) {
+    var scan = normalizeScanResult(scanResult)
+    var rows = []
+    var seen = {}
+    for (var index = 0; index < scan.samples.length; index++) {
+      var sample = scan.samples[index]
+      var baseKey = (sample.path || '') + '|' + sample.trioPrefix
+      var key = baseKey
+      var suffix = 1
+      while (seen[key]) {
+        suffix += 1
+        key = baseKey + '|' + suffix
+      }
+      seen[key] = true
+      rows.push({
+        key: key,
+        selected: true,
+        name: sample.name,
+        rawName: sample.rawName,
+        format: sample.format,
+        formatLabel: sample.formatLabel,
+        path: sample.path,
+        detail: sample.detail,
+        trioPrefix: sample.trioPrefix,
+        group: '',
+        geoTitle: '',
+      })
+    }
+    return rows
+  }
+
+  /** 样本名重复检查（trim 后忽略大小写；返回重复名，保持首次出现写法）。 */
+  function findDuplicateSampleNames(rows) {
+    var counts = {}
+    var display = {}
+    var list = Array.isArray(rows) ? rows : []
+    for (var index = 0; index < list.length; index++) {
+      var name = String(list[index] && list[index].name !== undefined ? list[index].name : '').trim()
+      if (!name) continue
+      var key = name.toLowerCase()
+      counts[key] = (counts[key] || 0) + 1
+      if (!display[key]) display[key] = name
+    }
+    var duplicates = []
+    var keys = Object.keys(counts)
+    for (var keyIndex = 0; keyIndex < keys.length; keyIndex++) {
+      if (counts[keys[keyIndex]] > 1) duplicates.push(display[keys[keyIndex]])
+    }
+    duplicates.sort()
+    return duplicates
+  }
+
+  /**
+   * 「确认样本与分组，开始分析」的校验：
+   * 至少 1 个勾选、勾选样本都有分组、勾选样本名唯一且非空。
+   */
+  function validateSampleSelection(rows) {
+    var list = Array.isArray(rows) ? rows : []
+    var selected = []
+    for (var index = 0; index < list.length; index++) {
+      if (list[index] && list[index].selected === true) selected.push(list[index])
+    }
+    var duplicateNames = findDuplicateSampleNames(selected)
+    var emptyNames = []
+    var ungrouped = []
+    for (var selectedIndex = 0; selectedIndex < selected.length; selectedIndex++) {
+      var row = selected[selectedIndex]
+      var name = String(row.name === undefined ? '' : row.name).trim()
+      if (!name) emptyNames.push(row.rawName || row.path || ('第 ' + (selectedIndex + 1) + ' 个样本'))
+      if (!String(row.group === undefined ? '' : row.group).trim()) {
+        ungrouped.push(name || row.rawName || row.path || '')
+      }
+    }
+    var errors = []
+    if (!selected.length) errors.push('请至少勾选一个参与分析的样本')
+    if (emptyNames.length) errors.push('样本名不能为空：' + emptyNames.slice(0, 5).join('、'))
+    if (duplicateNames.length) errors.push('样本名重复：' + duplicateNames.join('、'))
+    if (ungrouped.length) errors.push('这些样本还没有分组：' + ungrouped.slice(0, 8).join('、'))
+    return {
+      ok: errors.length === 0,
+      errors: errors,
+      selectedCount: selected.length,
+      duplicateNames: duplicateNames,
+      emptyNames: emptyNames,
+      ungrouped: ungrouped,
+    }
+  }
+
+  /** 样本表 → POST /dataset/open 的 {samples:[...]} 载荷。 */
+  function buildSamplesOpenPayload(rows, options) {
+    var list = Array.isArray(rows) ? rows : []
+    var samples = []
+    for (var index = 0; index < list.length; index++) {
+      var row = list[index]
+      if (!row || row.selected !== true || !row.path) continue
+      var entry = {
+        path: String(row.path),
+        name: String(row.name === undefined ? '' : row.name).trim() || row.rawName || stripDataExtension(basenameOf(row.path)),
+        group: String(row.group === undefined ? '' : row.group).trim(),
+      }
+      if (row.trioPrefix) entry.trio_prefix = String(row.trioPrefix)
+      if (row.format) entry.format = String(row.format)
+      samples.push(entry)
+    }
+    var payload = { samples: samples }
+    var settings = options && typeof options === 'object' ? options : {}
+    if (typeof settings.name === 'string' && settings.name.trim()) payload.name = settings.name.trim()
+    return payload
+  }
+
+  /** 全选 / 清空 / 反选。 */
+  function setScanRowsSelected(rows, selected) {
+    var list = Array.isArray(rows) ? rows : []
+    var value = selected === true
+    return list.map(function (row) {
+      return Object.assign({}, row, { selected: value })
+    })
+  }
+
+  /** 批量分组：只作用于勾选行（onlySelected=false 时作用于全部）。 */
+  function applyGroupToRows(rows, group, onlySelected) {
+    var list = Array.isArray(rows) ? rows : []
+    var value = String(group === undefined || group === null ? '' : group).trim()
+    var selectedOnly = onlySelected !== false
+    return list.map(function (row) {
+      if (selectedOnly && row.selected !== true) return row
+      return Object.assign({}, row, { group: value })
+    })
+  }
+
+  /** POST /singlecell/geo 的归一化结果。 */
+  function normalizeGeoResult(payload) {
+    var raw = payload && typeof payload === 'object' ? payload : {}
+    var list = Array.isArray(raw.samples) ? raw.samples : []
+    var samples = []
+    for (var index = 0; index < list.length; index++) {
+      var item = list[index]
+      if (!item || typeof item !== 'object') continue
+      var gsm = String(item.gsm || item.accession || '').trim()
+      if (!gsm) continue
+      samples.push({ gsm: gsm, title: String(item.title || '').trim() })
+    }
+    return {
+      gse: String(raw.gse || '').trim(),
+      title: String(raw.title || '').trim(),
+      samples: samples,
+    }
+  }
+
+  function sampleNameCandidates(row) {
+    var values = []
+    var push = function (value) {
+      var text = String(value === null || value === undefined ? '' : value).trim()
+      if (text && values.indexOf(text) < 0) values.push(text)
+    }
+    push(row.rawName)
+    push(row.name)
+    push(row.trioPrefix)
+    if (row.path) {
+      push(basenameOf(row.path))
+      push(stripDataExtension(basenameOf(row.path)))
+    }
+    return values
+  }
+
+  /** GEO 查询结果 → 尽量把 GSM 说明匹配到扫描样本行（按文件名/trio_prefix 包含关系）。 */
+  function matchGeoToSamples(rows, geoPayload) {
+    var geo = normalizeGeoResult(geoPayload)
+    var list = Array.isArray(rows) ? rows : []
+    var matchedGsms = {}
+    var outputRows = []
+    for (var index = 0; index < list.length; index++) {
+      var row = list[index]
+      var candidates = sampleNameCandidates(row)
+      var title = ''
+      var gsmHit = ''
+      for (var sampleIndex = 0; sampleIndex < geo.samples.length; sampleIndex++) {
+        var geoSample = geo.samples[sampleIndex]
+        var gsm = geoSample.gsm.toUpperCase()
+        var hit = false
+        for (var candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+          var candidate = candidates[candidateIndex].toUpperCase()
+          if (candidate.indexOf(gsm) >= 0 || gsm.indexOf(candidate) >= 0) {
+            hit = true
+            break
+          }
+        }
+        if (hit) {
+          title = geoSample.title || geoSample.gsm
+          gsmHit = geoSample.gsm
+          matchedGsms[geoSample.gsm] = true
+          break
+        }
+      }
+      outputRows.push(Object.assign({}, row, { geoTitle: title }))
+      if (gsmHit) gsmHit = ''
+    }
+    var unmatched = []
+    for (var geoIndex = 0; geoIndex < geo.samples.length; geoIndex++) {
+      if (!matchedGsms[geo.samples[geoIndex].gsm]) unmatched.push(geo.samples[geoIndex])
+    }
+    return {
+      rows: outputRows,
+      gse: geo.gse,
+      title: geo.title,
+      matched: geo.samples.length - unmatched.length,
+      unmatched: unmatched,
+    }
+  }
+
+  /** dataset.import_state（已跑过一半的数据）归一化。 */
+  function normalizeImportState(payload) {
+    var raw = payload && typeof payload === 'object' ? payload : {}
+    var steps = []
+    var list = Array.isArray(raw.steps) ? raw.steps : []
+    for (var index = 0; index < list.length; index++) {
+      var step = String(list[index] || '')
+      if (STEP_BY_ID[step] && steps.indexOf(step) < 0) steps.push(step)
+    }
+    var mapped = raw.mapped && typeof raw.mapped === 'object' ? raw.mapped : {}
+    // 兼容已归一化过的对象（camelCase）与 Host 原始字段（snake_case）
+    var pickString = function (snake, camel) {
+      if (typeof mapped[snake] === 'string') return mapped[snake]
+      if (typeof mapped[camel] === 'string') return mapped[camel]
+      return ''
+    }
+    var pickNumber = function (snake, camel) {
+      var value = mapped[snake] !== undefined ? mapped[snake] : mapped[camel]
+      return Number(value) || 0
+    }
+    var pickBool = function (snake, camel) {
+      return mapped[snake] === true || mapped[camel] === true
+    }
+    return {
+      steps: steps,
+      current: typeof raw.current === 'string' ? raw.current : '',
+      details: raw.details && typeof raw.details === 'object' && !Array.isArray(raw.details) ? raw.details : {},
+      mapped: {
+        clusterColumn: pickString('cluster_column', 'clusterColumn'),
+        celltypeColumn: pickString('celltype_column', 'celltypeColumn'),
+        nClusters: pickNumber('n_clusters', 'nClusters'),
+        nVariableFeatures: pickNumber('n_variable_features', 'nVariableFeatures'),
+        hasPca: pickBool('has_pca', 'hasPca'),
+        hasEmbed: pickBool('has_embed', 'hasEmbed'),
+      },
+    }
+  }
+
+  /** 「检测到已有进度：已完成 N 步（… 列已就绪），可继续往下跑」中文提示。 */
+  function formatImportStateHint(importState, notes) {
+    var state = normalizeImportState(importState)
+    if (!state.steps.length && !state.mapped.celltypeColumn && !state.mapped.hasEmbed) return ''
+    var parts = []
+    if (state.steps.length) {
+      parts.push(
+        '检测到已有进度：已完成 ' + state.steps.length + ' 步（' +
+        state.steps.map(stepTitleOf).join(' → ') + '），可继续往下跑',
+      )
+    }
+    var readiness = []
+    if (state.mapped.clusterColumn) {
+      readiness.push('聚类列 ' + state.mapped.clusterColumn + (state.mapped.nClusters ? '（' + state.mapped.nClusters + ' 簇）' : ''))
+    }
+    if (state.mapped.celltypeColumn) readiness.push('细胞类型列 ' + state.mapped.celltypeColumn)
+    if (state.mapped.hasEmbed) readiness.push('已有二维嵌入')
+    if (state.mapped.nVariableFeatures) readiness.push('高变基因 ' + formatNumber(state.mapped.nVariableFeatures) + ' 个')
+    if (readiness.length) parts.push(readiness.join('；'))
+    var notesList = normalizeStringList(notes)
+    var coveredPrefixes = []
+    if (state.steps.length) coveredPrefixes.push('检测到已有进度')
+    if (state.mapped.clusterColumn) coveredPrefixes.push('已有聚类列')
+    if (state.mapped.celltypeColumn) coveredPrefixes.push('已有细胞类型列')
+    if (state.mapped.hasEmbed) coveredPrefixes.push('已有二维嵌入')
+    if (state.mapped.nVariableFeatures) coveredPrefixes.push('已有高变基因')
+    var addedNotes = 0
+    for (var index = 0; index < notesList.length && addedNotes < 2; index++) {
+      var note = notesList[index]
+      var covered = false
+      for (var prefixIndex = 0; prefixIndex < coveredPrefixes.length; prefixIndex++) {
+        if (note.indexOf(coveredPrefixes[prefixIndex]) >= 0) {
+          covered = true
+          break
+        }
+      }
+      if (covered) continue
+      if (parts.join('').indexOf(note) >= 0) continue
+      parts.push(note)
+      addedNotes += 1
+    }
+    return parts.join('；')
+  }
+
+  // ==========================================================================
   // API 客户端：同源相对路径 + 可注入 fetch（node 测试用假 fetch）。
   // 所有失败都转成可读中文 Error；HTTP 错误与 {ok:false,error} 都解析。
   // ==========================================================================
@@ -2864,6 +3305,19 @@
       importDataset: function (options, extra) {
         return jsonPost('/dataset/open', buildImportBody(options),
           Object.assign({ timeoutMs: HEAVY_API_TIMEOUT_MS * 2 }, extra || {}))
+      },
+      scanDataRoot: function (rootPath, recursive, extra) {
+        return jsonPost('/scan', {
+          path: String(rootPath || ''),
+          recursive: recursive === true,
+          actor: 'user',
+        }, Object.assign({ timeoutMs: HEAVY_API_TIMEOUT_MS }, extra || {}))
+      },
+      queryGeo: function (gse, extra) {
+        return jsonPost('/geo', {
+          gse: String(gse || '').trim().toUpperCase(),
+          actor: 'user',
+        }, Object.assign({ timeoutMs: 60000 }, extra || {}))
       },
       getObs: function (datasetId, extra) {
         var query = typeof datasetId === 'string' && datasetId
@@ -3122,6 +3576,19 @@
     activityIcon: activityIcon,
     createApi: createApi,
     createTranslator: createTranslator,
+    basenameOf: basenameOf,
+    stripDataExtension: stripDataExtension,
+    normalizeScanResult: normalizeScanResult,
+    createScanRows: createScanRows,
+    findDuplicateSampleNames: findDuplicateSampleNames,
+    validateSampleSelection: validateSampleSelection,
+    buildSamplesOpenPayload: buildSamplesOpenPayload,
+    setScanRowsSelected: setScanRowsSelected,
+    applyGroupToRows: applyGroupToRows,
+    normalizeGeoResult: normalizeGeoResult,
+    matchGeoToSamples: matchGeoToSamples,
+    normalizeImportState: normalizeImportState,
+    formatImportStateHint: formatImportStateHint,
     parsePathLines: parsePathLines,
     normalizeSamples: normalizeSamples,
     normalizeObsPayload: normalizeObsPayload,
@@ -3547,6 +4014,35 @@
       '.sc-samples-empty{font-size:11.5px;color:var(--dsw-alias-label-tertiary)}',
       '.sc-path-lines{height:auto;min-height:64px;padding:6px 9px;line-height:1.5;font-size:11.5px;resize:vertical;font-family:inherit}',
 
+      // v5：数据根目录扫描 → 样本表
+      '.sc-import-step-title{font-size:12.5px;font-weight:600;color:var(--dsw-alias-label-primary);margin-bottom:2px}',
+      '.sc-scan-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+      '.sc-scan-root{flex:1 1 260px;min-width:200px}',
+      '.sc-scan-label{font-size:11.5px;color:var(--dsw-alias-label-secondary);white-space:nowrap}',
+      '.sc-scan-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px}',
+      '.sc-scan-toolbar .sc-btn{height:24px;padding:0 8px;font-size:11px;border-radius:6px}',
+      '.sc-scan-newgroup{width:150px;height:24px;font-size:11.5px}',
+      '.sc-scan-newgroup-color{width:30px;height:24px;padding:1px;border:1px solid var(--dsw-alias-border-l1);border-radius:6px;background:var(--dsw-alias-bg-base)}',
+      '.sc-scan-batch{display:flex;align-items:center;gap:5px}',
+      '.sc-scan-batch select{height:24px;font-size:11.5px;max-width:150px}',
+      '.sc-scan-groups{display:flex;flex-wrap:wrap;gap:4px}',
+      '.sc-group-chip{display:inline-flex;align-items:center;padding:1px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);font-size:10.5px;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-layer-2)}',
+      '.sc-group-chip-color{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:4px}',
+      '.sc-scan-table-wrap{max-height:260px;overflow:auto;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base)}',
+      '.sc-scan-table{width:100%;border-collapse:collapse;font-size:11.5px}',
+      '.sc-scan-table th{position:sticky;top:0;z-index:1;padding:5px 8px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font-weight:600;text-align:left;white-space:nowrap}',
+      '.sc-scan-table td{padding:3px 8px;border-bottom:1px solid color-mix(in srgb,var(--dsw-alias-border-l1) 55%,transparent);vertical-align:middle}',
+      '.sc-scan-table tbody tr:last-child td{border-bottom:none}',
+      '.sc-scan-name{width:130px;height:24px;font-size:11.5px}',
+      '.sc-scan-group-select{width:110px;height:24px;font-size:11.5px}',
+      '.sc-scan-raw{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-secondary)}',
+      '.sc-scan-detail{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-tertiary)}',
+      '.sc-scan-geo{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-brand-primary)}',
+      '.sc-scan-errors{display:flex;flex-direction:column;gap:2px;font-size:11px;color:var(--dsw-alias-state-warn-primary)}',
+      '.sc-scan-unmatched{display:flex;flex-wrap:wrap;gap:4px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.sc-advanced-toggle{align-self:flex-start}',
+      '.sc-advanced-section{display:flex;flex-direction:column;gap:8px;padding:8px 10px;border:1px dashed var(--dsw-alias-border-l2);border-radius:9px;background:var(--dsw-alias-bg-base)}',
+
       '@media (max-width:1180px){.sc-left{flex-basis:240px;width:240px}.sc-right{flex-basis:262px;width:262px}}',
       '@media (max-width:980px){.sc-left{flex-basis:216px;width:216px}.sc-right{flex-basis:236px;width:236px}.sc-path-input{width:150px}}',
       '@media (prefers-reduced-motion:reduce){.sc-spinner{animation:none}}',
@@ -3728,6 +4224,18 @@
     // ==========================================================================
 
     function ImportDialog(props) {
+      // ---- 扫描流程（第 1 步）----
+      var dirRef = React.useRef(null)
+      var elapsedState = React.useState(0)
+      var elapsed = elapsedState[0]
+      var setElapsed = elapsedState[1]
+      var startRef = React.useRef(0)
+      var busy = Boolean(props.busy || props.inspectBusy || props.scanLoading || props.geoLoading)
+
+      // ---- 高级（原有直接打开）流程本地状态 ----
+      var advancedState = React.useState(false)
+      var advanced = advancedState[0]
+      var setAdvanced = advancedState[1]
       var sourceTypeState = React.useState('path')
       var sourceType = sourceTypeState[0]
       var setSourceType = sourceTypeState[1]
@@ -3746,9 +4254,6 @@
       var formatState = React.useState('auto')
       var format = formatState[0]
       var setFormat = formatState[1]
-      var advancedState = React.useState(false)
-      var advanced = advancedState[0]
-      var setAdvanced = advancedState[1]
       var transposeState = React.useState('auto')
       var transpose = transposeState[0]
       var setTranspose = transposeState[1]
@@ -3759,11 +4264,6 @@
       var member = memberState[0]
       var setMember = memberState[1]
       var fileRef = React.useRef(null)
-      var elapsedState = React.useState(0)
-      var elapsed = elapsedState[0]
-      var setElapsed = elapsedState[1]
-      var startRef = React.useRef(0)
-      var busy = Boolean(props.busy || props.inspectBusy)
 
       React.useEffect(function () {
         if (!busy) {
@@ -3787,17 +4287,23 @@
         }
       }, [busy])
 
-      function pickFile() {
+      // ---- 扫描流程动作 ----
+      function pickDir() {
         if (busy) return
-        if (fileRef.current && fileRef.current.click) fileRef.current.click()
+        if (dirRef.current && dirRef.current.click) dirRef.current.click()
       }
 
-      function handleFile(event) {
+      function handleDir(event) {
         var files = event && event.target ? event.target.files : null
-        var chosen = files && files.length ? files[0] : null
-        if (chosen) {
-          setFile(chosen)
-          setSourceType('file')
+        var list = files ? Array.prototype.slice.call(files) : []
+        if (!list.length) return
+        var first = list[0] || {}
+        var full = typeof first.path === 'string' ? first.path : ''
+        if (full) {
+          var normalized = full.replace(/[\\/][^\\/]*$/, '')
+          if (normalized) props.onScanRootChange(normalized)
+        } else {
+          props.onScanError(T('scanBrowseUnavailable'))
         }
         try {
           if (event && event.target) event.target.value = ''
@@ -3806,6 +4312,241 @@
         }
       }
 
+      function submitScan() {
+        if (busy) return
+        props.onScan()
+      }
+
+      var scanRows = props.scanRows || EMPTY_LIST
+      var groups = props.scanGroups || EMPTY_LIST
+      var groupColors = props.scanGroupColors || {}
+      var scanResult = props.scanResult
+      var geoResult = props.geoResult
+      var geoQueried = Boolean(geoResult && geoResult.samples && geoResult.samples.length)
+      var duplicates = findDuplicateSampleNames(scanRows)
+      var selectedCount = 0
+      for (var selectedIndex = 0; selectedIndex < scanRows.length; selectedIndex++) {
+        if (scanRows[selectedIndex].selected === true) selectedCount += 1
+      }
+      var busyText = props.inspectBusy
+        ? tf(T, 'importInspectBusy', formatDuration(elapsed) || '0 ms')
+        : tf(T, 'importBusy', formatDuration(elapsed) || '0 ms')
+
+      var scanBody = h(Fragment, null,
+        h('div', { className: 'sc-import-step-title' }, T('scanStepTitle')),
+        h('div', { className: 'sc-scan-row' },
+          h('input', {
+            className: 'sc-input sc-scan-root',
+            type: 'text',
+            value: props.scanRoot || '',
+            placeholder: T('scanRootPlaceholder'),
+            spellCheck: false,
+            disabled: busy,
+            'aria-label': T('scanRoot'),
+            onChange: function (event) { props.onScanRootChange(event.target.value) },
+            onKeyDown: function (event) {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                submitScan()
+              }
+            },
+          }),
+          h('button', { type: 'button', className: 'sc-btn', disabled: busy, onClick: pickDir }, T('scanBrowse')),
+          h('label', { className: 'sc-check' },
+            h('input', {
+              type: 'checkbox',
+              checked: props.scanRecursive !== false,
+              disabled: busy,
+              onChange: function (event) { props.onScanRecursive(event.target.checked) },
+            }),
+            T('scanRecursive')),
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-primary',
+            disabled: busy || !String(props.scanRoot || '').trim(),
+            onClick: submitScan,
+          }, props.scanLoading ? T('scanRunning') : T('scanRun'))),
+        h('input', {
+          ref: dirRef,
+          type: 'file',
+          multiple: true,
+          webkitdirectory: '',
+          directory: '',
+          style: { display: 'none' },
+          tabIndex: -1,
+          'aria-hidden': 'true',
+          onChange: handleDir,
+        }),
+        props.scanError ? h('div', { className: 'sc-inline-err' }, props.scanError) : null,
+        scanResult && scanResult.errors && scanResult.errors.length
+          ? h('div', { className: 'sc-scan-errors' }, scanResult.errors.slice(0, 8).map(function (item, index) {
+              return h('div', { key: 'scan-err-' + index }, item)
+            }))
+          : null,
+        h('div', { className: 'sc-scan-row' },
+          h('span', { className: 'sc-scan-label' }, T('scanGeoTitle')),
+          h('input', {
+            className: 'sc-input sc-scan-newgroup',
+            type: 'text',
+            value: props.geoGse || '',
+            placeholder: T('scanGeoPlaceholder'),
+            spellCheck: false,
+            disabled: busy,
+            onChange: function (event) { props.onGeoGseChange(event.target.value) },
+            onKeyDown: function (event) {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                if (String(props.geoGse || '').trim()) props.onGeoQuery()
+              }
+            },
+          }),
+          h('button', {
+            type: 'button',
+            className: 'sc-btn',
+            disabled: busy || !String(props.geoGse || '').trim(),
+            onClick: props.onGeoQuery,
+          }, props.geoLoading ? T('scanGeoRunning') : T('scanGeoRun'))),
+        props.geoError ? h('div', { className: 'sc-inline-err' }, props.geoError) : null,
+        geoResult
+          ? h('div', { className: 'sc-samples-preview' },
+              geoResult.gse
+                ? h('div', { className: 'sc-scan-label' }, geoResult.gse + (geoResult.title ? ' · ' + geoResult.title : ''))
+                : null,
+              geoResult.samples && geoResult.samples.length
+                ? h('div', { className: 'sc-hint-line' }, tf(T, 'scanGeoMatched', formatNumber(geoResult.matchedCount || 0)))
+                : h('div', { className: 'sc-hint-line' }, T('scanGeoEmpty')),
+              geoResult.unmatched && geoResult.unmatched.length
+                ? h('div', { className: 'sc-scan-unmatched' },
+                    T('scanGeoUnmatched') + '：' +
+                    geoResult.unmatched.map(function (item) {
+                      return item.gsm + (item.title ? '（' + item.title + '）' : '')
+                    }).join('；'))
+                : null)
+          : null,
+        scanRows.length
+          ? h(Fragment, null,
+              h('div', { className: 'sc-scan-toolbar' },
+                h('button', { type: 'button', className: 'sc-btn', disabled: busy, onClick: props.onSelectAll }, T('scanSelectAll')),
+                h('button', { type: 'button', className: 'sc-btn', disabled: busy, onClick: props.onClearAll }, T('scanClearAll')),
+                h('span', { className: 'sc-muted' }, tf(T, 'scanSelectedCount', selectedCount + '/' + scanRows.length)),
+                h('span', { className: 'sc-scan-label' }, T('scanNewGroup')),
+                h('input', {
+                  className: 'sc-input sc-scan-newgroup',
+                  type: 'text',
+                  value: props.scanNewGroup || '',
+                  placeholder: T('scanNewGroupPlaceholder'),
+                  disabled: busy,
+                  onChange: function (event) { props.onScanNewGroupChange(event.target.value) },
+                  onKeyDown: function (event) {
+                    if (event.key === 'Enter') {
+                      event.preventDefault()
+                      props.onAddScanGroup()
+                    }
+                  },
+                }),
+                h('input', {
+                  type: 'color',
+                  className: 'sc-scan-newgroup-color',
+                  value: props.scanNewGroupColor || '#4e79a7',
+                  disabled: busy,
+                  title: T('scanGroupColor'),
+                  onChange: function (event) { props.onScanNewGroupColorChange(event.target.value) },
+                }),
+                h('button', {
+                  type: 'button',
+                  className: 'sc-btn',
+                  disabled: busy || !String(props.scanNewGroup || '').trim(),
+                  onClick: props.onAddScanGroup,
+                }, T('scanAddGroup')),
+                h('span', { className: 'sc-scan-label' }, T('scanBatchGroup')),
+                h('select', {
+                  className: 'sc-input sc-select',
+                  value: props.scanBatchGroup || '',
+                  disabled: busy,
+                  onChange: function (event) { props.onBatchGroupChange(event.target.value) },
+                },
+                  h('option', { value: '' }, T('scanBatchPlaceholder')),
+                  groups.map(function (group) {
+                    return h('option', { key: 'batch-' + group, value: group }, group)
+                  })),
+                h('button', {
+                  type: 'button',
+                  className: 'sc-btn',
+                  disabled: busy || !props.scanBatchGroup || !selectedCount,
+                  onClick: props.onApplyBatchGroup,
+                }, T('scanApplyBatch'))),
+              duplicates.length
+                ? h('div', { className: 'sc-inline-err' }, tf(T, 'scanDuplicateNames', duplicates.join('、')))
+                : null,
+              groups.length
+                ? h('div', { className: 'sc-scan-groups' }, groups.map(function (group) {
+                    return h('span', { key: 'chip-' + group, className: 'sc-group-chip' },
+                      h('span', {
+                        className: 'sc-group-chip-color',
+                        style: { background: groupColors[group] || 'var(--dsw-alias-brand-primary)' },
+                      }),
+                      group)
+                  }))
+                : h('div', { className: 'sc-hint-line' }, T('scanGroupsEmpty')),
+              h('div', { className: 'sc-scan-table-wrap' },
+                h('table', { className: 'sc-scan-table' },
+                  h('thead', null, h('tr', null,
+                    h('th', null, T('scanColSelect')),
+                    h('th', null, T('scanColName')),
+                    h('th', null, T('scanColRaw')),
+                    h('th', null, T('scanColFormat')),
+                    h('th', null, T('scanColDetail')),
+                    h('th', null, T('scanColGroup')),
+                    geoQueried ? h('th', null, T('scanColGeo')) : null)),
+                  h('tbody', null, scanRows.map(function (row) {
+                    var optionNodes = [h('option', { key: 'none', value: '' }, T('scanGroupPlaceholder'))]
+                    for (var groupIndex = 0; groupIndex < groups.length; groupIndex++) {
+                      optionNodes.push(h('option', { key: 'g-' + groups[groupIndex], value: groups[groupIndex] }, groups[groupIndex]))
+                    }
+                    if (row.group && groups.indexOf(row.group) < 0) {
+                      optionNodes.push(h('option', { key: 'g-current', value: row.group }, row.group))
+                    }
+                    return h('tr', { key: 'scan-' + row.key },
+                      h('td', null, h('input', {
+                        type: 'checkbox',
+                        checked: row.selected === true,
+                        disabled: busy,
+                        'aria-label': T('scanColSelect'),
+                        onChange: function (event) { props.onScanRowSelect(row.key, event.target.checked) },
+                      })),
+                      h('td', null, h('input', {
+                        className: 'sc-input sc-scan-name',
+                        type: 'text',
+                        value: row.name || '',
+                        disabled: busy,
+                        'aria-label': T('scanColName'),
+                        onChange: function (event) { props.onScanRowName(row.key, event.target.value) },
+                      })),
+                      h('td', { className: 'sc-scan-raw', title: row.rawName }, row.rawName),
+                      h('td', null, row.formatLabel || row.format || '—'),
+                      h('td', { className: 'sc-scan-detail', title: row.detail || row.path }, row.detail || row.path || '—'),
+                      h('td', null, h('select', {
+                        className: 'sc-input sc-select sc-scan-group-select',
+                        value: row.group || '',
+                        disabled: busy,
+                        'aria-label': T('scanColGroup'),
+                        onChange: function (event) { props.onScanRowGroup(row.key, event.target.value) },
+                      }, optionNodes)),
+                      geoQueried
+                        ? h('td', { className: 'sc-scan-geo', title: row.geoTitle || '' }, row.geoTitle || '—')
+                        : null)
+                  })))))
+          : h('div', { className: 'sc-notice' }, T('scanEmpty')),
+        props.scanConfirmError ? h('div', { className: 'sc-inline-err' }, props.scanConfirmError) : null,
+        h('div', { className: 'sc-modal-actions' },
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-primary',
+            disabled: busy || !selectedCount,
+            onClick: props.onConfirmSamples,
+          }, props.busy ? T('scanConfirmBusy') : T('scanConfirm'))))
+
+      // ---- 高级：原有直接打开文件/URL（单文件、多路径、目录合并、压缩包、RData）----
       function buildOptions() {
         var lines = sourceType === 'path' ? parsePathLines(path) : []
         return {
@@ -3829,7 +4570,7 @@
         return Boolean(file)
       }
 
-      function submit(event) {
+      function submitAdvanced(event) {
         if (event && event.preventDefault) event.preventDefault()
         if (!canSubmit()) {
           props.onLocalError(T('importNeedSource'))
@@ -3838,7 +4579,7 @@
         props.onImport(buildOptions())
       }
 
-      function inspect() {
+      function inspectAdvanced() {
         if (busy) return
         if (sourceType === 'file') {
           props.onLocalError(T('importInspectFileHint'))
@@ -3863,6 +4604,25 @@
         })
       }
 
+      function pickFile() {
+        if (busy) return
+        if (fileRef.current && fileRef.current.click) fileRef.current.click()
+      }
+
+      function handleFile(event) {
+        var files = event && event.target ? event.target.files : null
+        var chosen = files && files.length ? files[0] : null
+        if (chosen) {
+          setFile(chosen)
+          setSourceType('file')
+        }
+        try {
+          if (event && event.target) event.target.value = ''
+        } catch (error) {
+          /* ignore */
+        }
+      }
+
       var formats = props.formats && props.formats.length ? props.formats : normalizeFormats(null)
       var formatOptions = formats.map(function (item) {
         return h('option', {
@@ -3874,10 +4634,6 @@
       })
       var candidates = props.candidates || EMPTY_LIST
       var inspectResult = props.inspectResult
-      var busyText = props.inspectBusy
-        ? tf(T, 'importInspectBusy', formatDuration(elapsed) || '0 ms')
-        : tf(T, 'importBusy', formatDuration(elapsed) || '0 ms')
-
       var sourceTabs = [
         { id: 'path', labelKey: 'importSourcePath' },
         { id: 'url', labelKey: 'importSourceUrl' },
@@ -3933,19 +4689,17 @@
       } else {
         sourceBody = h('div', { className: 'sc-modal-section' },
           h('div', { className: 'sc-file-row' },
-            h('button', {
-              type: 'button',
-              className: 'sc-btn',
-              disabled: busy,
-              onClick: pickFile,
-            }, T('importChooseFile')),
+            h('button', { type: 'button', className: 'sc-btn', disabled: busy, onClick: pickFile }, T('importChooseFile')),
             file ? h('span', { className: 'sc-file-chosen' }, tf(T, 'importFileChosen', file.name || '')) : null),
           h('div', { className: 'sc-modal-hint' }, T('importFileUploadHint')))
       }
 
-      var advancedBody = null
-      if (advanced) {
-        advancedBody = h('div', { className: 'sc-adv-body' },
+      var optionsState = React.useState(false)
+      var optionsOpen = optionsState[0]
+      var setOptionsOpen = optionsState[1]
+      var advancedOptions = null
+      if (optionsOpen) {
+        advancedOptions = h('div', { className: 'sc-adv-body' },
           h('div', { className: 'sc-form-cell' },
             h('label', { className: 'sc-modal-label' }, T('importTranspose')),
             h('select', {
@@ -4028,23 +4782,10 @@
               : null))
       }
 
-      return h('div', {
-        className: 'sc-modal',
-        role: 'dialog',
-        'aria-modal': 'true',
-        'aria-label': T('importTitle'),
-      },
-        h('div', { className: 'sc-modal-card' },
-          h('div', { className: 'sc-modal-head' },
-            h('div', null,
-              h('div', { className: 'sc-modal-title' }, T('importTitle')),
-              h('div', { className: 'sc-modal-subtitle' }, T('importSubtitle'))),
-            h('button', {
-              type: 'button',
-              className: 'sc-btn sc-btn-sm',
-              disabled: busy,
-              onClick: props.onClose,
-            }, T('importClose'))),
+      var advancedBody = null
+      if (advanced) {
+        advancedBody = h('div', { className: 'sc-advanced-section' },
+          h('div', { className: 'sc-modal-hint' }, T('scanAdvancedHint')),
           h('div', { className: 'sc-modal-tabs' }, sourceTabs),
           sourceBody,
           h('input', {
@@ -4079,10 +4820,10 @@
           h('button', {
             type: 'button',
             className: 'sc-btn sc-btn-sm sc-adv-toggle',
-            'aria-expanded': advanced ? 'true' : 'false',
-            onClick: function () { setAdvanced(!advanced) },
-          }, (advanced ? '▾ ' : '▸ ') + T('importAdvanced')),
-          advancedBody,
+            'aria-expanded': optionsOpen ? 'true' : 'false',
+            onClick: function () { setOptionsOpen(!optionsOpen) },
+          }, (optionsOpen ? '▾ ' : '▸ ') + T('importAdvanced')),
+          advancedOptions,
           props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null,
           candidateNodes,
           props.inspectError ? h('div', { className: 'sc-inline-err' }, props.inspectError) : null,
@@ -4092,15 +4833,44 @@
               type: 'button',
               className: 'sc-btn sc-btn-primary',
               disabled: !canSubmit(),
-              onClick: submit,
+              onClick: submitAdvanced,
             }, props.busy ? busyText : T('importSubmit')),
             h('button', {
               type: 'button',
               className: 'sc-btn',
               disabled: busy || sourceType === 'file',
-              onClick: inspect,
-            }, props.inspectBusy ? busyText : T('importInspect')))))
+              onClick: inspectAdvanced,
+            }, props.inspectBusy ? busyText : T('importInspect'))))
+      }
+
+      return h('div', {
+        className: 'sc-modal',
+        role: 'dialog',
+        'aria-modal': 'true',
+        'aria-label': T('importTitle'),
+      },
+        h('div', { className: 'sc-modal-card' },
+          h('div', { className: 'sc-modal-head' },
+            h('div', null,
+              h('div', { className: 'sc-modal-title' }, T('importTitle')),
+              h('div', { className: 'sc-modal-subtitle' }, T('importSubtitle'))),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: busy,
+              onClick: props.onClose,
+            }, T('importClose'))),
+          scanBody,
+          h('div', { className: 'sc-divider' }),
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-sm sc-advanced-toggle',
+            'aria-expanded': advanced ? 'true' : 'false',
+            onClick: function () { setAdvanced(!advanced) },
+          }, (advanced ? '▾ ' : '▸ ') + T('scanAdvancedToggle')),
+          advancedBody))
     }
+
 
     // ==========================================================================
     // v3：高级分析 tab
@@ -5974,6 +6744,62 @@
       var mergeNotice = mergeNoticeRes[0]
       var setMergeNotice = mergeNoticeRes[1]
 
+      // ---- v5：数据根目录扫描 → 样本表 ----
+      var scanRootRes = React.useState('')
+      var scanRoot = scanRootRes[0]
+      var setScanRoot = scanRootRes[1]
+      var scanRecursiveRes = React.useState(true)
+      var scanRecursive = scanRecursiveRes[0]
+      var setScanRecursive = scanRecursiveRes[1]
+      var scanLoadingRes = React.useState(false)
+      var scanLoading = scanLoadingRes[0]
+      var setScanLoading = scanLoadingRes[1]
+      var scanErrorRes = React.useState('')
+      var scanError = scanErrorRes[0]
+      var setScanError = scanErrorRes[1]
+      var scanResultRes = React.useState(null)
+      var scanResult = scanResultRes[0]
+      var setScanResult = scanResultRes[1]
+      var scanRowsRes = React.useState(EMPTY_LIST)
+      var scanRows = scanRowsRes[0]
+      var setScanRows = scanRowsRes[1]
+      var scanGroupsRes = React.useState(EMPTY_LIST)
+      var scanGroups = scanGroupsRes[0]
+      var setScanGroups = scanGroupsRes[1]
+      var scanGroupColorsRes = React.useState({})
+      var scanGroupColors = scanGroupColorsRes[0]
+      var setScanGroupColors = scanGroupColorsRes[1]
+      var scanNewGroupRes = React.useState('')
+      var scanNewGroup = scanNewGroupRes[0]
+      var setScanNewGroup = scanNewGroupRes[1]
+      var scanNewGroupColorRes = React.useState('#4e79a7')
+      var scanNewGroupColor = scanNewGroupColorRes[0]
+      var setScanNewGroupColor = scanNewGroupColorRes[1]
+      var scanBatchGroupRes = React.useState('')
+      var scanBatchGroup = scanBatchGroupRes[0]
+      var setScanBatchGroup = scanBatchGroupRes[1]
+      var scanConfirmErrorRes = React.useState('')
+      var scanConfirmError = scanConfirmErrorRes[0]
+      var setScanConfirmError = scanConfirmErrorRes[1]
+      var geoGseRes = React.useState('')
+      var geoGse = geoGseRes[0]
+      var setGeoGse = geoGseRes[1]
+      var geoLoadingRes = React.useState(false)
+      var geoLoading = geoLoadingRes[0]
+      var setGeoLoading = geoLoadingRes[1]
+      var geoResultRes = React.useState(null)
+      var geoResult = geoResultRes[0]
+      var setGeoResult = geoResultRes[1]
+      var geoErrorRes = React.useState('')
+      var geoError = geoErrorRes[0]
+      var setGeoError = geoErrorRes[1]
+      var openedImportStateRes = React.useState(null)
+      var openedImportState = openedImportStateRes[0]
+      var setOpenedImportState = openedImportStateRes[1]
+      var importStateDismissedRes = React.useState({})
+      var importStateDismissed = importStateDismissedRes[0]
+      var setImportStateDismissed = importStateDismissedRes[1]
+
       var normalized = state || normalizeState(null)
       var activeId = normalized.active
       var activeDataset = findDataset(normalized, activeId)
@@ -6024,6 +6850,15 @@
       var sampleRows = sampleRowsState
       var sampleGroupOptions = groupOptions({ samples: sampleRows, groups: sampleGroups })
       var sampleStatusText = describeGroupState(sampleGroups, groupColumn)
+      var importStateSource = null
+      if (preview && preview.importState && preview.importState.steps.length) importStateSource = preview.importState
+      else if (openedImportState && openedImportState.state && (!openedImportState.datasetId || openedImportState.datasetId === activeId)) importStateSource = openedImportState.state
+      else if (activeDataset && activeDataset.importState && activeDataset.importState.steps.length) importStateSource = activeDataset.importState
+      var importStateNotes = (preview && preview.notes && preview.notes.length)
+        ? preview.notes
+        : (activeDataset ? activeDataset.notes : EMPTY_LIST)
+      var importStateHintText = importStateSource ? formatImportStateHint(importStateSource, importStateNotes) : ''
+      var importStateVisible = Boolean(importStateHintText) && importStateDismissed[activeId || ''] !== true
 
       // ---- effects ----
 
@@ -6143,6 +6978,17 @@
         setJoinKey('')
         setJoinResult(null)
         setMergeNotice(null)
+        setScanError('')
+        setScanConfirmError('')
+        setGeoError('')
+        setScanResult(null)
+        setScanRows(EMPTY_LIST)
+        setScanGroups(EMPTY_LIST)
+        setScanGroupColors({})
+        setScanNewGroup('')
+        setGeoGse('')
+        setGeoResult(null)
+        setOpenedImportState(null)
       }, [activeId])
 
       // preview（基因清单 / obs 列）：steps 变了也刷新
@@ -6715,21 +7561,7 @@
             }
             opened = await clientApi.importDataset(options)
           }
-          setDialogOpen(false)
-          setPreviewNonce(function (value) { return value + 1 })
-          setSamplesNonce(function (value) { return value + 1 })
-          var openedDataset = opened && opened.dataset && typeof opened.dataset === 'object' ? opened.dataset : {}
-          var openedSamples = Array.isArray(openedDataset.samples) ? openedDataset.samples : []
-          if (openedSamples.length > 1) {
-            setMergeNotice({
-              count: openedSamples.length,
-              name: openedDataset.name || openedDataset.id || '',
-            })
-            setTab('record')
-          } else {
-            setTab('embedding')
-          }
-          await refreshState(true)
+          await finishOpen(opened)
         } catch (error) {
           if (error && error.code === 'ambiguous') {
             var formatted = formatCandidates(error)
@@ -6991,6 +7823,157 @@
           })
         : null
 
+      // ---- v5：扫描 / GEO / 确认导入 动作 ----
+
+      function finishOpen(opened) {
+        setDialogOpen(false)
+        setPreviewNonce(function (value) { return value + 1 })
+        setSamplesNonce(function (value) { return value + 1 })
+        var openedDataset = opened && opened.dataset && typeof opened.dataset === 'object' ? opened.dataset : {}
+        if (openedDataset.import_state) {
+          setOpenedImportState({
+            datasetId: openedDataset.id || '',
+            state: openedDataset.import_state,
+            notes: openedDataset.notes || EMPTY_LIST,
+          })
+        }
+        var openedSamples = Array.isArray(openedDataset.samples) ? openedDataset.samples : []
+        if (openedSamples.length > 1) {
+          setMergeNotice({
+            count: openedSamples.length,
+            name: openedDataset.name || openedDataset.id || '',
+          })
+          setTab('record')
+        } else {
+          setTab('embedding')
+        }
+        return refreshState(true)
+      }
+
+      async function handleScanRun() {
+        if (scanLoading) return
+        var root = String(scanRoot || '').trim()
+        if (!root) {
+          setScanError(T('scanRootRequired'))
+          return
+        }
+        setScanLoading(true)
+        setScanError('')
+        setScanConfirmError('')
+        try {
+          var payload = await clientApi.scanDataRoot(root, scanRecursive !== false)
+          var normalizedScan = normalizeScanResult(payload)
+          setScanResult(normalizedScan)
+          var nextRows = createScanRows(normalizedScan)
+          setScanRows(function (previous) {
+            var groupByKey = {}
+            for (var index = 0; index < previous.length; index++) {
+              var row = previous[index]
+              if (row.path && row.group) groupByKey[row.path + '|' + row.trioPrefix] = row.group
+            }
+            return nextRows.map(function (row) {
+              var key = row.path + '|' + row.trioPrefix
+              return Object.assign({}, row, { group: groupByKey[key] || '' })
+            })
+          })
+          if (normalizedScan.errors.length) setScanError(normalizedScan.errors.join('；'))
+        } catch (error) {
+          setScanError(formatError(error) || T('requestFailed'))
+        } finally {
+          setScanLoading(false)
+        }
+      }
+
+      function updateScanRow(key, patch) {
+        setScanRows(function (previous) {
+          return previous.map(function (row) {
+            return row.key === key ? Object.assign({}, row, patch) : row
+          })
+        })
+      }
+
+      function handleScanRowSelect(key, selected) {
+        updateScanRow(key, { selected: selected === true })
+      }
+
+      function handleScanRowName(key, name) {
+        updateScanRow(key, { name: value })
+      }
+
+      function handleScanRowGroup(key, group) {
+        updateScanRow(key, { group: group })
+      }
+
+      function handleScanSelectAll() {
+        setScanRows(function (previous) { return setScanRowsSelected(previous, true) })
+      }
+
+      function handleScanClearAll() {
+        setScanRows(function (previous) { return setScanRowsSelected(previous, false) })
+      }
+
+      function handleAddScanGroup() {
+        var name = String(scanNewGroup || '').trim()
+        if (!name) return
+        setScanGroups(function (previous) {
+          return previous.indexOf(name) >= 0 ? previous : previous.concat([name])
+        })
+        setScanGroupColors(function (previous) {
+          return Object.assign({}, previous, { [name]: scanNewGroupColor || '#4e79a7' })
+        })
+        setScanNewGroup('')
+      }
+
+      function handleApplyBatchGroup() {
+        var group = String(scanBatchGroup || '').trim()
+        if (!group) return
+        setScanRows(function (previous) { return applyGroupToRows(previous, group, true) })
+      }
+
+      async function handleGeoQuery() {
+        var gse = String(geoGse || '').trim()
+        if (!gse || geoLoading) return
+        setGeoLoading(true)
+        setGeoError('')
+        try {
+          var payload = await clientApi.queryGeo(gse)
+          var geo = normalizeGeoResult(payload)
+          var rows = Array.isArray(scanRows) ? scanRows : EMPTY_LIST
+          var matched = matchGeoToSamples(rows, payload)
+          if (rows.length) setScanRows(matched.rows)
+          setGeoResult({
+            gse: geo.gse || gse.toUpperCase(),
+            title: geo.title,
+            samples: geo.samples,
+            unmatched: matched.unmatched,
+            matchedCount: matched.matched,
+          })
+        } catch (error) {
+          setGeoError(formatError(error) || T('requestFailed'))
+        } finally {
+          setGeoLoading(false)
+        }
+      }
+
+      async function handleConfirmSamples() {
+        var validation = validateSampleSelection(scanRows)
+        if (!validation.ok) {
+          setScanConfirmError(validation.errors.join('；'))
+          return
+        }
+        setScanConfirmError('')
+        setImportBusy(true)
+        try {
+          var payload = buildSamplesOpenPayload(scanRows)
+          var opened = await clientApi.importDataset(payload)
+          await finishOpen(opened)
+        } catch (error) {
+          setScanConfirmError(formatError(error) || T('requestFailed'))
+        } finally {
+          setImportBusy(false)
+        }
+      }
+
       // ---- 渲染 ----
 
       var tabNode = null
@@ -7209,6 +8192,19 @@
                 onClick: function () { setMergeNotice(null) },
               }, '×'))
           : null,
+        importStateVisible
+          ? h('div', { className: 'sc-merge-notice' },
+              h('span', { className: 'sc-merge-notice-text' }, importStateHintText),
+              h('button', {
+                type: 'button',
+                className: 'sc-btn sc-btn-sm',
+                onClick: function () {
+                  setImportStateDismissed(function (previous) {
+                    return Object.assign({}, previous, { [activeId || '']: true })
+                  })
+                },
+              }, '×'))
+          : null,
         h('div', { className: 'sc-body' },
           h(PluginErrorBoundary, null,
             h(PipelinePanel, {
@@ -7239,6 +8235,39 @@
         dialogOpen
           ? h(ImportDialog, {
               key: 'import-' + dialogNonce,
+              scanRoot: scanRoot,
+              scanRecursive: scanRecursive,
+              scanLoading: scanLoading,
+              scanError: scanError,
+              scanResult: scanResult,
+              scanRows: scanRows,
+              scanGroups: scanGroups,
+              scanGroupColors: scanGroupColors,
+              scanNewGroup: scanNewGroup,
+              scanNewGroupColor: scanNewGroupColor,
+              scanBatchGroup: scanBatchGroup,
+              scanConfirmError: scanConfirmError,
+              geoGse: geoGse,
+              geoLoading: geoLoading,
+              geoResult: geoResult,
+              geoError: geoError,
+              onScanRootChange: setScanRoot,
+              onScanRecursive: setScanRecursive,
+              onScan: handleScanRun,
+              onScanRowSelect: handleScanRowSelect,
+              onScanRowName: handleScanRowName,
+              onScanRowGroup: handleScanRowGroup,
+              onSelectAll: handleScanSelectAll,
+              onClearAll: handleScanClearAll,
+              onScanNewGroupChange: setScanNewGroup,
+              onScanNewGroupColorChange: setScanNewGroupColor,
+              onAddScanGroup: handleAddScanGroup,
+              onBatchGroupChange: setScanBatchGroup,
+              onApplyBatchGroup: handleApplyBatchGroup,
+              onGeoGseChange: setGeoGse,
+              onGeoQuery: handleGeoQuery,
+              onConfirmSamples: handleConfirmSamples,
+              onScanError: setScanError,
               formats: formats,
               formatsError: formatsError,
               busy: importBusy,
