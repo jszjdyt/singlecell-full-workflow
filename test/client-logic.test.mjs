@@ -1,0 +1,1395 @@
+/**
+ * dsh-singlecell 客户端纯函数单测（不依赖浏览器）。
+ *
+ * 运行：node test/client-logic.test.mjs
+ *
+ * client.js 是浏览器模块（window.__ModuleLoader__.load），但在 node 里
+ * （typeof window === 'undefined'）只会把纯函数挂到 globalThis.__SC_TEST__，
+ * 所以这里直接 import 它、断言纯函数行为 + 静态合规约束。
+ */
+import assert from 'node:assert/strict'
+import { readFile } from 'node:fs/promises'
+import { test } from 'node:test'
+
+const CLIENT_URL = new URL('../client.js', import.meta.url)
+await import(CLIENT_URL.href)
+
+const SC = globalThis.__SC_TEST__
+assert.ok(SC, 'node 环境应通过 globalThis.__SC_TEST__ 暴露纯函数')
+
+const CLIENT_SOURCE = await readFile(CLIENT_URL, 'utf8')
+
+// ---------------------------------------------------------------------------
+// 0. 加载与导出形状
+// ---------------------------------------------------------------------------
+
+test('import：无 window 时不炸，且暴露 NS/API/STEPS', () => {
+  assert.equal(typeof globalThis.window, 'undefined')
+  assert.equal(SC.NS, 'dsh-singlecell')
+  assert.equal(SC.API, '/singlecell')
+  assert.equal(SC.POLL_MS, 2500)
+  assert.ok(Array.isArray(SC.STEPS) && SC.STEPS.length === 10)
+  assert.ok(SC.DICT_ZH.title && SC.DICT_EN.title)
+  assert.ok(SC.DICT_ZH.nav && SC.DICT_ZH.engineBuiltin && SC.DICT_ZH.engineScanpy)
+  assert.ok(SC.DICT_ZH.tabRecord, 'v2 记录 tab 的文案应在字典里')
+  assert.ok(SC.DICT_EN.tabRecord)
+})
+
+test('字典：所有 T()/tf()/labelKey 用到的 key 都有中文词条（不出现裸 key）', () => {
+  const zhStart = CLIENT_SOURCE.indexOf('var DICT_ZH = {')
+  const zhEnd = CLIENT_SOURCE.indexOf('var DICT_EN = {')
+  assert.ok(zhStart > 0 && zhEnd > zhStart)
+  const dictBlock = CLIENT_SOURCE.slice(zhStart, zhEnd)
+  const dictKeys = new Set()
+  for (const match of dictBlock.matchAll(/^ {4}([A-Za-z0-9_]+):/gm)) dictKeys.add(match[1])
+  assert.ok(dictKeys.size > 150, `字典词条太少：${dictKeys.size}`)
+
+  const usedKeys = new Set()
+  for (const match of CLIENT_SOURCE.matchAll(/\bT\('([A-Za-z0-9_]+)'\)/g)) usedKeys.add(match[1])
+  for (const match of CLIENT_SOURCE.matchAll(/tf\(T, '([A-Za-z0-9_]+)'/g)) usedKeys.add(match[1])
+  for (const match of CLIENT_SOURCE.matchAll(/labelKey: '([A-Za-z0-9_]+)'/g)) usedKeys.add(match[1])
+  // 动态 key（step.titleKey / statusKey / engineBadge(labelKey) 等）单独补
+  for (const key of ['stepQc', 'stepFilter', 'stepNormalize', 'stepHvg', 'stepPca', 'stepNeighbors', 'stepCluster', 'stepEmbed', 'stepMarkers', 'stepAnnotate']) usedKeys.add(key)
+  for (const key of ['pending', 'running', 'done', 'needPrereq']) usedKeys.add(key)
+  for (const key of ['engineScanpy', 'engineBuiltin', 'engineNotReady', 'engineNone']) usedKeys.add(key)
+
+  const missing = [...usedKeys].filter((key) => !dictKeys.has(key)).sort()
+  assert.deepEqual(missing, [], `字典缺 key：${missing.join(', ')}`)
+})
+
+// ---------------------------------------------------------------------------
+// 1. STEPS 顺序 / 依赖 / 默认参数
+// ---------------------------------------------------------------------------
+
+test('STEPS：顺序与依赖和 CONTRACT §2.2 一致', () => {
+  assert.deepEqual(SC.STEPS.map((step) => step.id), [
+    'qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed', 'markers', 'annotate',
+  ])
+  const requires = {}
+  for (const step of SC.STEPS) requires[step.id] = step.requires
+  assert.deepEqual(requires, {
+    qc: [],
+    filter: ['qc'],
+    normalize: ['filter'],
+    hvg: ['normalize'],
+    pca: ['hvg'],
+    neighbors: ['pca'],
+    cluster: ['neighbors'],
+    embed: ['pca'],
+    markers: ['cluster'],
+    annotate: ['cluster'],
+  })
+  for (const step of SC.STEPS) {
+    assert.ok(SC.STEP_TITLES_ZH[step.id], `${step.id} 应有中文标题`)
+    assert.ok(step.titleKey, `${step.id} 应有 titleKey`)
+  }
+})
+
+test('STEPS：默认参数与契约表一致（qc/filter/hvg/pca/cluster/embed/markers）', () => {
+  assert.deepEqual(SC.defaultParams('qc'), { min_genes: 200, max_genes: null, min_counts: null, max_pct_mt: 20 })
+  assert.deepEqual(SC.defaultParams('filter'), {
+    min_genes: 200, max_genes: null, min_counts: null, max_pct_mt: 20, min_cells: 3,
+  })
+  assert.deepEqual(SC.defaultParams('normalize'), { target_sum: 10000 })
+  assert.deepEqual(SC.defaultParams('hvg'), { n_top_genes: 2000, flavor: 'seurat' })
+  assert.deepEqual(SC.defaultParams('pca'), { n_pcs: 30 })
+  assert.deepEqual(SC.defaultParams('neighbors'), { n_neighbors: 15, metric: 'cosine' })
+  assert.deepEqual(SC.defaultParams('cluster'), { resolution: 1.0, method: 'louvain' })
+  assert.deepEqual(SC.defaultParams('embed'), { layout: 'tsne', perplexity: 30 })
+  assert.deepEqual(SC.defaultParams('markers'), { groupby: 'clusters', top_n: 10, method: 't-test' })
+  assert.deepEqual(SC.defaultParams('annotate'), {})
+  assert.deepEqual(SC.defaultParams('unknown-step'), {})
+})
+
+test('collectStepParams：数字/空值/非法值', () => {
+  const qc = SC.collectStepParams('qc', { min_genes: '300', max_genes: '', min_counts: null, max_pct_mt: '15' })
+  assert.equal(qc.error, '')
+  assert.deepEqual(qc.params, { min_genes: 300, max_genes: null, min_counts: null, max_pct_mt: 15 })
+
+  const cluster = SC.collectStepParams('cluster', { resolution: 0.8, method: 'louvain' })
+  assert.deepEqual(cluster.params, { resolution: 0.8, method: 'louvain' })
+
+  const bad = SC.collectStepParams('pca', { n_pcs: 'abc' })
+  assert.match(bad.error, /需要是数字/)
+})
+
+// ---------------------------------------------------------------------------
+// 2. nextRunnableSteps / 状态
+// ---------------------------------------------------------------------------
+
+test('nextRunnableSteps：依赖满足才可运行，且按 STEPS 顺序返回', () => {
+  assert.deepEqual(SC.nextRunnableSteps([]).map((step) => step.id), ['qc'])
+  assert.deepEqual(SC.nextRunnableSteps(['qc']).map((step) => step.id), ['filter'])
+  assert.deepEqual(
+    SC.nextRunnableSteps(['qc', 'filter', 'normalize', 'hvg', 'pca']).map((step) => step.id),
+    ['neighbors', 'embed'],
+  )
+  assert.deepEqual(
+    SC.nextRunnableSteps(['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster']).map((step) => step.id),
+    ['embed', 'markers', 'annotate'],
+  )
+  assert.deepEqual(
+    SC.nextRunnableSteps(['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed', 'markers', 'annotate']),
+    [],
+  )
+  assert.equal(SC.nextStep([]).id, 'qc')
+  assert.equal(SC.nextStep(['qc']).id, 'filter')
+  assert.equal(SC.nextStep(SC.STEPS.map((step) => step.id)), null)
+})
+
+test('stepStatusOf：running > done > pending > blocked', () => {
+  assert.equal(SC.stepStatusOf('qc', [], []), 'pending')
+  assert.equal(SC.stepStatusOf('filter', [], []), 'blocked')
+  assert.equal(SC.stepStatusOf('filter', ['qc'], []), 'pending')
+  assert.equal(SC.stepStatusOf('filter', ['qc'], ['filter']), 'running')
+  assert.equal(SC.stepStatusOf('filter', ['qc', 'filter'], []), 'done')
+  assert.equal(SC.stepStatusOf('filter', ['qc', 'filter'], ['filter']), 'running')
+  assert.equal(SC.stepStatusKey('blocked'), 'needPrereq')
+  assert.equal(SC.stepStatusKey('done'), 'done')
+  assert.equal(SC.stepStatusKey('pending'), 'pending')
+  assert.equal(SC.stepStatusKey('running'), 'running')
+})
+
+// ---------------------------------------------------------------------------
+// 3. 数值 / 百分比 / 时间格式化
+// ---------------------------------------------------------------------------
+
+test('formatNumber：万/亿/千分位/非有限值', () => {
+  assert.equal(SC.formatNumber(12345), '1.2 万')
+  assert.equal(SC.formatNumber(2700), '2,700')
+  assert.equal(SC.formatNumber(1234.5, 2), '1,234.5')
+  assert.equal(SC.formatNumber(123456789), '1.2 亿')
+  assert.equal(SC.formatNumber(0.1234, 2), '0.12')
+  assert.equal(SC.formatNumber(0), '0')
+  assert.equal(SC.formatNumber(-1e6), '-100 万')
+  assert.equal(SC.formatNumber(null), '—')
+  assert.equal(SC.formatNumber(undefined), '—')
+  assert.equal(SC.formatNumber(Number.NaN), '—')
+  assert.equal(SC.formatNumber(Number.POSITIVE_INFINITY), '—')
+})
+
+test('formatPct / formatPValue / formatDuration / formatClock', () => {
+  assert.equal(SC.formatPct(0.9234), '92.3%')
+  assert.equal(SC.formatPct(1), '100%')
+  assert.equal(SC.formatPct(0), '0%')
+  assert.equal(SC.formatPct(0.0005, 2), '0.05%')
+  assert.equal(SC.formatPct(null), '—')
+
+  assert.equal(SC.formatPValue(1.2e-30), '1.2e-30')
+  assert.equal(SC.formatPValue(0), '0')
+  assert.equal(SC.formatPValue(0.05), '0.050')
+  assert.equal(SC.formatPValue(0.1234), '0.123')
+  assert.equal(SC.formatPValue(-1), '—')
+
+  assert.equal(SC.formatDuration(812), '812 ms')
+  assert.equal(SC.formatDuration(1500), '1.5 s')
+  assert.equal(SC.formatDuration(65000), '1.1 min')
+  assert.equal(SC.formatDuration(null), '')
+
+  const localDate = new Date(2024, 0, 2, 3, 4, 5)
+  assert.equal(SC.formatClock(localDate.toISOString()), '03:04:05')
+  assert.equal(SC.formatClock('not-a-date'), '')
+  assert.equal(SC.formatClock(''), '')
+})
+
+test('formatError：字符串/Error/空值都收敛成短文本', () => {
+  assert.equal(SC.formatError(new Error('引擎未就绪')), '引擎未就绪')
+  assert.equal(SC.formatError('失败了\n换行'), '失败了 换行')
+  assert.equal(SC.formatError(null), '')
+  assert.equal(SC.formatError(undefined), '')
+  assert.ok(SC.formatError(new Error('x'.repeat(2000))).length <= 600)
+})
+
+// ---------------------------------------------------------------------------
+// 4. 坐标变换（缩放/平移/适配/命中）
+// ---------------------------------------------------------------------------
+
+const CENTER = { x: 320, y: 210 }
+const VIEW = { scale: 2.5, offsetX: 40, offsetY: -30 }
+
+test('坐标变换：worldToScreen ↔ screenToWorld 可往返', () => {
+  const points = [{ x: 0, y: 0 }, { x: 3.25, y: -2.5 }, { x: -100, y: 80 }]
+  for (const point of points) {
+    const screen = SC.worldToScreen(point, VIEW, CENTER)
+    const back = SC.screenToWorld(screen, VIEW, CENTER)
+    assert.ok(Math.abs(back.x - point.x) < 1e-9, `x 往返失败：${point.x} → ${back.x}`)
+    assert.ok(Math.abs(back.y - point.y) < 1e-9, `y 往返失败：${point.y} → ${back.y}`)
+  }
+})
+
+test('坐标变换：zoomViewAt 保持锚点下方的数据坐标不动', () => {
+  const anchor = { x: 120, y: 90 }
+  const worldBefore = SC.screenToWorld(anchor, VIEW, CENTER)
+  const zoomed = SC.zoomViewAt(VIEW, anchor, 1.75, CENTER)
+  assert.ok(Math.abs(zoomed.scale - VIEW.scale * 1.75) < 1e-9)
+  const screenAfter = SC.worldToScreen(worldBefore, zoomed, CENTER)
+  assert.ok(Math.abs(screenAfter.x - anchor.x) < 1e-9)
+  assert.ok(Math.abs(screenAfter.y - anchor.y) < 1e-9)
+  // 缩放上下限
+  const tiny = SC.zoomViewAt(VIEW, anchor, 1e-9, CENTER, 0.02, 500)
+  const huge = SC.zoomViewAt(VIEW, anchor, 1e9, CENTER, 0.02, 500)
+  assert.equal(tiny.scale, 0.02)
+  assert.equal(huge.scale, 500)
+})
+
+test('坐标变换：panView 是纯平移', () => {
+  const panned = SC.panView(VIEW, 12, -8)
+  assert.deepEqual(panned, { scale: 2.5, offsetX: 52, offsetY: -38 })
+  const projected = SC.worldToScreen({ x: 1, y: 1 }, VIEW, CENTER)
+  const projectedPanned = SC.worldToScreen({ x: 1, y: 1 }, panned, CENTER)
+  assert.ok(Math.abs(projectedPanned.x - projected.x - 12) < 1e-9)
+  assert.ok(Math.abs(projectedPanned.y - projected.y + 8) < 1e-9)
+})
+
+test('fitView：数据整体落在画布内且居中', () => {
+  const bounds = { minX: -5, maxX: 10, minY: -2, maxY: 6 }
+  const width = 800
+  const height = 400
+  const center = SC.viewCenter(width, height)
+  const fitted = SC.fitView(bounds, width, height, 20)
+  const corners = [
+    { x: bounds.minX, y: bounds.minY },
+    { x: bounds.maxX, y: bounds.maxY },
+    { x: bounds.minX, y: bounds.maxY },
+    { x: bounds.maxX, y: bounds.minY },
+  ]
+  for (const corner of corners) {
+    const screen = SC.worldToScreen(corner, fitted, center)
+    assert.ok(screen.x >= -1e-6 && screen.x <= width + 1e-6, `x 越界：${screen.x}`)
+    assert.ok(screen.y >= -1e-6 && screen.y <= height + 1e-6, `y 越界：${screen.y}`)
+  }
+  const dataCenter = SC.worldToScreen({ x: 2.5, y: 2 }, fitted, center)
+  assert.ok(Math.abs(dataCenter.x - width / 2) < 1e-6)
+  assert.ok(Math.abs(dataCenter.y - height / 2) < 1e-6)
+  // 退化数据（所有点相同）不能 NaN
+  const degenerate = SC.fitView({ minX: 1, maxX: 1, minY: 2, maxY: 2 }, 300, 200, 10)
+  assert.ok(Number.isFinite(degenerate.scale) && degenerate.scale > 0)
+  assert.deepEqual(SC.fitView(null, 300, 200, 10), SC.createView())
+})
+
+test('computeBounds / findNearestPoint', () => {
+  assert.deepEqual(SC.computeBounds([1, 2, 3], [4, 5, 6]), { minX: 1, maxX: 3, minY: 4, maxY: 6 })
+  assert.equal(SC.computeBounds([], []), null)
+  assert.equal(SC.computeBounds(['x'], ['y']), null)
+
+  const xs = [0, 10, 20]
+  const ys = [0, 10, 20]
+  const view = { scale: 10, offsetX: 0, offsetY: 0 }
+  const center = { x: 100, y: 100 }
+  const second = SC.worldToScreen({ x: 10, y: 10 }, view, center)
+  assert.equal(SC.findNearestPoint(xs, ys, view, center, { x: second.x + 2, y: second.y - 1 }, 6), 1)
+  assert.equal(SC.findNearestPoint(xs, ys, view, center, { x: second.x + 400, y: second.y }, 6), -1)
+  assert.equal(SC.findNearestPoint([], [], view, center, { x: 0, y: 0 }, 6), -1)
+})
+
+// ---------------------------------------------------------------------------
+// 5. tooltip 文本
+// ---------------------------------------------------------------------------
+
+test('tooltipText：分类给分组名、连续给指标+数值（细胞序号从 1 开始）', () => {
+  assert.equal(SC.tooltipText({ index: 12, label: '0' }), '细胞 #13 · 0')
+  assert.equal(SC.tooltipText({ index: 0, label: 'T cell' }), '细胞 #1 · T cell')
+  assert.equal(SC.tooltipText({ index: 3, label: '' }), '细胞 #4')
+  assert.equal(SC.tooltipText({ index: 0, continuous: true, title: 'n_genes', value: 1234.5 }), '细胞 #1 · n_genes 1,234.5')
+  assert.equal(SC.tooltipText({ index: 1, continuous: true, value: 0.5 }), '细胞 #2 · 0.5')
+  assert.equal(SC.tooltipText(null), '细胞 #?')
+})
+
+// ---------------------------------------------------------------------------
+// 6. 建议 → 中文指令 / 记录展示
+// ---------------------------------------------------------------------------
+
+test('buildAgentInstruction：带 step 的指令带参数，无 step 的退回标题/动作', () => {
+  assert.equal(
+    SC.buildAgentInstruction({ step: 'cluster', params: { resolution: 1 } }),
+    '用单细胞工作台把当前数据集跑到聚类，resolution=1。',
+  )
+  assert.equal(
+    SC.buildAgentInstruction({ step: 'markers', params: { top_n: 10, method: 't-test' } }),
+    '用单细胞工作台把当前数据集跑到标记基因，top_n=10，method=t-test。',
+  )
+  assert.equal(
+    SC.buildAgentInstruction({ step: 'qc', params: {} }),
+    '用单细胞工作台把当前数据集跑到质控。',
+  )
+  assert.equal(SC.buildAgentInstruction({ id: 'demo', title: '载入示例数据', action: 'demo' }), '用单细胞工作台载入内置示例数据。')
+  assert.equal(SC.buildAgentInstruction({ id: 'open', action: 'open' }), '用单细胞工作台打开一个 h5ad 数据集。')
+  assert.equal(SC.buildAgentInstruction({ title: '导出结果' }), '用单细胞工作台执行「导出结果」。')
+  assert.equal(SC.buildAgentInstruction(null), '用单细胞工作台继续当前数据集的分析。')
+})
+
+test('formatParamList / formatParamValue', () => {
+  assert.equal(SC.formatParamList({ resolution: 1, method: 'louvain' }), 'resolution=1，method=louvain')
+  assert.equal(SC.formatParamList({ mapping: { 0: 'T cell' } }), 'mapping={"0":"T cell"}')
+  assert.equal(SC.formatParamList({ x: null, y: [1, 2] }), 'x=null，y=1/2')
+  assert.equal(SC.formatParamList(null), '')
+  assert.equal(SC.formatParamValue(true), 'true')
+})
+
+test('formatHistoryEntry：时间/步骤/参数/摘要/耗时/引擎', () => {
+  const view = SC.formatHistoryEntry({
+    at: new Date(2024, 0, 2, 3, 4, 5).toISOString(),
+    step: 'cluster',
+    params: { resolution: 1 },
+    ok: true,
+    ms: 812,
+    summary: 'resolution=1 → 8 簇',
+    n_obs: 2700,
+    n_vars: 1200,
+    engine: { mode: 'builtin', python: '3.14.2' },
+  })
+  assert.equal(view.time, '03:04:05')
+  assert.equal(view.step, 'cluster')
+  assert.equal(view.title, '聚类')
+  assert.equal(view.paramsText, 'resolution=1')
+  assert.equal(view.summary, 'resolution=1 → 8 簇')
+  assert.equal(view.duration, '812 ms')
+  assert.equal(view.engineMode, 'builtin')
+  assert.equal(view.ok, true)
+  const failed = SC.formatHistoryEntry({ step: 'pca', ok: false })
+  assert.equal(failed.ok, false)
+  assert.equal(failed.title, 'PCA')
+})
+
+test('buildAnnotationMapping / parseResolutions / recipeProgressText', () => {
+  assert.deepEqual(
+    SC.buildAnnotationMapping([
+      { cluster: '0', label: 'T cell' },
+      { cluster: '1', label: ' B cell ' },
+      { cluster: '', label: 'skip' },
+      { cluster: '2', label: '' },
+      { cluster: '0', label: 'duplicate-ignored' },
+    ]),
+    { 0: 'T cell', 1: 'B cell' },
+  )
+  assert.deepEqual(SC.buildAnnotationMapping(null), {})
+
+  assert.deepEqual(SC.parseResolutions('0.4,0.8,1.2'), { list: [0.4, 0.8, 1.2], error: '' })
+  assert.deepEqual(SC.parseResolutions('0.4，0.8 1.2'), { list: [0.4, 0.8, 1.2], error: '' })
+  assert.deepEqual(SC.parseResolutions('0.4,0.4,9'), { list: [0.4], error: '' })
+  assert.equal(SC.parseResolutions('abc').error.length > 0, true)
+  assert.equal(SC.parseResolutions([0.5, 1, 2, 3, 4, 5, 0.6, 1.5, 2.5]).list.length, 8)
+
+  assert.equal(SC.recipeProgressText({ index: 2, total: 6, step: 'cluster' }), '第 2/6 步：聚类')
+  assert.equal(SC.recipeProgressText(null), '')
+})
+
+// ---------------------------------------------------------------------------
+// 7. 归一化：缺字段/旧返回不能崩
+// ---------------------------------------------------------------------------
+
+test('normalizeState：空值安全 + v2 字段（history/recipes/recipeProgress）', () => {
+  const empty = SC.normalizeState(null)
+  assert.equal(empty.active, null)
+  assert.deepEqual(empty.datasets, [])
+  assert.equal(empty.engine.mode, 'unknown')
+  assert.deepEqual(empty.suggestions, [])
+  assert.deepEqual(empty.recipes, [])
+  assert.equal(empty.recipeProgress, null)
+
+  const payload = {
+    ok: true,
+    active: 'ds1',
+    engine: { ready: true, mode: 'builtin', python: '3.14.2', layouts: ['tsne'] },
+    datasets: [{
+      id: 'ds1', name: 'demo-pbmc', n_obs: 2700, n_vars: 1200, steps: ['qc', 'cluster'],
+      current: 'cluster', warnings: ['w'],
+      history: [{ at: new Date(2024, 0, 2, 3, 4, 5).toISOString(), step: 'qc', params: {}, ok: true, ms: 10, summary: 'qc ok' }],
+    }],
+    suggestions: [{ id: 'run:embed', title: '嵌入', step: 'embed', params: { layout: 'tsne' } }],
+    recipes: [{ id: 'standard', title: '标准流程', detail: 'd', steps: [{ step: 'qc', params: {} }, { step: 'nope' }] }],
+    recipeProgress: { recipe: 'standard', title: '标准流程', index: 1, total: 6, step: 'qc' },
+    activity: [{ at: 'x', actor: 'agent', action: 'run:qc', detail: 'd', ok: true, ms: 10 }],
+  }
+  const state = SC.normalizeState(payload)
+  assert.equal(state.active, 'ds1')
+  assert.equal(state.datasets.length, 1)
+  assert.equal(state.datasets[0].nObs, 2700)
+  assert.deepEqual(state.datasets[0].steps, ['qc', 'cluster'])
+  assert.equal(state.datasets[0].history.length, 1)
+  assert.equal(state.engine.mode, 'builtin')
+  assert.equal(state.engine.ready, true)
+  assert.equal(state.suggestions[0].step, 'embed')
+  assert.equal(state.recipes[0].steps.length, 1, '未知 step 应被丢弃')
+  assert.equal(state.recipeProgress.index, 1)
+  assert.equal(state.activity[0].actor, 'agent')
+  assert.equal(SC.findDataset(state, 'ds1').id, 'ds1')
+  assert.equal(SC.findDataset(state, 'nope'), null)
+})
+
+test('normalizeEmbedding：长度不一致时截断、非有限坐标归零、长度自洽', () => {
+  const data = SC.normalizeEmbedding({
+    x: [1, 2, 3, 'oops'],
+    y: [1, 2],
+    group_index: [0, 1],
+    categories: [{ id: '0', label: '0', color: '#111111', n: 1 }, { id: '1', label: '1', n: 1 }],
+    continuous: false,
+    layout: 'tsne',
+  })
+  assert.equal(data.nPoints, 2)
+  assert.equal(data.x.length, 2)
+  assert.equal(data.y.length, 2)
+  assert.equal(data.groupIndex.length, 2)
+  assert.equal(data.categories[1].color, SC.PALETTE[1], '缺 color 时用调色板兜底')
+
+  const continuous = SC.normalizeEmbedding({
+    x: [1, 2, 3], y: [1, 2, 3], values: [0.5, 0.7], continuous: true, legend_title: 'CD3D',
+  })
+  assert.equal(continuous.nPoints, 2)
+  assert.equal(continuous.values.length, 2)
+  assert.equal(continuous.legendTitle, 'CD3D')
+  assert.equal(SC.normalizeEmbedding(null).nPoints, 0)
+})
+
+test('normalizeMarkersGroups / normalizeFigure', () => {
+  const groups = SC.normalizeMarkersGroups({ groups: [{ id: 0, label: '0', n_cells: 312, genes: [{ gene: 'CD3D', logfc: 2.3, pval_adj: 1e-30, pct_in: 0.92 }] }] })
+  assert.equal(groups.length, 1)
+  assert.equal(groups[0].id, '0')
+  assert.equal(groups[0].nCells, 312)
+  assert.equal(groups[0].genes[0].logfc, 2.3)
+  assert.equal(groups[0].genes[0].pvalAdj, 1e-30)
+  assert.equal(groups[0].genes[0].pctIn, 0.92)
+  assert.deepEqual(SC.normalizeMarkersGroups(null), [])
+  assert.deepEqual(SC.normalizeMarkersGroups({ markers: [{ id: '1', genes: [] }] }).length, 1)
+
+  const figure = SC.normalizeFigure({ ok: true, figure: { id: 'f1', url: '/singlecell/figure?id=f1.png', width: 720, height: 480, kind: 'qc_violin' } })
+  assert.equal(figure.url, '/singlecell/figure?id=f1.png')
+  assert.equal(figure.width, 720)
+  assert.equal(figure.kind, 'qc_violin')
+  assert.equal(SC.normalizeFigure({ ok: true }), null)
+})
+
+test('v2 归一化：audit / autoannotate / resolution_scan / export', () => {
+  const audit = SC.normalizeAudit({
+    ok: true, score: 78.6, level: 'warn',
+    checks: [{ id: 'cells_low', level: 'fail', title: '细胞过少', detail: 'd', hint: 'h' }, { id: 'unknown', level: 'weird', title: 't' }],
+  })
+  assert.equal(audit.score, 79)
+  assert.equal(audit.level, 'warn')
+  assert.equal(audit.checks[0].level, 'fail')
+  assert.equal(audit.checks[1].level, 'ok', '未知等级回落 ok')
+  assert.equal(audit.checks[1].detail, '')
+
+  const autoann = SC.normalizeAutoannotate({
+    panel: 'builtin-marker-panel-v1',
+    suggestions: [{ cluster: '0', label: 'T cell', score: 0.82, margin: 0.19, evidence: ['CD3D'], alternative: 'NK cell' }],
+  })
+  assert.equal(autoann.panel, 'builtin-marker-panel-v1')
+  assert.equal(autoann.suggestions[0].cluster, '0')
+  assert.deepEqual(autoann.suggestions[0].evidence, ['CD3D'])
+  assert.deepEqual(SC.normalizeAutoannotate(null).suggestions, [])
+
+  const scan = SC.normalizeResolutionScan({
+    current: { resolution: 1.0, n_clusters: 8 },
+    results: [{ resolution: 0.4, n_clusters: 5, ari_vs_current: 0.61 }, { resolution: 0.8, n_clusters: 7 }],
+  })
+  assert.deepEqual(scan.current, { resolution: 1.0, nClusters: 8 })
+  assert.equal(scan.results[0].ari, 0.61)
+  assert.equal(scan.results[1].ari, null, '缺 ARI 时置 null（UI 显示 —）')
+  assert.equal(SC.normalizeResolutionScan(null).current, null)
+
+  const exported = SC.normalizeExportResult({ ok: true, what: 'report', file: '/tmp/x/report.md', bytes: 1234 })
+  assert.equal(exported.file, '/tmp/x/report.md')
+  assert.equal(exported.bytes, 1234)
+  assert.equal(SC.normalizeExportResult(null).file, '')
+})
+
+test('normalizePreview / normalizeActivity / engineBadge', () => {
+  const preview = SC.normalizePreview({ genes: ['CD3D'], obs_columns: [{ key: 'n_genes', kind: 'numeric' }], n_obs: 10, n_vars: 20, steps: ['qc'] })
+  assert.deepEqual(preview.genes, ['CD3D'])
+  assert.equal(preview.obsColumns[0].kind, 'numeric')
+  assert.deepEqual(SC.normalizePreview(null).genes, [])
+
+  const activity = SC.normalizeActivity([{ at: 'x', actor: 'agent', action: 'run:cluster', detail: 'd', ok: false, ms: 12 }])
+  assert.equal(activity[0].actor, 'agent')
+  assert.equal(activity[0].ok, false)
+  assert.equal(activity[0].ms, 12)
+  assert.equal(SC.normalizeActivity(null).length, 0)
+
+  assert.equal(SC.engineBadge({ mode: 'scanpy', python: '3.12.0' }).labelKey, 'engineScanpy')
+  assert.equal(SC.engineBadge({ mode: 'builtin', python: '3.14.2' }).tone, 'ok')
+  assert.equal(SC.engineBadge({ mode: 'none', error: '没装 numpy' }).tone, 'bad')
+  assert.equal(SC.engineBadge({ mode: 'unknown', ready: false }).labelKey, 'engineNotReady')
+
+  const chosen = SC.chooseEngine(SC.normalizeEngine({ mode: 'unknown' }), SC.normalizeEngine({ ready: true, mode: 'builtin' }))
+  assert.equal(chosen.mode, 'builtin')
+})
+
+test('v2 常量：AUDIT_LEVEL_STYLE / EXPORT_KINDS', () => {
+  assert.equal(SC.AUDIT_LEVEL_STYLE.ok.tone, 'ok')
+  assert.equal(SC.AUDIT_LEVEL_STYLE.warn.tone, 'warn')
+  assert.equal(SC.AUDIT_LEVEL_STYLE.fail.tone, 'fail')
+  assert.equal(SC.AUDIT_LEVEL_STYLE.warn.icon, '!')
+  assert.deepEqual(SC.EXPORT_KINDS.map((kind) => kind.id), ['protocol', 'methods', 'report', 'script', 'h5ad', 'markers_csv'])
+})
+
+test('pickContinuousColor：返回 rgb 且随值单调变化', () => {
+  const low = SC.pickContinuousColor(0, 0, 1)
+  const mid = SC.pickContinuousColor(0.5, 0, 1)
+  const high = SC.pickContinuousColor(1, 0, 1)
+  for (const color of [low, mid, high]) assert.match(color, /^rgb\(\d+,\d+,\d+\)$/)
+  assert.equal(low, 'rgb(59,76,192)')
+  assert.equal(high, 'rgb(192,57,43)')
+  assert.notEqual(low, mid)
+  assert.notEqual(mid, high)
+  assert.equal(SC.pickContinuousColor(Number.NaN, 0, 1), SC.CONTINUOUS_STOPS[0])
+})
+
+// ---------------------------------------------------------------------------
+// 8. API 客户端：假 fetch 下的 method/url/body 与错误解析
+// ---------------------------------------------------------------------------
+
+function fakeResponse(body, { status = 200, ok = status < 400 } = {}) {
+  const text = typeof body === 'string' ? body : JSON.stringify(body)
+  return { ok, status, text: async () => text }
+}
+
+function createFakeFetch(responses) {
+  const calls = []
+  const queue = Array.isArray(responses) ? responses.slice() : []
+  const fake = async (url, options) => {
+    calls.push({ url, options })
+    const next = queue.length ? queue.shift() : { body: { ok: true } }
+    if (next instanceof Error) throw next
+    return fakeResponse(next.body, next)
+  }
+  return { fake, calls }
+}
+
+test('api：所有请求都走同源相对路径 /singlecell/*', async () => {
+  const { fake, calls } = createFakeFetch([])
+  const api = SC.createApi(fake)
+  assert.equal(api.base, '/singlecell')
+
+  await api.getHealth()
+  await api.getState()
+  await api.getActivity()
+  await api.openPath('/tmp/a.h5ad')
+  await api.openDemo()
+  await api.selectDataset('ds1')
+  await api.closeDataset('ds1')
+  await api.preview('ds1')
+  await api.runStep('ds1', 'cluster', { resolution: 1 })
+  await api.getEmbedding('ds1', { kind: 'cluster', key: 'clusters' })
+  await api.plot('ds1', 'qc_violin', { metrics: ['n_genes'] })
+  await api.markers('ds1', { top_n: 10, method: 't-test' })
+  await api.getAudit('ds1')
+  await api.getAutoannotate('ds1')
+  await api.runRecipe('ds1', 'standard')
+  await api.resolutionScan('ds1', [0.4, 0.8])
+  await api.exportData('ds1', 'report')
+  await api.reset()
+
+  assert.equal(calls.length, 18)
+  for (const call of calls) {
+    assert.ok(call.url.startsWith('/singlecell/'), `非相对路径：${call.url}`)
+    assert.ok(!/^https?:/.test(call.url), `不应出现绝对 URL：${call.url}`)
+  }
+  assert.deepEqual(calls.map((call) => call.url), [
+    '/singlecell/health',
+    '/singlecell/state',
+    '/singlecell/activity',
+    '/singlecell/dataset/open',
+    '/singlecell/dataset/demo',
+    '/singlecell/dataset/select',
+    '/singlecell/dataset/close',
+    '/singlecell/preview',
+    '/singlecell/run',
+    '/singlecell/embedding',
+    '/singlecell/plot',
+    '/singlecell/markers',
+    '/singlecell/audit',
+    '/singlecell/autoannotate',
+    '/singlecell/recipe',
+    '/singlecell/resolution-scan',
+    '/singlecell/export',
+    '/singlecell/reset',
+  ])
+})
+
+test('api GET：method=GET，无 body', async () => {
+  const { fake, calls } = createFakeFetch([{ body: { ok: true, active: 'ds1', datasets: [] } }])
+  const api = SC.createApi(fake)
+  const payload = await api.getState()
+  assert.equal(payload.active, 'ds1')
+  assert.equal(calls[0].url, '/singlecell/state')
+  assert.equal(calls[0].options.method, 'GET')
+  assert.equal(calls[0].options.body, undefined)
+})
+
+test('api POST /run：JSON body 含 dataset/step/params/actor', async () => {
+  const { fake, calls } = createFakeFetch([{ body: { ok: true, step: 'cluster', steps: ['qc'] } }])
+  const api = SC.createApi(fake)
+  await api.runStep('ds1', 'cluster', { resolution: 0.8 })
+  const options = calls[0].options
+  assert.equal(calls[0].url, '/singlecell/run')
+  assert.equal(options.method, 'POST')
+  assert.equal(options.headers['content-type'], 'application/json')
+  assert.deepEqual(JSON.parse(options.body), {
+    dataset: 'ds1',
+    step: 'cluster',
+    params: { resolution: 0.8 },
+    actor: 'user',
+  })
+})
+
+test('api v2 路由：audit / autoannotate / recipe / resolution-scan / export body 正确', async () => {
+  const { fake, calls } = createFakeFetch([])
+  const api = SC.createApi(fake)
+  await api.getAudit('ds1')
+  await api.getAutoannotate('ds1')
+  await api.runRecipe('ds1', 'standard')
+  await api.resolutionScan('ds1', [0.4, 1.2])
+  await api.exportData('ds1', 'methods')
+  await api.getEmbedding('ds1', { kind: 'obs', key: 'n_genes' })
+
+  assert.deepEqual(JSON.parse(calls[0].options.body), { dataset: 'ds1', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[1].options.body), { dataset: 'ds1', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[2].options.body), { dataset: 'ds1', id: 'standard', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[3].options.body), { dataset: 'ds1', resolutions: [0.4, 1.2], actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[4].options.body), { dataset: 'ds1', what: 'methods', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[5].options.body), { dataset: 'ds1', color_by: { kind: 'obs', key: 'n_genes' } })
+})
+
+test('api upload：raw File body + x-dsh-filename header，不设 content-type', async () => {
+  const file = { name: 'sample.h5ad', size: 1024 }
+  const { fake, calls } = createFakeFetch([{ body: { ok: true, dataset: { id: 'ds9' } } }])
+  const api = SC.createApi(fake)
+  await api.upload(file)
+  assert.equal(calls[0].url, '/singlecell/dataset/upload')
+  assert.equal(calls[0].options.method, 'POST')
+  assert.equal(calls[0].options.body, file)
+  assert.equal(calls[0].options.headers['x-dsh-filename'], 'sample.h5ad')
+  assert.equal(calls[0].options.headers['content-type'], undefined)
+})
+
+test('api 错误：{ok:false,error} / HTTP 错误 / 无 error 字段 / 网络异常都转成中文 Error', async () => {
+  const prerequisite = createFakeFetch([{ body: { ok: false, code: 'prerequisite', error: '缺少前置步骤 qc' } }])
+  await assert.rejects(
+    () => SC.createApi(prerequisite.fake).getEmbedding('ds1', { kind: 'cluster', key: 'clusters' }),
+    /缺少前置步骤 qc/,
+  )
+
+  const httpError = createFakeFetch([{ body: { ok: false, error: '引擎未就绪' }, status: 500 }])
+  await assert.rejects(() => SC.createApi(httpError.fake).getState(), /引擎未就绪/)
+
+  const noDetail = createFakeFetch([{ body: { ok: false, code: 'internal' } }])
+  await assert.rejects(() => SC.createApi(noDetail.fake).getState(), /请求失败/)
+
+  const network = createFakeFetch([new TypeError('fetch failed')])
+  await assert.rejects(() => SC.createApi(network.fake).getState(), /网络请求失败/)
+
+  // 返回非 JSON 文本 + 500 时至少给 HTTP 状态
+  const plainText = createFakeFetch([{ body: 'boom', status: 502 }])
+  await assert.rejects(() => SC.createApi(plainText.fake).getState(), /HTTP 502/)
+})
+
+test('api 超时：可读中文错误（注入 10ms 超时 + 响应 abort）', async () => {
+  let aborted = false
+  const fake = (url, options) => new Promise((resolve, reject) => {
+    const signal = options && options.signal
+    if (signal && typeof signal.addEventListener === 'function') {
+      signal.addEventListener('abort', () => {
+        aborted = true
+        const error = new Error('Aborted')
+        error.name = 'AbortError'
+        reject(error)
+      })
+    }
+  })
+  const api = SC.createApi(fake)
+  await assert.rejects(() => api.getState({ timeoutMs: 10 }), /请求超时/)
+  assert.equal(aborted, true)
+})
+
+// ---------------------------------------------------------------------------
+// 8.5 v3：全格式导入 + 高级分析（纯函数）
+// ---------------------------------------------------------------------------
+
+test('ANALYSIS_GROUPS：10 个分组且顺序与 registry/GROUPS 一致', () => {
+  assert.deepEqual(SC.ANALYSIS_GROUPS, [
+    '基本分析', '组间对比', '数据可视化', '通路分析', '基因集合分析',
+    '发育轨迹分析', '肿瘤异质性分析', '细胞通讯分析', '转录调控分析', '虚拟敲除',
+  ])
+  assert.equal(SC.ANALYSIS_GROUPS.length, 10)
+  for (const group of SC.ANALYSIS_GROUPS) {
+    assert.ok(SC.ANALYSIS_GROUP_LABEL_KEYS[group], `${group} 应有 groupXxx 字典 key`)
+  }
+  assert.equal(SC.ANALYSIS_GROUP_OTHER, '其他')
+})
+
+test('normalizeAnalyses：native/external、available/reason、params/needs 归一化', () => {
+  const items = SC.normalizeAnalyses({
+    analyses: [
+      {
+        id: 'cell_cycle', title: '细胞周期评分', group: '基本分析', method: 'Tirosh 打分',
+        native: true, available: true, needs: ['clusters'],
+        params: [{ key: 'n', label: '数量', type: 'number', default: 6, min: 2, max: 20, hint: 'h' }],
+      },
+      { id: 'de_group', title: '组间差异', group: '组间对比', native: true, available: false, reason: '需要 group 列' },
+      { id: 'rna_velocity', title: 'RNA velocity', group: '发育轨迹分析', native: false, reason: '需要剪接层', alternative: '用 trajectory_dpt' },
+      { title: '没有 id 的条目' },
+    ],
+  })
+  assert.equal(items.length, 3, '缺 id 的条目应被丢弃')
+  assert.equal(items[0].id, 'cell_cycle')
+  assert.equal(items[0].native, true)
+  assert.equal(items[0].external, false)
+  assert.equal(items[0].available, true)
+  assert.deepEqual(items[0].needs, ['clusters'])
+  assert.equal(items[0].params[0].key, 'n')
+  assert.equal(items[0].params[0].type, 'number')
+  assert.equal(items[0].params[0].min, 2)
+  assert.equal(items[1].available, false)
+  assert.equal(items[1].reason, '需要 group 列')
+  assert.equal(items[2].native, false)
+  assert.equal(items[2].external, true)
+  assert.equal(items[2].available, false)
+  assert.equal(items[2].alternative, '用 trajectory_dpt')
+  assert.deepEqual(SC.normalizeAnalyses(null), [])
+  assert.deepEqual(SC.normalizeAnalyses([{ id: 'x', native: true }])[0].params, [])
+})
+
+test('groupAnalyses：按固定分组顺序，未知分组排最后', () => {
+  const items = [
+    { id: 'a', group: '虚拟敲除' },
+    { id: 'b', group: '基本分析' },
+    { id: 'c', group: '自定义组' },
+    { id: 'd', group: '基本分析' },
+    { id: 'e' },
+  ]
+  const groups = SC.groupAnalyses(items)
+  assert.deepEqual(groups.map((entry) => entry.group), ['基本分析', '虚拟敲除', '自定义组', SC.ANALYSIS_GROUP_OTHER])
+  assert.deepEqual(groups[0].items.map((item) => item.id), ['b', 'd'])
+  assert.equal(groups[0].labelKey, 'groupBasic')
+  assert.equal(groups[3].labelKey, '')
+  assert.deepEqual(SC.groupAnalyses(null), [])
+})
+
+test('paramDefaults / paramOptionValues：number/boolean/select/column/file/string 默认值', () => {
+  const params = [
+    { key: 'n', type: 'number', default: 5 },
+    { key: 'n2', type: 'number' },
+    { key: 'b', type: 'boolean', default: true },
+    { key: 's', type: 'select', options: ['x', 'y'], default: 'y' },
+    { key: 's2', type: 'select', options: [{ value: 'a', label: 'A' }] },
+    { key: 'c', type: 'column', default: 'clusters' },
+    { key: 'f', type: 'file', default: '/tmp/x.gmt' },
+    { key: 't', type: 'string', default: 'hi' },
+  ]
+  assert.deepEqual(SC.paramDefaults(params), {
+    n: 5, n2: '', b: true, s: 'y', s2: 'a', c: 'clusters', f: '/tmp/x.gmt', t: 'hi',
+  })
+  assert.deepEqual(SC.paramOptionValues({ type: 'select', options: ['x', { value: 'a', label: 'A' }] }), [
+    { value: 'x', label: 'x' },
+    { value: 'a', label: 'A' },
+  ])
+  assert.deepEqual(SC.paramDefaults(null), {})
+})
+
+test('collectAnalysisParams：空值省略、boolean 归一、非法数字给可读错误', () => {
+  const params = [
+    { key: 'n', type: 'number' },
+    { key: 'n2', type: 'number' },
+    { key: 'b', type: 'boolean' },
+    { key: 's', type: 'select' },
+    { key: 'c', type: 'column' },
+    { key: 'f', type: 'file' },
+  ]
+  const built = SC.collectAnalysisParams(params, { n: '7', n2: '', b: false, s: 'y', c: 'clusters', f: '' })
+  assert.equal(built.error, '')
+  assert.deepEqual(built.params, { n: 7, b: false, s: 'y', c: 'clusters' })
+  const bad = SC.collectAnalysisParams(params, { n: 'abc' })
+  assert.match(bad.error, /需要是数字/)
+})
+
+test('needsHint：clusters / groups:<col> / gene_order / 空 needs', () => {
+  const noSteps = { steps: [], obsColumns: [] }
+  assert.equal(SC.needsHint({ needs: [] }, noSteps), '')
+  assert.match(SC.needsHint({ needs: ['clusters'] }, noSteps), /需要先运行聚类步骤/)
+  assert.equal(SC.needsHint({ needs: ['clusters'] }, { steps: ['cluster'], obsColumns: [] }), '')
+  assert.match(SC.needsHint({ needs: ['groups:group'] }, { steps: ['cluster'], obsColumns: [{ key: 'clusters' }] }), /group/)
+  assert.equal(SC.needsHint({ needs: ['groups:group'] }, { steps: ['cluster'], obsColumns: [{ key: 'group', kind: 'categorical' }] }), '')
+  assert.match(SC.needsHint({ needs: ['gene_order'] }, noSteps), /基因位置/)
+  assert.equal(SC.needsHint(null, null), '')
+})
+
+test('formatCandidates：archive member / RData object / 字符串候选 / 嵌套 data.candidates', () => {
+  const archive = SC.formatCandidates({
+    ok: false,
+    code: 'ambiguous',
+    error: '多个候选',
+    candidates: [
+      { member: 'counts/matrix.mtx', label: 'matrix.mtx', size: 123456, format: '10x_mtx' },
+      { member: 'GSE1_series_matrix.txt.gz', size: 98765 },
+    ],
+  })
+  assert.equal(archive.count, 2)
+  assert.equal(archive.items[0].label, 'matrix.mtx')
+  assert.deepEqual(archive.items[0].patch, { member: 'counts/matrix.mtx' })
+  assert.match(archive.items[0].detail, /10x_mtx/)
+  assert.match(archive.items[0].detail, /KB/)
+  assert.deepEqual(archive.items[1].patch, { member: 'GSE1_series_matrix.txt.gz' })
+
+  const rdata = SC.formatCandidates({
+    candidates: [{ object: 'seu', class: 'Seurat', label: 'seu', n_obs: 2400, n_vars: 1200, size: 2048 }],
+  })
+  assert.deepEqual(rdata.items[0].patch, { object: 'seu' })
+  assert.match(rdata.items[0].detail, /Seurat · 2,400×1,200 · 2 KB/)
+
+  const nested = SC.formatCandidates({ data: { candidates: [{ member: 'a/b.csv' }] } })
+  assert.deepEqual(nested.items[0].patch, { member: 'a/b.csv' })
+
+  const strings = SC.formatCandidates(['a/b.tsv', 'someObject'])
+  assert.equal(strings.items.length, 2)
+  assert.deepEqual(strings.items[0].patch, { member: 'a/b.tsv' })
+  assert.equal(SC.formatCandidates(null).count, 0)
+})
+
+test('formatTableRows / formatTableCell：列、单元格展示值、行数与截断', () => {
+  const table = {
+    id: 't1', title: 'DE', note: 'n',
+    columns: [
+      { key: 'gene', label: 'Gene', type: 'string' },
+      { key: 'logfc', label: 'logFC', type: 'number' },
+    ],
+    rows: [{ gene: 'CD3D', logfc: 2.3456 }, { gene: 'CD3E', logfc: 1.2 }],
+  }
+  const view = SC.formatTableRows(table)
+  assert.equal(view.total, 2)
+  assert.equal(view.shown, 2)
+  assert.equal(view.truncated, false)
+  assert.equal(view.columns[1].numeric, true)
+  assert.equal(view.rows[0].cells[0].text, 'CD3D')
+  assert.equal(view.rows[0].cells[1].text, '2.346')
+  const limited = SC.formatTableRows(table, 1)
+  assert.equal(limited.shown, 1)
+  assert.equal(limited.truncated, true)
+  const broken = SC.formatTableRows(null)
+  assert.deepEqual([broken.columns.length, broken.rows.length, broken.total, broken.truncated], [0, 0, 0, false])
+
+  assert.equal(SC.formatTableCell(null, true), '—')
+  assert.equal(SC.formatTableCell(2.3456, true), '2.346')
+  assert.equal(SC.formatTableCell(2.5, false), '2.5')
+  assert.equal(SC.formatTableCell(true, true), 'true')
+  assert.equal(SC.formatTableCell(['a', 'b'], true), 'a, b')
+})
+
+test('formatBytes：B/KB/MB 与非法值', () => {
+  assert.equal(SC.formatBytes(0), '0 B')
+  assert.equal(SC.formatBytes(512), '512 B')
+  assert.equal(SC.formatBytes(1536), '1.5 KB')
+  assert.equal(SC.formatBytes(1024 * 1024), '1 MB')
+  assert.equal(SC.formatBytes(null), '—')
+})
+
+test('normalizeAnalysisResult：三种包装、figures(url/file)、obs_merged、warnings', () => {
+  const direct = SC.normalizeAnalysisResult({
+    ok: true,
+    id: 'cell_cycle', title: '细胞周期评分', method: 'Tirosh 打分',
+    summary: { bullets: ['完成打分'], metrics: { n_cells: 2400 } },
+    tables: [{ id: 't1', title: '相位', columns: [{ key: 'phase', label: 'Phase', type: 'string' }], rows: [{ phase: 'G1' }] }],
+    figures: [
+      { id: 'a.png', title: 'UMAP', file: '/tmp/a.png', url: '/singlecell/figure?id=a.png', width: 720, height: 480 },
+      { file: '/tmp/b.png' },
+      { title: 'dropped' },
+    ],
+    obs_columns: [{ key: 'phase', kind: 'categorical' }],
+    obs_merged: ['phase'],
+    warnings: ['lite 实现'],
+  })
+  assert.equal(direct.id, 'cell_cycle')
+  assert.equal(direct.method, 'Tirosh 打分')
+  assert.deepEqual(direct.summary.bullets, ['完成打分'])
+  assert.equal(direct.summary.metrics.n_cells, 2400)
+  assert.equal(direct.tables[0].columns[0].type, 'string')
+  assert.equal(direct.figures.length, 2, '没有 url/file 的图应被丢弃')
+  assert.equal(direct.figures[0].url, '/singlecell/figure?id=a.png')
+  assert.equal(direct.figures[1].url, '', 'file-only 图保留 file 供路径兜底')
+  assert.equal(direct.figures[1].file, '/tmp/b.png')
+  assert.deepEqual(direct.obsMerged, ['phase'])
+  assert.deepEqual(direct.obsColumns, [{ key: 'phase', kind: 'categorical' }])
+  assert.deepEqual(direct.warnings, ['lite 实现'])
+
+  assert.equal(SC.normalizeAnalysisResult({ analysis: { id: 'wrapped' } }).id, 'wrapped')
+  assert.equal(SC.normalizeAnalysisResult({ result: { id: 'wrapped2' } }).id, 'wrapped2')
+  const empty = SC.normalizeAnalysisResult(null)
+  assert.deepEqual([empty.summary.bullets, empty.tables, empty.figures], [[], [], []])
+})
+
+test('normalizeAnalysesPayload：groups/columns/group_keys/diagnostics', () => {
+  const payload = SC.normalizeAnalysesPayload({
+    dataset: 'ds1',
+    groups: ['基本分析', '组间对比'],
+    columns: [{ key: 'clusters' }, { key: 'n_genes', kind: 'numeric' }],
+    group_keys: ['clusters', 'cell_type'],
+    diagnostics: { sets: 'ok' },
+    analyses: [{ id: 'cell_cycle', title: '细胞周期评分', group: '基本分析', native: true, available: true }],
+  })
+  assert.equal(payload.dataset, 'ds1')
+  assert.deepEqual(payload.groups, ['基本分析', '组间对比'])
+  assert.deepEqual(payload.columns, [{ key: 'clusters', kind: 'categorical' }, { key: 'n_genes', kind: 'numeric' }])
+  assert.deepEqual(payload.groupKeys, ['clusters', 'cell_type'])
+  assert.deepEqual(payload.diagnostics, { sets: 'ok' })
+  assert.equal(payload.analyses.length, 1)
+})
+
+test('buildColorOptions / mergeObsColumns：固定项在前、分析新增列自动可选', () => {
+  const options = SC.buildColorOptions([
+    { key: 'clusters', kind: 'categorical' },
+    { key: 'cell_type', kind: 'categorical' },
+    { key: 'n_genes', kind: 'numeric' },
+    { key: 'phase', kind: 'categorical' },
+    { key: 'entropy', kind: 'numeric' },
+  ])
+  assert.deepEqual(options.map((option) => option.value), [
+    'cluster:clusters', 'obs:cell_type', 'obs:n_genes', 'obs:pct_counts_mt',
+    'obs:entropy', 'obs:phase', 'gene',
+  ])
+  assert.equal(options[0].labelKey, 'colorCluster')
+  assert.equal(options[4].label, 'entropy · numeric')
+  assert.equal(options[5].label, 'phase · categorical')
+  assert.equal(options[6].labelKey, 'colorGene')
+
+  const merged = SC.mergeObsColumns(
+    [{ key: 'clusters', kind: 'categorical' }],
+    [{ key: 'phase', kind: 'numeric' }, { key: 'clusters', kind: 'numeric' }],
+    [{ key: 'regulon_1' }],
+  )
+  assert.deepEqual(merged.map((column) => column.key), ['clusters', 'phase', 'regulon_1'])
+  assert.equal(merged[0].kind, 'categorical', 'preview 的 kind 优先')
+  assert.equal(merged[2].kind, 'categorical', '缺 kind 时回落 categorical')
+})
+
+test('normalizeFormats：服务端清单优先、不可用标记、失败回落内置清单', () => {
+  const server = SC.normalizeFormats({ formats: [
+    { id: 'auto', title: '自动识别', extensions: [], available: true, note: '' },
+    { id: 'rds', title: 'R 对象', extensions: ['.rds'], available: false, note: '未找到 Rscript' },
+  ] })
+  assert.equal(server.length, 2)
+  assert.equal(server[1].available, false)
+  assert.equal(server[1].note, '未找到 Rscript')
+
+  const fallback = SC.normalizeFormats(null)
+  assert.ok(fallback.length >= 8)
+  assert.equal(fallback[0].id, 'auto')
+  assert.ok(fallback.some((item) => item.id === 'rdata'))
+  assert.ok(fallback.some((item) => item.id === 'archive'))
+})
+
+test('buildImportBody：path/url、format 同时发 data_format、member/object/transpose', () => {
+  assert.deepEqual(SC.buildImportBody({ path: '/tmp/a.h5ad' }), { actor: 'user', path: '/tmp/a.h5ad' })
+  assert.deepEqual(SC.buildImportBody({ url: 'https://x/y.csv.gz' }), { actor: 'user', url: 'https://x/y.csv.gz' })
+  assert.deepEqual(SC.buildImportBody({ path: '/tmp/x.RData', format: 'auto' }), { actor: 'user', path: '/tmp/x.RData' })
+  assert.deepEqual(
+    SC.buildImportBody({ url: 'https://x/y.gz', format: 'matrix_text', member: ' a/b.csv ', object: ' seu ', transpose: 'true' }),
+    {
+      actor: 'user',
+      url: 'https://x/y.gz',
+      format: 'matrix_text',
+      data_format: 'matrix_text',
+      member: 'a/b.csv',
+      object: 'seu',
+      transpose: true,
+    },
+  )
+  assert.equal(SC.buildImportBody({ path: '/tmp/x', transpose: 'false' }).transpose, false)
+  assert.equal(SC.buildImportBody({ path: '/tmp/x', transpose: 'auto' }).transpose, undefined)
+  assert.ok(SC.IMPORT_ACCEPT.includes('.rds'))
+  assert.ok(SC.IMPORT_ACCEPT.includes('.RData'))
+  assert.ok(SC.IMPORT_ACCEPT.includes('.zip'))
+  assert.ok(SC.IMPORT_ACCEPT.includes('.h5ad'))
+  assert.ok(SC.IMPORT_ACCEPT.includes('.mtx'))
+})
+
+test('normalizeImportInspect / normalizeCandidate：预检结果与候选详情', () => {
+  const inspect = SC.normalizeImportInspect({
+    ok: true,
+    format: '10x_mtx',
+    size: 2048,
+    n_obs: 2400,
+    n_vars: 1200,
+    notes: ['自动识别'],
+    candidates: [{ member: 'counts/matrix.mtx', size: 1024 }],
+  })
+  assert.equal(inspect.format, '10x_mtx')
+  assert.equal(inspect.size, 2048)
+  assert.equal(inspect.nObs, 2400)
+  assert.deepEqual(inspect.notes, ['自动识别'])
+  assert.equal(inspect.candidates.length, 1)
+  assert.deepEqual(inspect.candidates[0].patch, { member: 'counts/matrix.mtx' })
+
+  const candidate = SC.normalizeCandidate({ object: 'seu', class: 'Seurat', label: 'seu', n_obs: 10, n_vars: 20 }, 0)
+  assert.equal(candidate.label, 'seu')
+  assert.deepEqual(candidate.patch, { object: 'seu' })
+  assert.match(candidate.detail, /Seurat/)
+})
+
+test('api v3：GET /formats、GET /analyses?dataset、/import/inspect、/analysis', async () => {
+  const { fake, calls } = createFakeFetch([])
+  const api = SC.createApi(fake)
+  await api.getFormats()
+  await api.getAnalyses('ds1')
+  await api.inspectSource({ path: '/tmp/x.rds', format: 'rds', object: 'seu' })
+  await api.importDataset({ url: 'https://x/y.csv.gz', format: 'matrix_text', member: 'm', object: 'o', transpose: 'true' })
+  await api.runAnalysis('ds1', 'cell_cycle', { n_clusters: 6 })
+
+  assert.deepEqual(calls.map((call) => call.url), [
+    '/singlecell/formats',
+    '/singlecell/analyses?dataset=ds1',
+    '/singlecell/import/inspect',
+    '/singlecell/dataset/open',
+    '/singlecell/analysis',
+  ])
+  assert.equal(calls[0].options.method, 'GET')
+  assert.equal(calls[1].options.method, 'GET')
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    actor: 'user', path: '/tmp/x.rds', format: 'rds', data_format: 'rds', object: 'seu',
+  })
+  assert.deepEqual(JSON.parse(calls[3].options.body), {
+    actor: 'user',
+    url: 'https://x/y.csv.gz',
+    format: 'matrix_text',
+    data_format: 'matrix_text',
+    member: 'm',
+    object: 'o',
+    transpose: true,
+  })
+  assert.deepEqual(JSON.parse(calls[4].options.body), {
+    dataset: 'ds1', id: 'cell_cycle', params: { n_clusters: 6 }, actor: 'user',
+  })
+})
+
+test('api ambiguous：错误对象带 code/candidates/status，供候选列表重试', async () => {
+  const { fake } = createFakeFetch([{
+    body: {
+      ok: false,
+      code: 'ambiguous',
+      error: '检测到多个候选对象',
+      candidates: [{ object: 'seu', class: 'Seurat', n_obs: 10, n_vars: 20 }],
+    },
+    status: 400,
+  }])
+  const api = SC.createApi(fake)
+  await assert.rejects(
+    () => api.importDataset({ path: '/tmp/x.RData' }),
+    (error) => {
+      assert.equal(error.code, 'ambiguous')
+      assert.equal(error.status, 400)
+      assert.equal(error.candidates.length, 1)
+      assert.equal(error.candidates[0].object, 'seu')
+      assert.match(error.message, /多个候选/)
+      return true
+    },
+  )
+})
+
+// ---------------------------------------------------------------------------
+// 8.6 v4：样本 & 分组（GEO 每个 GSM 一个文件 → 合并 + 改名 + 大组）
+// ---------------------------------------------------------------------------
+
+test('parsePathLines：多行/逗号分隔、去空行与重复', () => {
+  assert.deepEqual(SC.parsePathLines(' /a/x.csv.gz \n/b/y.csv.gz\n\n/a/x.csv.gz, /c '), [
+    '/a/x.csv.gz', '/b/y.csv.gz', '/c',
+  ])
+  assert.deepEqual(SC.parsePathLines('/a，/b'), ['/a', '/b'])
+  assert.deepEqual(SC.parsePathLines(''), [])
+  assert.deepEqual(SC.parsePathLines(null), [])
+})
+
+test('normalizeSamples / normalizeObsPayload：兼容 Host 真实返回', () => {
+  const samples = SC.normalizeSamples([
+    { id: 'young1', name: '年轻1', group: 'young', n_cells: 300 },
+    { id: 'old1', name: '老年1', group: 'old' },
+    { name: '没有 id 的样本' },
+  ])
+  assert.equal(samples.length, 2)
+  assert.equal(samples[0].nCells, 300)
+  assert.equal(samples[0].name, '年轻1')
+  assert.equal(samples[1].nCells, 0)
+
+  const obs = SC.normalizeObsPayload({
+    ok: true,
+    dataset: 'ds1',
+    columns: [
+      { key: 'sample', kind: 'categorical', n_unique: 3, values: ['young1', 'old1'] },
+      { key: 'n_genes', kind: 'numeric', n_unique: 100 },
+    ],
+    samples: [{ id: 'young1', name: '年轻1', group: 'young', n_cells: 300 }],
+    groups: ['old', 'young'],
+    group_column: 'group',
+    sample_column: 'sample',
+  })
+  assert.equal(obs.dataset, 'ds1')
+  assert.equal(obs.columns.length, 2)
+  assert.deepEqual(obs.columns[0].values, ['young1', 'old1'])
+  assert.equal(obs.columns[1].kind, 'numeric')
+  assert.equal(obs.samples[0].group, 'young')
+  assert.deepEqual(obs.groups, ['old', 'young'])
+  assert.equal(obs.groupColumn, 'group')
+  assert.equal(obs.sampleColumn, 'sample')
+  assert.deepEqual(SC.normalizeObsPayload(null).groups, [])
+})
+
+test('parseSampleRows / groupOptions：样本表与分组下拉', () => {
+  const payload = {
+    samples: [
+      { id: 'young1', name: '年轻1', group: 'young', n_cells: 300 },
+      { id: 'old1', name: '老年1', group: 'old', n_cells: 300 },
+    ],
+    groups: ['old', 'young'],
+  }
+  const rows = SC.parseSampleRows(payload)
+  assert.deepEqual(rows.map((row) => row.id), ['young1', 'old1'])
+  assert.equal(rows[0].name, '年轻1')
+  assert.equal(rows[0].dirty, false)
+
+  const options = SC.groupOptions({ ...payload, samples: payload.samples.concat([{ id: 'm', name: 'm', group: 'mid' }]) })
+  assert.deepEqual(options.map((option) => option.value), ['', 'mid', 'old', 'young'])
+})
+
+test('buildSamplesUpdate / applySampleGroupMapping：全量提交 + 预览映射应用', () => {
+  const rows = [
+    { id: 'young1', name: '年轻1', group: 'young', nCells: 300 },
+    { id: 'old1', name: '', group: '' },
+  ]
+  const body = SC.buildSamplesUpdate(rows, { groups: ['young'], sampleColumn: 'sample', groupColumn: 'group' })
+  assert.deepEqual(body.samples, [
+    { id: 'young1', name: '年轻1', group: 'young' },
+    { id: 'old1', group: '' },
+  ])
+  assert.deepEqual(body.groups, ['young'])
+  assert.equal(body.sample_column, 'sample')
+  assert.equal(body.group_column, 'group')
+
+  const mapped = SC.applySampleGroupMapping(rows, { young1: 'old', old1: 'young' })
+  assert.equal(mapped[0].group, 'old')
+  assert.equal(mapped[0].dirty, true)
+  assert.equal(mapped[1].group, 'young')
+  assert.equal(mapped[1].name, '')
+  assert.equal(rows[0].group, 'young', '原数组不应被修改')
+})
+
+test('auto_group / import-map 结果归一化与预览', () => {
+  const auto = SC.normalizeAutoGroupResult({ mapping: { young1: 'young', old1: 'old', bad: '' }, unmatched: ['x'] })
+  assert.deepEqual(auto.mapping, { young1: 'young', old1: 'old' })
+  assert.deepEqual(auto.unmatched, ['x'])
+  const preview = SC.parseAutoGroupMapping({ mapping: { old1: 'old', young1: 'young' } })
+  assert.deepEqual(preview.rows, [
+    { id: 'old1', group: 'old' },
+    { id: 'young1', group: 'young' },
+  ])
+
+  const mapped = SC.normalizeImportMapResult({
+    updates: [{ id: 'young1', group: 'young' }, { id: 'old1', group: 'old' }],
+    matched: 2,
+    total: 3,
+  })
+  assert.deepEqual(mapped.updates, { young1: 'young', old1: 'old' })
+  assert.equal(mapped.matched, 2)
+  assert.equal(mapped.total, 3)
+})
+
+test('obs join 结果与匹配率文案', () => {
+  const result = SC.normalizeJoinObsResult({ joined_columns: ['age', 'sex'], matched: 850, total: 900, match_rate: 850 / 900 })
+  assert.deepEqual(result.joinedColumns, ['age', 'sex'])
+  assert.equal(result.matched, 850)
+  assert.equal(SC.formatMatchRate(result), '已匹配 850/900（94.4%）')
+  assert.equal(SC.formatMatchRate({ matched: 3, total: 3 }), '已匹配 3/3（100%）')
+  assert.equal(SC.formatMatchRate({}), '')
+})
+
+test('describeGroupState：当前分组列与组列表', () => {
+  assert.equal(SC.describeGroupState(['old', 'young'], 'group'), '当前分组列：group（2 组：old、young）')
+  assert.equal(SC.describeGroupState([], 'group'), '当前分组列：group（未分组）')
+})
+
+test('buildImportBody v4：paths 多文件与 merge_dir 目录合并', () => {
+  assert.deepEqual(SC.buildImportBody({ paths: ['/a/x.csv.gz', '/a/y.csv.gz'] }), {
+    actor: 'user',
+    paths: ['/a/x.csv.gz', '/a/y.csv.gz'],
+  })
+  assert.deepEqual(SC.buildImportBody({ paths: ['/a/x.csv.gz'] }), { actor: 'user', path: '/a/x.csv.gz' })
+  assert.deepEqual(SC.buildImportBody({ path: '/data/geo', mergeDir: true }), {
+    actor: 'user',
+    path: '/data/geo',
+    merge_dir: true,
+  })
+})
+
+test('paramDefaults v4：column 参数在分组列存在时默认落到 group_column', () => {
+  const params = [
+    { key: 'group', type: 'column', default: '' },
+    { key: 'cell_type', type: 'column', default: 'cell_type' },
+    { key: 'n', type: 'number', default: 5 },
+  ]
+  const defaults = SC.paramDefaults(params, [{ key: 'clusters', kind: 'categorical' }, { key: 'group', kind: 'categorical' }], 'group')
+  assert.equal(defaults.group, 'group')
+  assert.equal(defaults.cell_type, 'cell_type', '不存在的列保持原默认值')
+  assert.equal(defaults.n, 5)
+  // 旧签名（无 obs/分组列）行为不变
+  assert.equal(SC.paramDefaults(params).group, '')
+})
+
+test('normalizeDataset v4：samples / groups / group_column 进 state 数据', () => {
+  const dataset = SC.normalizeDataset({
+    id: 'ds9', name: 'merged-3-samples', n_obs: 900, n_vars: 1200, steps: [],
+    samples: [{ id: 'young1', name: '年轻1', group: 'young', n_cells: 300 }],
+    groups: ['old', 'young'],
+    group_column: 'group',
+    sample_column: 'sample',
+  })
+  assert.equal(dataset.samples.length, 1)
+  assert.equal(dataset.samples[0].nCells, 300)
+  assert.deepEqual(dataset.groups, ['old', 'young'])
+  assert.equal(dataset.groupColumn, 'group')
+  assert.equal(dataset.sampleColumn, 'sample')
+})
+
+test('api v4：/obs、/samples/update、/samples/auto-group、/samples/import-map、/obs/join、/obs/set-group、/obs/derive', async () => {
+  const { fake, calls } = createFakeFetch([])
+  const api = SC.createApi(fake)
+  await api.getObs('ds1')
+  await api.samplesUpdate('ds1', {
+    samples: [{ id: 'young1', name: '年轻1', group: 'young' }],
+    groups: ['young', 'old'],
+    sample_column: 'sample',
+    group_column: 'group',
+  })
+  await api.samplesAutoGroup('ds1', '(GC|LM)')
+  await api.samplesImportMap('ds1', '/tmp/map.csv')
+  await api.obsJoin('ds1', '/tmp/meta.csv', 'cell')
+  await api.obsSetGroup('ds1', 'group')
+  await api.obsDerive('ds1', { name: 'batch', source: 'cell_name', pattern: '^(\\w+)_' })
+
+  assert.deepEqual(calls.map((call) => call.url), [
+    '/singlecell/obs?dataset=ds1',
+    '/singlecell/samples/update',
+    '/singlecell/samples/auto-group',
+    '/singlecell/samples/import-map',
+    '/singlecell/obs/join',
+    '/singlecell/obs/set-group',
+    '/singlecell/obs/derive',
+  ])
+  assert.equal(calls[0].options.method, 'GET')
+  assert.deepEqual(JSON.parse(calls[1].options.body), {
+    dataset: 'ds1',
+    actor: 'user',
+    samples: [{ id: 'young1', name: '年轻1', group: 'young' }],
+    groups: ['young', 'old'],
+    sample_column: 'sample',
+    group_column: 'group',
+  })
+  assert.deepEqual(JSON.parse(calls[2].options.body), { dataset: 'ds1', pattern: '(GC|LM)', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[3].options.body), { dataset: 'ds1', path: '/tmp/map.csv', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[4].options.body), { dataset: 'ds1', path: '/tmp/meta.csv', key: 'cell', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[5].options.body), { dataset: 'ds1', column: 'group', actor: 'user' })
+  assert.deepEqual(JSON.parse(calls[6].options.body), { dataset: 'ds1', actor: 'user', name: 'batch', source: 'cell_name', pattern: '^(\\w+)_' })
+})
+
+test('静态：v4 样本 & 分组 UI 与接口接线', () => {
+  assert.match(CLIENT_SOURCE, /function SamplesPanel\(props\)/)
+  assert.match(CLIENT_SOURCE, /samplesPanel: samplesPanelNode/)
+  assert.match(CLIENT_SOURCE, /className: 'sc-samples'/)
+  assert.match(CLIENT_SOURCE, /parsePathLines\(path\)/)
+  assert.match(CLIENT_SOURCE, /mergeDir/)
+  assert.match(CLIENT_SOURCE, /importMergedPrefix/)
+  for (const route of ["'/samples/update'", "'/samples/auto-group'", "'/samples/import-map'", "'/obs/join'", "'/obs/set-group'", "'/obs/derive'", "'/obs' + query"]) {
+    assert.ok(CLIENT_SOURCE.includes(route), `缺少 v4 接口接线：${route}`)
+  }
+  assert.match(CLIENT_SOURCE, /\.sc-samples-table/)
+  assert.match(CLIENT_SOURCE, /\.sc-path-lines/)
+})
+
+// ---------------------------------------------------------------------------
+// 9. 静态合规：模块形态 / 槽注册 / 样式约束
+// ---------------------------------------------------------------------------
+
+test('静态：ModuleLoader 形态、只 require react、无 JSX、无 @deepseek-ai 依赖', () => {
+  assert.match(CLIENT_SOURCE, /window\.__ModuleLoader__\.load\(\{ id: NS, factory: factory \}\)/)
+  assert.match(CLIENT_SOURCE, /var NS = 'dsh-singlecell'/)
+  assert.match(CLIENT_SOURCE, /var API = '\/singlecell'/)
+  assert.match(CLIENT_SOURCE, /factory\(require\)/)
+  assert.match(CLIENT_SOURCE, /var React = require\('react'\)/)
+  assert.doesNotMatch(CLIENT_SOURCE, /@deepseek-ai\//)
+  // 只允许 require('react')：检查所有 require 调用
+  const requires = [...CLIENT_SOURCE.matchAll(/require\('([^']+)'\)/g)].map((match) => match[1])
+  assert.deepEqual([...new Set(requires)], ['react'])
+  // 无 JSX：不出现 <div>/<span> 这种在 JS 里裸写的标签
+  assert.doesNotMatch(CLIENT_SOURCE, /return\s*<\s*[A-Za-z]/)
+})
+
+test('静态：槽注册 main(key=singlecell) + sidebar.panellist(id=singlecell, order=3) + locale/effect 清理', () => {
+  assert.match(CLIENT_SOURCE, /inject: \['slots', 'locale'\]/)
+  assert.match(CLIENT_SOURCE, /slots\.inject\('main'/)
+  assert.match(CLIENT_SOURCE, /name: 'main', key: 'singlecell', locale: NS/)
+  assert.match(CLIENT_SOURCE, /slots\.inject\('sidebar\.panellist'/)
+  assert.match(CLIENT_SOURCE, /name: 'sidebar\.panellist',\s*\n\s*id: 'singlecell',\s*\n\s*order: 3,/)
+  assert.match(CLIENT_SOURCE, /locale\.register\(NS, \{ zh: DICT_ZH, en: DICT_EN \}\)/)
+  assert.match(CLIENT_SOURCE, /ctx\.effect\(registerDictionaries, 'dsh-singlecell: locale'\)/)
+  assert.match(CLIENT_SOURCE, /ctx\.effect\(function \(\) \{/)
+  assert.match(CLIENT_SOURCE, /PluginErrorBoundary/)
+  assert.match(CLIENT_SOURCE, /getDerivedStateFromError/)
+})
+
+test('静态：三栏布局 + 主题变量 + sc- 前缀 + 无硬编码颜色', () => {
+  assert.match(CLIENT_SOURCE, /height:100%;min-height:72vh/)
+  assert.match(CLIENT_SOURCE, /--dsw-alias-brand-primary/)
+  assert.match(CLIENT_SOURCE, /--dsw-alias-bg-layer-1/)
+  assert.match(CLIENT_SOURCE, /--dsw-alias-border-l1/)
+  assert.match(CLIENT_SOURCE, /--dsw-alias-state-error-primary/)
+  assert.match(CLIENT_SOURCE, /--dsw-alias-state-warn-primary/)
+  assert.match(CLIENT_SOURCE, /color-mix\(in srgb,var\(--dsw-alias-brand-primary\)/)
+  assert.match(CLIENT_SOURCE, /flex:0 0 268px/)
+  assert.match(CLIENT_SOURCE, /flex:0 0 300px/)
+
+  const cssStart = CLIENT_SOURCE.indexOf('var CSS = [')
+  const cssEnd = CLIENT_SOURCE.indexOf("].join('')", cssStart)
+  assert.ok(cssStart > 0 && cssEnd > cssStart, '应能定位 CSS 字符串')
+  const cssBlock = CLIENT_SOURCE.slice(cssStart, cssEnd)
+  const selectors = [...cssBlock.matchAll(/'\.([A-Za-z][\w-]*)/g)].map((match) => match[1])
+  assert.ok(selectors.length > 60, `CSS 选择器太少：${selectors.length}`)
+  for (const selector of selectors) {
+    assert.ok(selector.startsWith('sc-'), `类名未用 sc- 前缀：${selector}`)
+  }
+  assert.doesNotMatch(cssBlock, /#[0-9a-fA-F]{3,6}/, 'CSS 里不应出现硬编码 #hex 颜色')
+})
+
+test('静态：交互与轮询要求存在（canvas / visibility / interval 清理 / clipboard / 7 tab）', () => {
+  assert.match(CLIENT_SOURCE, /getContext\('2d'\)/)
+  assert.match(CLIENT_SOURCE, /devicePixelRatio/)
+  assert.match(CLIENT_SOURCE, /addEventListener\('wheel', handleWheel, \{ passive: false \}\)/)
+  assert.match(CLIENT_SOURCE, /onDoubleClick/)
+  assert.match(CLIENT_SOURCE, /document\.visibilityState === 'hidden'/)
+  assert.match(CLIENT_SOURCE, /setInterval\(tick, POLL_MS\)/)
+  assert.match(CLIENT_SOURCE, /clearInterval\(timer\)/)
+  assert.match(CLIENT_SOURCE, /visibilitychange/)
+  assert.match(CLIENT_SOURCE, /navigator\.clipboard/)
+  assert.match(CLIENT_SOURCE, /x-dsh-filename/)
+  assert.match(CLIENT_SOURCE, /accept: IMPORT_ACCEPT/)
+  // 7 个 tab（v2 六个 + v3 高级分析）
+  for (const key of ['tabEmbedding', 'tabQc', 'tabMarkers', 'tabClusters', 'tabRecord', 'tabLog', 'tabAnalysis']) {
+    assert.ok(CLIENT_SOURCE.includes("labelKey: '" + key + "'"), `缺少 tab：${key}`)
+  }
+  // v2 + v3 路由都在客户端接到
+  for (const path of ['/audit', '/autoannotate', '/resolution-scan', '/recipe', '/formats', '/import/inspect', '/analyses', '/analysis']) {
+    assert.ok(CLIENT_SOURCE.includes("'" + path + "'"), `缺少路由：${path}`)
+  }
+  assert.doesNotMatch(CLIENT_SOURCE, /document\.body\.appendChild/)
+  assert.doesNotMatch(CLIENT_SOURCE, /\balert\(/)
+})
+
+test('静态：v3 导入弹层 + 高级分析 tab 的接线', () => {
+  assert.match(CLIENT_SOURCE, /function ImportDialog\(props\)/)
+  assert.match(CLIENT_SOURCE, /function AnalysisTab\(props\)/)
+  assert.match(CLIENT_SOURCE, /className: 'sc-modal'/)
+  assert.match(CLIENT_SOURCE, /role: 'dialog'/)
+  assert.match(CLIENT_SOURCE, /'aria-modal': 'true'/)
+  assert.match(CLIENT_SOURCE, /function handleImport\(options\)/)
+  assert.match(CLIENT_SOURCE, /function handlePickCandidate\(candidate\)/)
+  assert.match(CLIENT_SOURCE, /function handleRunAnalysis\(\)/)
+  assert.match(CLIENT_SOURCE, /colorOptions: colorOptions/)
+  // 只 require('react')（不使用 react-dom portal），弹层用 fixed 浮层
+  assert.doesNotMatch(CLIENT_SOURCE, /require\('react-dom'\)/)
+  assert.match(CLIENT_SOURCE, /\.sc-modal\{position:fixed;inset:0;/)
+})

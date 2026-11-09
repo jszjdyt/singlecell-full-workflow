@@ -1,0 +1,61 @@
+{
+  "name": "dsh-singlecell",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Visually operate a single-cell analysis pipeline in DeepSeek Harness, and let the agent drive the same operations. 单细胞分析工作台：GEO 全格式导入、可视化流程、官方 R/Python 工具桥、可审计产物。",
+  "icon": "icon.svg",
+  "type": "module",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "lib/*.mjs",
+    "lib/*.py",
+    "test/make_sample.py",
+    "README.md",
+    "CONTRACT.md",
+    "requirements.txt",
+    "INSTALL.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-runtime",
+        "@deepseek-ai/dsh-client-connection",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  },
+  "keywords": [
+    "dsh-plugin",
+    "single-cell",
+    "scrna-seq",
+    "scanpy",
+    "umap",
+    "clustering",
+    "deepseek-harness",
+    "bioinformatics",
+    "seurat",
+    "cellchat",
+    "agent",
+    "visualization"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
