@@ -625,6 +625,69 @@ write_obs_csv <- function(obs, cells, path) {
   warnings
 }
 
+export_extra <- function(obj, out_dir) {
+  warnings <- character(0)
+  state <- list(reductions = list(), graphs = list(), variable_features = list(),
+                rank_genes = FALSE, embed_kind = "", class = class(obj)[1])
+  reductions <- character(0)
+  embeddings <- list()
+  write_embedding_csv <- function(emb, file, max_dim, prefix) {
+    if (is.null(emb) || is.null(rownames(emb)) || nrow(emb) < 1 || ncol(emb) < 1) return(FALSE)
+    dims <- seq_len(min(max_dim, ncol(emb)))
+    frame <- data.frame(cell = rownames(emb), emb[, dims, drop = FALSE], check.names = FALSE)
+    names(frame)[-1] <- paste0(prefix, dims)
+    write.csv(frame, file, row.names = FALSE, quote = FALSE)
+    TRUE
+  }
+  if (inherits(obj, "Seurat")) {
+    reductions <- tryCatch(as.character(SeuratObject::Reductions(obj)), error = function(e) character(0))
+    state$reductions <- as.list(reductions)
+    vf <- tryCatch(SeuratObject::VariableFeatures(obj), error = function(e) character(0))
+    state$variable_features <- as.list(as.character(vf))
+    assay <- tryCatch(SeuratObject::DefaultAssay(obj), error = function(e) "")
+    state$graphs <- as.list(tryCatch(as.character(names(SeuratObject::Graphs(obj, assay))), error = function(e) character(0)))
+    misc_names <- tryCatch(as.character(names(obj@misc)), error = function(e) character(0))
+    state$rank_genes <- any(grepl("marker|rank|deg|diff", misc_names, ignore.case = TRUE))
+    for (name in reductions) {
+      emb <- tryCatch(SeuratObject::Embeddings(obj, name), error = function(e) NULL)
+      if (!is.null(emb)) embeddings[[name]] <- emb
+    }
+  } else if (inherits(obj, "SingleCellExperiment")) {
+    reductions <- tryCatch(as.character(SingleCellExperiment::reducedDimNames(obj)), error = function(e) character(0))
+    state$reductions <- as.list(reductions)
+    for (name in reductions) {
+      emb <- tryCatch(SingleCellExperiment::reducedDim(obj, name), error = function(e) NULL)
+      if (!is.null(emb)) embeddings[[name]] <- emb
+    }
+    rd <- tryCatch(SummarizedExperiment::rowData(obj), error = function(e) NULL)
+    if (!is.null(rd) && "highly_variable" %in% colnames(rd)) {
+      state$variable_features <- as.list(rownames(rd)[which(as.logical(rd[["highly_variable"]]))])
+    }
+  }
+  pca_names <- reductions[tolower(reductions) == "pca"]
+  if (length(pca_names) > 0 && !is.null(embeddings[[pca_names[1]]])) {
+    write_embedding_csv(embeddings[[pca_names[1]]], file.path(out_dir, "pca.csv"), 30, "PC")
+  }
+  kind <- ""
+  for (candidate in c("umap", "UMAP", "tsne", "tSNE", "TSNE")) {
+    if (candidate %in% reductions && !is.null(embeddings[[candidate]])) { kind <- candidate; break }
+  }
+  if (!nzchar(kind)) {
+    for (name in reductions) {
+      if (tolower(name) == "pca") next
+      if (!is.null(embeddings[[name]]) && ncol(embeddings[[name]]) >= 2) { kind <- name; break }
+    }
+  }
+  if (nzchar(kind) && !is.null(embeddings[[kind]]) && ncol(embeddings[[kind]]) >= 2) {
+    write_embedding_csv(embeddings[[kind]], file.path(out_dir, "embed.csv"), 2, "dim")
+    state$embed_kind <- kind
+  }
+  vf_values <- as.character(unlist(state$variable_features))
+  vf_values <- vf_values[!is.na(vf_values) & nzchar(vf_values)]
+  if (length(vf_values) > 0) write_lines_utf8(vf_values, file.path(out_dir, "variable_features.txt"))
+  list(state = state, warnings = warnings)
+}
+
 write_outputs <- function(result, out_dir) {
   warnings <- character(0)
   san <- sanitize_matrix(result$matrix)
@@ -700,7 +763,10 @@ main <- function() {
   }
 
   result <- finalize_extract(extract_any(obj))
+  extra <- tryCatch(export_extra(obj, OUT),
+                    error = function(e) list(state = list(), warnings = sprintf("状态导出失败：%s", conditionMessage(e))))
   extra_warnings <- write_outputs(result, OUT)
+  extra_warnings <- c(extra_warnings, as.character(extra$warnings %||% character(0)))
   warnings <- unique(c(result$warnings, extra_warnings))
   meta <- list(
     status = "ok",
@@ -715,6 +781,7 @@ main <- function() {
     n_obs = ncol(result$matrix),
     n_vars = nrow(result$matrix),
     has_counts = isTRUE(result$has_counts),
+    import_state = extra$state,
     warnings = as.list(warnings),
     notes = as.list(result$notes %||% character(0))
   )

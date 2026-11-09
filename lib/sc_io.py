@@ -388,7 +388,7 @@ def _find_10x_dir(root):
     """在目录树里找 10x 三件套所在目录（matrix.mtx(.gz) + barcodes/features）。"""
     for current, _dirs, files in os.walk(root):
         names = {name.lower() for name in files}
-        if any(name.startswith("matrix.mtx") for name in names):
+        if any("matrix.mtx" in name for name in names):
             return Path(current)
     return None
 
@@ -690,6 +690,34 @@ def _load_h5ad(path, options=None):
     meta = {"assays": ["RNA"]}
     payload = _payload("h5ad", path, matrix, obs=obs, var_names=list(map(str, data.var_names)),
                        counts=counts, var=var, warnings=warnings, meta=meta)
+    obsm = {}
+    try:
+        if "X_pca" in data.obsm:
+            obsm["X_pca"] = np.asarray(data.obsm["X_pca"], dtype=np.float32)
+        for key in ("X_umap", "X_tsne", "X_UMAP", "X_tSNE"):
+            if key in data.obsm and np.asarray(data.obsm[key]).ndim == 2:
+                obsm["X_emb"] = np.asarray(data.obsm[key], dtype=np.float32)[:, :2]
+                break
+    except Exception:
+        obsm = {}
+    var_features = []
+    if "highly_variable" in getattr(data, "var", pd.DataFrame()).columns:
+        try:
+            mask = np.asarray(data.var["highly_variable"].to_numpy(), dtype=bool)
+            var_features = [str(gene) for gene, keep in zip(data.var_names, mask) if keep]
+        except Exception:
+            var_features = []
+    import_state = {
+        "class": "AnnData",
+        "reductions": [str(key) for key in list(getattr(data, "obsm", {}).keys())],
+        "rank_genes": "rank_genes_groups" in getattr(data, "uns", {}),
+        "variable_features": var_features,
+        "embed_kind": "umap" if any("umap" in str(key).lower() for key in getattr(data, "obsm", {}).keys()) else "tsne",
+    }
+    payload["obsm"] = obsm
+    payload["var_features"] = var_features
+    payload["import_state"] = import_state
+    payload["embed_kind"] = import_state["embed_kind"]
     return payload
 
 
@@ -730,7 +758,28 @@ def _load_10x_mtx(path, options=None):
     options = options or {}
     warnings = []
     path = Path(path)
-    if path.is_dir():
+    prefix = options.get("trio_prefix")
+    barcodes_file = None
+    features_file = None
+    if path.is_dir() and prefix:
+        # GEO 三联体：同一目录里按 GSM 前缀配对 matrix/barcodes/features
+        directory = path
+        mtx = None
+        for item in sorted(directory.iterdir()):
+            if not item.is_file():
+                continue
+            name = item.name.lower()
+            if str(prefix).lower() not in name:
+                continue
+            if "matrix.mtx" in name:
+                mtx = item
+            elif "barcodes" in name:
+                barcodes_file = item
+            elif "features" in name or "genes" in name:
+                features_file = item
+        if mtx is None or barcodes_file is None or features_file is None:
+            raise _err("not_found", "目录里没有找到前缀为 %s 的 10X 三联体：%s" % (prefix, directory))
+    elif path.is_dir():
         directory = path
         mtx = _sidecar(directory, "matrix", ("matrix.mtx.gz", "matrix.mtx", "matrix.mtx.bz2"))
         if mtx is None:
@@ -741,8 +790,10 @@ def _load_10x_mtx(path, options=None):
     matrix = _read_mtx(mtx)
     if not sp.issparse(matrix):
         matrix = sp.csr_matrix(matrix)
-    barcodes_file = _sidecar(directory, "barcodes", ("barcodes.tsv.gz", "barcodes.tsv"))
-    features_file = _sidecar(directory, "features", ("features.tsv.gz", "features.tsv", "genes.tsv.gz", "genes.tsv"))
+    if barcodes_file is None:
+        barcodes_file = _sidecar(directory, "barcodes", ("barcodes.tsv.gz", "barcodes.tsv"))
+    if features_file is None:
+        features_file = _sidecar(directory, "features", ("features.tsv.gz", "features.tsv", "genes.tsv.gz", "genes.tsv"))
     barcodes = _read_lines_file(barcodes_file) if barcodes_file else []
     features = _read_lines_file(features_file) if features_file else []
     feature_names = []
@@ -1137,10 +1188,38 @@ def _load_r(path, workdir, options=None):
         notes.append("已按 meta.orientation=genes_cells 转置为 cells × genes")
     fmt = "rdata" if str(path).lower().endswith((".rdata", ".rda", ".rdata.gz", ".rda.gz")) else "rds"
     counts = X_shaped if (has_counts and np.all(np.abs(X_shaped.data - np.round(X_shaped.data)) < 1e-6)) else None
-    return _payload(fmt, path, X_shaped, obs=obs, var_names=var_names, counts=counts,
-                    warnings=warnings, notes=notes,
-                    meta={"assays": [str(item) for item in _decode(meta.get("assays") or ["RNA"])],
-                          "cls": cls, "has_counts": counts is not None})
+    payload = _payload(fmt, path, X_shaped, obs=obs, var_names=var_names, counts=counts,
+                       warnings=warnings, notes=notes,
+                       meta={"assays": [str(item) for item in _decode(meta.get("assays") or ["RNA"])],
+                             "cls": cls, "has_counts": counts is not None})
+    # 已有分析进度：pca/embed/variable features/import_state
+    def _read_embedding(file_name):
+        target_file = target / file_name
+        if not target_file.exists():
+            return None
+        try:
+            frame = pd.read_csv(target_file)
+            expected = len(cells) if cells else (len(obs) if isinstance(obs, pd.DataFrame) else 0)
+            if expected and frame.shape[0] != expected:
+                return None
+            return frame.iloc[:, 1:].to_numpy(dtype=np.float32)
+        except Exception:
+            return None
+
+    obsm = {}
+    pca_matrix = _read_embedding("pca.csv")
+    if pca_matrix is not None:
+        obsm["X_pca"] = pca_matrix
+    embed_matrix = _read_embedding("embed.csv")
+    if embed_matrix is not None and embed_matrix.shape[1] >= 2:
+        obsm["X_emb"] = embed_matrix[:, :2]
+    vf_path = target / "variable_features.txt"
+    var_features = _read_lines_file(vf_path) if vf_path.exists() else []
+    payload["obsm"] = obsm
+    payload["var_features"] = [str(item).strip() for item in var_features if str(item).strip()]
+    payload["import_state"] = meta.get("import_state") or {}
+    payload["embed_kind"] = (payload["import_state"] or {}).get("embed_kind") or "umap"
+    return payload
 
 
 # ---------------------------------------------------------------------------

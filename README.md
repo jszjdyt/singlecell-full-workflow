@@ -1,180 +1,177 @@
 # dsh-singlecell — 单细胞分析工作台（DeepSeek Harness 插件）
 
-> **把单细胞分析从「写脚本 + 配环境 + 查报错」变成「点几下 + 说一句话」。**
-> 面向生物信息学小白与代码苦手：GEO 数据一键导入、可视化流程点着跑、官方 R/Python 工具零配置调用、Agent 与界面共用一套操作。
+在 Harness Web GUI 里提供一个**可视化、可点、可被 Agent 驱动**的单细胞分析工作台：
+导入数据（GEO 上能下到的格式 + R 的 `.rds`/`.RData`）→ 跑标准流程（QC/过滤/标准化/HVG/PCA/聚类/嵌入/标记基因）→
+看交互式嵌入图与出版级图 → 自动注释 → 自检 → **一整套高级分析** → 导出可复现产物。
 
-<p align="center">
-  <img src="docs/images/demo-embedding.png" alt="交互式嵌入图" width="720">
-</p>
+设计对齐 [Claude Science](https://www.anthropic.com/news/claude-science-ai-workbench)、
+[Claude for Life Sciences](https://www.anthropic.com/news/claude-for-life-sciences) 这类成熟方案：
+**每个产物都有可审计的历史与运行环境、有确定性复核、有可复用预设流程、可视化产物可交互迭代、参数可对比**。
+单细胞领域沿用 CellxGene 的交互嵌入、Cellenics/Galaxy 的流程卡片与历史、CellMarker/PanglaoDB 式参考 marker 面板、scanpy 最佳实践。
 
-## 为什么做这个
+## 一、数据导入：GEO 上能下到的格式都能读
 
-生信入门真正的门槛不是算法，而是：
+| 格式 | 扩展名/形态 | 说明 |
+|---|---|---|
+| AnnData | `.h5ad`（含 `.gz`） | scverse/scanpy 标准 |
+| 10x Genomics HDF5 | `.h5` | CellRanger `filtered/raw_feature_bc_matrix.h5`；自动只留 Gene Expression |
+| 10x Matrix Market | 目录三件套 或 单个 `.mtx(.gz)` | `matrix.mtx + barcodes.tsv + features/genes.tsv`；缺 sidecar 时自动生成名 |
+| Loom | `.loom` | GEO 常见（HDF5 原生解析，不用 loompy） |
+| 表达矩阵文本 | `.csv/.tsv/.txt`（含 `.gz/.bz2`） | 分隔符嗅探、表头/行名识别、**方向自动判断**（barcode vs 基因符号），可用 `transpose` 强制 |
+| GEO series matrix | `*_series_matrix.txt.gz` | 解析 `!series_matrix_table_begin` 段 + `!Sample_*` 元数据 |
+| R 对象 | `.rds` | Seurat v3/v4/v5、SingleCellExperiment、Matrix/dgCMatrix、data.frame（R 桥，本机 R 4.4.2 + Seurat 5.4） |
+| R 工作空间 | `.RData` / `.rda` | 自动挑 Seurat/SCE；多对象时列出候选，用 `object` 指定 |
+| 压缩包 | `.zip/.tar/.tar.gz/.tgz` | 自动找 10x 三件套或唯一数据文件；多候选时列出来选（防路径穿越、20GB 上限） |
+| URL | `http(s)://`、`ftp://`、GEO `GSE12345` | GEO FTP 直链下载后自动识别；给 GSE 号会列出 supplement 文件再选（8GB 上限） |
 
-1. **数据格式劝退**：GEO 上同一个数据集能给你 10x 三件套、`.h5`、`.loom`、`series_matrix.txt.gz`、CSV、Seurat `.rds`、`.RData`、压缩包……每个都要查一遍教程。
-2. **环境劝退**：R 要装 Seurat/SeuratObject/Bioconductor，Python 要装 scanpy/anndata，版本冲突能耗掉一天。
-3. **分组劝退**：GEO 常常「一个 GSM 一个文件」，样本名和大组信息只在文件名里，组间比较无从下手。
-4. **高级分析劝退**：CellChat、monocle3、SCENIC、NicheNet、inferCNV……每个工具一套 API、一篇教程。
-5. **Agent 不会用**：大模型能写代码，但它不知道你的环境装了什么、工作台里有什么数据。
+打开方式（页面顶栏「导入数据」或对话里让 Agent 做）：
 
-**dsh-singlecell 把上面五件事全接进 DeepSeek Harness Web GUI**：界面给不写代码的人，Agent 工具给想偷懒的人，同一套实现。
-
-## 功能一览
-
-### 1. 导入：GEO 上能下到的格式都能读
-
-| 格式 | 说明 |
-|---|---|
-| `.h5ad` | AnnData 标准格式 |
-| 10x `.h5` | CellRanger filtered/raw，自动只留 Gene Expression |
-| 10x Matrix Market | 三件套目录 / 单个 `.mtx(.gz)` |
-| `.loom` | GEO 常见，h5py 原生解析 |
-| CSV/TSV/TXT（可 `.gz`） | 自动判分隔符、表头、矩阵方向 |
-| GEO `series_matrix.txt.gz` | 解析 `!Sample_*` 元数据 |
-| **Seurat `.rds`** | Seurat v3/v4/v5、SingleCellExperiment、Matrix、data.frame |
-| **`.RData` / `.rda`** | 多对象自动列候选，选定即读 |
-| `.zip/.tar/.tar.gz` | 自动找 10x 三件套或唯一数据文件 |
-| URL / GEO `GSExxxxx` | 直链下载；给 GSE 号会列 supplement 文件再选 |
-
-**多文件合并导入**：一次选多个 `GSM*.csv.gz`（或目录），每个文件=一个样本，自动生成 `sample` 列，基因取交集。
-
-### 2. 样本 & 分组编辑器（不需要写一行代码）
-
-- 表格逐行改**样本名**、指定**大组**（young/old、GC/LM…可新建）；
-- 按文件名正则**批量自动分组**（如 `(GC|LM)`）；
-- 导入「样本→大组」对照 CSV；
-- 导入细胞级 metadata CSV（按 barcode join，显示匹配率）；
-- 设置分组列后，所有组间分析自动使用它。
-
-<p align="center"><img src="docs/images/demo-qc-violin.png" width="620" alt="QC 图"></p>
-
-### 3. 可视化流程（10 步，点着跑）
-
-QC → 过滤 → 标准化 → 高变基因 → PCA → 邻接图 → 聚类 → 二维嵌入 → 标记基因 → 细胞类型注释。
-
-- 每步可改参数、可重跑、有依赖检查；
-- 交互式嵌入图：缩放/拖拽/悬停/按基因或任意元数据着色；
-- 自检（10 项，0–100 分）、自动注释建议、分辨率扫描、预设流程一键跑；
-- **降维可切 Seurat 6.0 官方流程**（`seurat6` 预设）。
-
-### 4. 高级分析：27 项原生 + 17 项官方工具
-
-原生（本插件实现，无需额外依赖）：细胞周期、亚型细分、批次校正、组间比例差异、组间差异基因、火山图、桑基图、GO/KEGG、GSEA、GSVA、AUCell、cNMF、WGCNA、伪时间、PAGA、熵干性、CytoTRACE、CNV/ITH、配体-受体通讯、SCENIC-lite、虚拟敲除/过表达/筛选。
-
-本机装了官方工具就**自动调用官方实现**（显示真实版本）：
-
-| 官方工具 | 实测 |
-|---|---|
-| Seurat 6.0.0（独立库，不动系统版本） | 4.4s |
-| CellChat 1.6.1 | 5.9s |
-| monocle3 1.3.7 | 11.3s |
-| NicheNet 2.2 | 20.9s |
-| SCENIC(R) 1.3.1 | 192s |
-| clusterProfiler / fgsea / GSVA / AUCell / WGCNA | 2–108s |
-| harmony / slingshot / CellPhoneDB / pySCENIC | 4–48s |
-| CellOracle（虚拟敲除）/ CopyKAT / SoupX | 2–25s |
-
-> 官方版与 lite 版**并存且明确标注**：官方版 method 写真实包名版本；lite 版写「本插件实现」。做不了的（如 inferCNV 安装失败、无 spliced 层的 RNA velocity）会直接显示原因，**不伪造结果**。
-
-### 5. 可审计产物
-
-每步 run 记录参数、耗时、引擎版本、随机种子；可导出：
-
-- `protocol.json`（完整溯源）
-- `methods.md`（英文 Methods，可直接进论文）
-- `report.md`（摘要 + 图 + marker 表 + 自检）
-- `script.py`（scanpy 风格复现脚本）
-- `.h5ad`（含 clusters/cell_type/obsm/layers）
-
-### 6. Agent 双入口
-
-页面按钮与 Agent 工具**共用同一套实现**（`lib/impl.mjs` 的 op 函数）。对话里可以直接说：
-
-> 用单细胞工作台把这几个 GSM 文件合并导入，样本名改成 GC1/GC2/LM1，分组 young/old，跑 Seurat 6.0 流程，然后按 group 做组间差异基因和通讯分析
-
-Agent 会调 `singlecell` 工具完成，并在左栏实时看到同样的状态与图。
-
-## 快速开始
-
-### 环境要求
-
-- DeepSeek Harness（Web GUI）
-- Python 3.10+：`numpy pandas scipy scikit-learn anndata h5py matplotlib`
-- 可选 R 4.x + `Seurat`/`SeuratObject`/`SingleCellExperiment`（只有读 `.rds/.RData` 才需要）
-- 可选：安装官方工具（CellChat/monocle3/SCENIC/…），插件会自动探测并接入
-
-### 安装
-
-```bash
-git clone https://github.com/jszjdyt/singlecell-full-workflow.git ~/dsh-plugins/dsh-singlecell
-cd ~/dsh-plugins/dsh-singlecell
-python3 -m pip install -r requirements.txt
+```
+用单细胞工作台打开 /Users/you/data/GSE123456_10x/     # 目录三件套
+用单细胞工作台打开 /Users/you/objects/neu_clean.rds   # Seurat 对象
+用单细胞工作台打开 https://ftp.ncbi.nlm.nih.gov/geo/series/GSE123nnn/GSE123456/suppl/GSE123456_raw.tar.gz
 ```
 
-在 Harness 会话里对 Agent 说（会请求确认）：
+R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`group`、`percent.mt` 等），可直接用于着色与组间分析。
 
-> plugin_manager install_bundle target=/绝对路径/dsh-singlecell
+## 二、标准流程（可视化 + 可重跑）
 
-看到 `application: applied` 即成功；刷新页面，侧边栏出现「单细胞」。详见 [INSTALL.md](INSTALL.md)。
+左栏 10 张流程卡片：质控 → 过滤 → 标准化 → HVG → PCA → 邻接图 → 聚类 → 二维嵌入 → 标记基因 → 细胞类型注释。
+每张卡可改参数、可重跑、有依赖提示；完成后回填一行摘要。中栏 6 个 tab：
 
-### 三步上手
+- **嵌入图**：canvas 交互散点（滚轮缩放/拖拽/双击复位/悬停 tooltip/图例点选高亮），可按 cluster、cell_type、QC 指标、任意基因或**分析写回的 obs 列**（伪时间、细胞周期相位、regulon 活性…）着色
+- **QC**：小提琴图 / 散点图（按需生成）
+- **标记基因**：每簇 top marker 表（logFC、BH 校正 p、表达比例）+ dot plot / heatmap
+- **聚类**：簇大小柱状图 + 逐簇改细胞类型名
+- **记录**：数据集历史（每步参数/耗时/引擎版本/种子）、自检、自动注释、分辨率扫描、导出
+- **高级分析**：见下
 
-1. 顶栏「导入数据」→ 多行粘贴 GSM 文件路径（或勾「目录合并」）→ 导入；
-2. 「记录」→「样本 & 分组」→ 改样本名、选大组 → 保存分组；
-3. 「高级分析」→ 选分析（分组列已默认选中）→ 运行。
+辅助能力：**自动注释**（内置 ≥14 类参考 marker 面板，给 top1/top2 + margin + 证据基因）、**自检**（10 项确定性检查，0–100 分）、**分辨率扫描**（多 resolution 的簇数与 ARI）、**预设流程**（standard/quick/qc 一键跑）。
 
-## 可拓展性（插件设计核心）
+## 三、高级分析（能力图全量登记）
 
-四个扩展点都有明确契约与测试：
+「高级分析」tab 按 7 大类列出全部条目。**原生分析**（下面标 native）在本机零配置可跑；**外部工具**灰显并给出原因与本插件替代方案，不会伪装成可运行。
 
-1. **分析模块**：新增 `lib/sc_analyses_*.py`，实现 `ANALYSES` 元数据 + `run(analysis_id, ctx, params, outdir)`，引擎自动发现并出现在 UI/Agent 目录里；
-2. **官方工具适配器**：新增 `lib/external/<tool>.{R,py}`，统一 CLI `--bundle/--out/--params`，写 `result.json` 即被桥接层接管（本仓库 17 个官方工具都是这么接的）；
-3. **导入格式**：`lib/sc_io.py` 里加分支即可（现有 10+ 格式）；
-4. **预设流程**：`lib/sc_engine.py` 的 `RECIPES` 加一条，UI 下拉自动出现。
+| 组 | 原生态分析（可跑） | 外部工具（已登记，给替代方案） |
+|---|---|---|
+| 基本分析 | 细胞周期评分、亚型细分、多样本整合/批次效应校正 | scRNA-seq 污染校正（SoupX/DecontX） |
+| 组间对比 | 组间细胞类型比例差异、同细胞类型组间差异基因 | — |
+| 数据可视化 | 火山图、比例桑基图、差异基因 Featureplot/Vlnplot/dotplot/heatmap | — |
+| 通路分析 | GO/KEGG 富集（内置 GMT + 用户 gmt + 可选 Enrichr 在线）、GSEA、GSVA 式通路活性 | — |
+| 基因集合分析 | AUCell 式基因集打分、cNMF 表达程序、WGCNA 式共表达模块、基因集分数联合元数据 | — |
+| 发育轨迹分析 | 扩散伪时间（monocle-like）、簇级轨迹图（PAGA-like）、熵干性分析、CytoTRACE 式分化潜能 | Monocle 官方实现、Palantir、RNA velocity（需 spliced/unspliced） |
+| 肿瘤异质性分析 | CNV 信号（inferCNV 代理，可给基因位置则按染色体排序）、CNV 进化树、ITH_score | inferCNV 官方、CopyKAT |
+| 细胞通讯分析 | 细胞通讯（内置 ~170 对配体-受体，CellChat/NATMI-lite） | NicheNet、CellPhoneDB、CellChat 官方 |
+| 转录调控分析 | SCENIC-lite（内置 TF 列表 + 共表达靶基因 + AUCell 式活性） | pySCENIC、SCENIC、ARACNe-AP |
+| 虚拟敲除 | 虚拟敲除、虚拟过表达、虚拟筛选（GRN 传播） | CellOracle、RegVelo |
 
-架构：
+**诚实说明**：标 `lite`/代理的都是本插件用表达矩阵做的重实现，不等同于官方工具结果；`method` 字段会写明实现方式。
+真正依赖外部数据/工具的分析（RNA velocity 需要剪接计数、pySCENIC 需要 motif 数据库等）只登记 + 给指引，不在此假装可跑。
 
-```mermaid
-flowchart LR
-  UI[浏览器 client.js<br/>React 整页] -->|同源 HTTP /singlecell/*| HOST[Host index.js + lib/impl.mjs<br/>唯一操作实现 + Agent 工具]
-  HOST -->|JSON-lines stdio| PY[Python worker lib/sc_engine.py]
-  PY --> IO[lib/sc_io.py<br/>全格式导入 + R 桥]
-  PY --> REG[lib/analysis_registry.py<br/>原生分析 27 项]
-  PY --> EXT[lib/sc_external.py<br/>官方工具桥]
-  EXT -->|Rscript| RTOOLS[CellChat/monocle3/SCENIC/WGCNA/...]
-  EXT -->|external Python| PYTOOLS[pySCENIC/CellOracle/CellPhoneDB/...]
+分析结果会以表 + 图呈现，部分分析（细胞周期、伪时间、CNV、regulon 等）把新列写回 `obs`，立刻可在嵌入图里着色。
+
+## 四、Agent 驱动（与页面同一套实现）
+
+Host 注册 `singlecell` 工具，Agent 与页面按钮共用 `lib/impl.mjs` 的操作实现；系统提示会带上工作台与当前数据集状态。
+
+```
+用单细胞工作台载入示例数据，跑到聚类，给细胞类型建议，再按 group 做组间比例差异和差异基因
+用工作台打开 neu_analysis/objects/neu_clean.rds，用 celltype 着色看嵌入，然后跑队列细胞周期和 SCENIC-lite
+把当前数据跑一下 GSEA（用内置通路集），再导出 report
 ```
 
-## 测试与验证
+常用 action：`status / demo / open / inspect / preview / run / embedding / markers / autoannotate / audit /
+resolution_scan / recipe / analyses / analysis / plot / export / close / reset`。
+`open` 的格式参数名是 **`data_format`**（不是 `format` —— `format` 是 JSON Schema 保留字，会让工具 schema 非法，见 `CONTRACT.md` 注意事项）。
 
-| 套件 | 结果 |
+## 五、溯源与导出（可审计产物）
+
+| 文件 | 内容 |
 |---|---|
-| 引擎主流程 `test/py_pipeline_test.py` | 263/263 PASS |
-| 导入层 `test/py_import_test.py` | ALL PASS（23 格式 + ambiguous + 安全） |
-| 原生分析 sets / dynamics | 10841 断言 / 527 checks ALL PASS |
-| Seurat 6.0 `test/py_seurat6_test.py` | 241 PASS / 0 FAIL |
-| Host↔引擎 `test/engine.test.mjs` | 34/34 |
-| 前端 `test/client-logic.test.mjs` | 68/68 |
+| `protocol.json` | 数据来源、格式、维度、完整步骤历史（参数/耗时/引擎版本/种子）、图片清单、插件版本、跑过的分析 |
+| `methods.md` | 英文 Methods 段落（步骤 + 参数 + 软件版本 + 阈值），可直接进论文 |
+| `report.md` | 报告：摘要 + Methods + 图（同目录 PNG）+ top markers 表 + 自动注释建议 + 自检结果 |
+| `script.py` | scanpy 风格可复现脚本（builtin 模式注明等价参数） |
+| `*.h5ad` | 含 `obs`（clusters/cell_type/分析列）、`obsm`（X_pca/X_emb）、`X`、`layers["counts"]` |
 
-```bash
-python3 test/py_pipeline_test.py
-python3 test/py_import_test.py
-node test/engine.test.mjs
-node test/client-logic.test.mjs
+## 六、安装与环境
+
+插件已安装在本机 desktop profile（`dsh-singlecell` bundle，linked 安装，改代码即生效）。
+重装：让 Agent 执行 `plugin_manager install_bundle target=<绝对路径>`；替换版本需先 `remove_bundle`。
+
+- **Python**：3.10+，需要 `numpy pandas scipy scikit-learn anndata matplotlib h5py`。检测到 scanpy 会自动切 scanpy 模式（Leiden/UMAP），否则用内置引擎（纯 Python Louvain + t-SNE）。
+- **R**（仅 `.rds`/`.RData` 需要）：R 4.x + `Seurat`/`SeuratObject`/`SingleCellExperiment`/`SummarizedExperiment`/`Matrix`。本机已验证 R 4.4.2 + Seurat 5.4.0。
+- Host 按 `config.python` → `DSH_SINGLECELL_PYTHON` → PATH `python3` → macOS 框架版 → Homebrew → 系统 Python 顺序探测；R 按 `/usr/local/bin/Rscript`、框架版、PATH 探测。
+- 数据与计算全在本机：Python worker 是本机子进程，HTTP 路由只接受回环地址。
+
+配置（`cordis.patch.yml`）：
+
+```yaml
+- id: dsh-singlecell
+  name: dsh-singlecell
+  config:
+    python: /opt/homebrew/bin/python3   # 可选
+    workdir: /tmp/my-sc-workdir         # 可选（导入解包/图/导出都在这里）
+    timeoutMs: 180000                   # 可选
 ```
 
-## 诚实限制
+## 七、架构
 
-- 27 项原生分析是本插件实现（method 字段标 `lite/近似/代理`），不等同官方工具结果；
-- 官方工具能否用取决于你本机装了什么，插件只做探测与调用；`inferCNV` 安装失败时显示原因，不用 lite 冒充；
-- RNA velocity / RegVelo 需要 spliced/unspliced 层；无层时拒绝执行并提示；
-- 自动注释是参考 marker 面板建议，自检是规则检查，不替代专家判断；
-- 大矩阵随细胞数增长占用内存，`close/reset` 释放。
+```
+浏览器 client.js（React，main 槽 key=singlecell + sidebar.panellist）
+   │ 同源 fetch /singlecell/*（前缀路由，加接口不需要重载 Host）
+   ▼
+Host index.js → lib/impl.mjs（唯一操作实现 + 路由 + Agent 工具 + prompt section）
+   │ JSON-lines stdio
+   ▼
+Python worker lib/sc_engine.py（长驻，数据集常驻内存）
+   ├─ lib/sc_io.py            全格式导入（h5ad/10x/loom/mtx/文本/GEO/压缩包/URL）+ R 桥 lib/r_bridge.R
+   ├─ lib/analysis_registry.py 高级分析目录/ctx/分发 + 外部项登记
+   ├─ lib/sc_analyses_sets.py  基因集/通路/矩阵类分析
+   └─ lib/sc_analyses_dynamics.py 整合/轨迹/异质性/通讯/调控/虚拟敲除
+```
 
-## 许可证
+## 八、故障排查
 
-MIT。见 [LICENSE](LICENSE)。
+| 现象 | 处理 |
+|---|---|
+| 「Python 环境未就绪」 | 按提示装依赖，或在 config 指定 `python` |
+| `.rds` 报没有 Rscript | 安装 R 与 Seurat/SeuratObject；或先用 R 转成 h5ad |
+| `.RData` 提示多个对象 | 在导入面板/工具参数里传 `object`（候选会列出来） |
+| 压缩包提示多个候选 | 传 `member` 选相对路径 |
+| 10x h5 只读到部分基因 | 自动只保留 Gene Expression；raw 矩阵含全部 feature 属正常 |
+| 图看不到 | 重新生成；临时目录被清理后旧图会失效 |
+| 分析显示"不可用" | 看 reason：通常需要先聚类 / 数据缺分组列 / 缺基因位置文件 |
+| 工具 schema 报 Invalid schema | 参数名不要用 JSON Schema 保留字（如 `format`），见 CONTRACT |
 
-## 参赛 / 详细介绍
+## 九、限制（诚实声明）
 
-见 [docs/PLUGIN-CONTEST.md](docs/PLUGIN-CONTEST.md)（含长版介绍、300 字表单短版、宣传语）。
+- 内置引擎不含双细胞去除、批次校正的官方实现（整合是本插件 ComBat/BBKNN 式近似）、细胞周期回归。
+- 高级分析中标 lite/代理的是**本插件实现**，不是官方工具（pySCENIC/CellChat/NicheNet/inferCNV/CellOracle 等）的同款结果；对这些结果请谨慎解释。
+- RNA velocity、monocle/Palantir 官方实现、NicheNet/CellPhoneDB、SCENIC 官方、CellOracle/RegVelo、CopyKAT、SoupX/DecontX 需要外部工具或额外数据，本插件不内置，只在分析目录里登记并给替代方案。
+- 自动注释基于内置参考面板，只是建议；自检是确定性规则检查，不是第二模型复核。
+- 大矩阵内存占用随数据量增长（常驻 worker）；`close`/`reset` 可释放。
+
+## 十、官方工具桥（本机官方实现，非 lite）
+
+插件会**自动探测本机已装的官方工具**并接入「高级分析」：装了就显示可运行、显示真实版本；没装显示原因。
+当前实测可用（demo-pbmc 2208×1200，真实调用非模拟）：
+
+| 官方工具 | 实测耗时 | 产出 |
+|---|---|---|
+| Seurat **6.0.0**（独立 R 库，不动系统 5.4） | full 4.4s / 预设 8.5s | PCA+聚类+UMAP 写回，ARI 对真值 1.0 |
+| CellChat 1.6.1 | 5.9s | 通讯表 + obs 强度 + 2 图 |
+| monocle3 1.3.7 | 11.3s | 伪时间/partition 写 obs + 2 图 |
+| clusterProfiler 4.14.6（GO/KEGG） | 31.4s | 真 GO/KEGG 条目 + 2 图 |
+| fgsea 1.32.4 | 2.4s | NES/p + 2 图 |
+| GSVA 2.0.7 | 10.4s | 通路活性写 obs |
+| AUCell 1.28.0 | 4.7s | 基因集 AUC 写 obs |
+| harmony 1.2.4 | 4.6s | 修正分量写 obs |
+| CellPhoneDB 5.0.1 | 4.3s | 官方置换检验通讯表 |
+| pySCENIC 0.12.1 | 48.3s | GRNBoost2 21582 边/12 regulon 写 obs |
+| slingshot 2.14.0 | 4.1s | 谱系伪时间写 obs |
+| NicheNet (nichenetr 2.2) | 20.9s | sender→receiver 配体活性表 + 2 图 |
+| CellOracle 0.20.0（虚拟敲除） | 25.0s | in silico KO（如 IRF8）受影响基因 + 2 图 |
+
+配置项（`cordis.patch.yml` 的 config）：`externalPython`（默认 `/opt/miniconda3/bin/python3`）、`Rscript`、`seuratLib`（默认 `~/.dsh/sc-plugin-rlib`）、`scenicMotifDb`、`nichenetPriors`、`regveloPython`。
+诚实说明：`lite` 版分析仍保留（如 `gsva_like`/`cnv_score`/`virtual_knockout`），与官方版**并存且分列显示**；官方版 method 字段写明真实包名版本。当前尚未接入：inferCNV（Bioc 安装失败，JAGS 已装）、regVelo（需独立 Python 3.11 环境，安装中）、SoupX/copyKAT（R 包已装、适配器待补）、SCENIC(R)（实测中）。

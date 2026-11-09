@@ -697,6 +697,7 @@ def _dataset_summary(dataset):
         "samples": list((getattr(dataset, "uns", {}) or {}).get("samples") or []),
         "groups": _summary_groups(dataset),
         "group_column": (getattr(dataset, "uns", {}) or {}).get("group_column"),
+        "import_state": (getattr(dataset, "uns", {}) or {}).get("import_state"),
     }
     return summary
 
@@ -3786,7 +3787,8 @@ def cmd_open(args):
         return _open_payload(dataset)
     merge_paths = args.get("paths")
     merge_dir = bool(args.get("merge_dir"))
-    if merge_dir or merge_paths:
+    merge_samples = isinstance(args.get("samples"), list) and bool(args.get("samples"))
+    if merge_dir or merge_paths or merge_samples:
         return _open_merged(args)
     source, is_url = _source_of(args)
     if not source:
@@ -3830,12 +3832,114 @@ def cmd_open(args):
         )
     if isinstance(dataset.meta.get("warnings"), list):
         dataset.warnings.extend(str(item) for item in dataset.meta["warnings"])
+    # 已跑过一半的 RDS/RData/h5ad：检测进度并接上（可续跑）
+    _apply_import_state(dataset, loaded)
     DATASETS[dataset.id] = dataset
     return _open_payload(dataset)
 
 
+def _apply_import_state(dataset, loaded):
+    """读取已跑过一半的数据：检测进度并写回 dataset（可续跑）。"""
+    try:
+        state_module = _load_lib_module("sc_state")
+        state = state_module.apply(dataset, loaded or {})
+    except Exception as error:  # noqa: BLE001 - 状态检测失败不影响导入
+        dataset.warnings.append("已有进度检测失败：%s" % error)
+        return None
+    try:
+        for line in state_module.summary_bullets(state):
+            dataset.notes.append(line)
+    except Exception:
+        pass
+    return state
+
+
+def _open_selected(args):
+    """按用户确认的样本表（含自定义样本名/大组）合并导入。"""
+    loader = _load_lib_module("sc_io")
+    meta = _load_lib_module("sc_metadata")
+    entries = []
+    for item in args.get("samples") or []:
+        if not isinstance(item, dict) or not item.get("path"):
+            continue
+        options = {}
+        fmt = str(item.get("format") or "")
+        if item.get("trio_prefix") is not None:
+            options["trio_prefix"] = item.get("trio_prefix")
+        else:
+            mapped = {
+                "seurat_rds": "rds", "rdata": "rdata", "h5ad": "h5ad",
+                "10x_h5": "10x_h5", "expr_matrix": "matrix_text",
+                "geo_series": "geo_series", "loom": "loom",
+            }.get(fmt)
+            if mapped:
+                options["format"] = mapped
+        entries.append({"source": str(item["path"]), "name": item.get("name"),
+                        "group": item.get("group"), "options": options})
+    if not entries:
+        raise EngineError("bad_request", "samples 不能为空：请在样本表里勾选参与分析的样本")
+    try:
+        merged = meta.merge_sources(loader, entries, str(WORKDIR), options=_import_options(args))
+    except EngineError:
+        raise
+    except Exception as error:  # noqa: BLE001
+        code = str(getattr(error, "code", "internal") or "internal")
+        if code not in EngineError.CODES:
+            code = "internal"
+        raise EngineError(code, getattr(error, "message", None) or str(error))
+    counts = merged.get("counts")
+    name = args.get("name") or ("merged-%d-samples" % len(entries))
+    dataset = Dataset(_next_dataset_id(), str(name), entries[0]["source"],
+                      merged["X"], counts if counts is not None else merged["X"],
+                      merged["var_names"], merged["obs"],
+                      warnings=list(merged.get("warnings") or []), source="merged")
+    dataset.source_format = "merged"
+    dataset.notes = ["按样本表合并 %d 个样本（自定义样本名/大组已写入 obs）" % len(entries)]
+    if isinstance(dataset.uns, dict):
+        dataset.uns.update(merged.get("meta") or {})
+    if counts is None:
+        dataset.warnings.append("部分样本没有独立 counts 层，已把表达矩阵当作原始计数使用")
+    DATASETS[dataset.id] = dataset
+    return _open_payload(dataset)
+
+
+def cmd_scan(args):
+    """扫描 GEO 数据根目录，识别样本（对齐单细胞分析器输入逻辑）。"""
+    scan = _load_lib_module("sc_scan")
+    root = args.get("path") or args.get("root") or args.get("root_dir")
+    if not root:
+        raise EngineError("bad_request", "scan 需要 path（GEO 下载的数据根目录）")
+    try:
+        result = scan.scan_data_root(root, recursive=bool(args.get("recursive")))
+    except EngineError:
+        raise
+    except Exception as error:  # noqa: BLE001
+        code = str(getattr(error, "code", "internal") or "internal")
+        if code not in EngineError.CODES:
+            code = "internal"
+        raise EngineError(code, getattr(error, "message", None) or str(error))
+    if result.get("errors") and not result.get("samples"):
+        raise EngineError("bad_request", "；".join(str(item) for item in result["errors"]))
+    return result
+
+
+def cmd_geo_lookup(args):
+    scan = _load_lib_module("sc_scan")
+    try:
+        return scan.geo_lookup(args.get("gse") or args.get("id") or "")
+    except EngineError:
+        raise
+    except Exception as error:  # noqa: BLE001
+        code = str(getattr(error, "code", "internal") or "internal")
+        if code not in EngineError.CODES:
+            code = "internal"
+        raise EngineError(code, getattr(error, "message", None) or str(error))
+
+
 def _open_merged(args):
     """多文件 / 目录合并导入：每个文件 = 一个样本，基因取交集（CONTRACT §11）。"""
+    if isinstance(args.get("samples"), list) and args.get("samples"):
+        return _open_selected(args)
     loader = _load_lib_module("sc_io")
     meta = _load_lib_module("sc_metadata")
     raw = args.get("paths")
@@ -4074,6 +4178,7 @@ def cmd_preview(args):
         "samples": list((getattr(dataset, "uns", {}) or {}).get("samples") or []),
         "groups": _summary_groups(dataset),
         "group_column": (getattr(dataset, "uns", {}) or {}).get("group_column"),
+        "import_state": (getattr(dataset, "uns", {}) or {}).get("import_state"),
     }
 
 
@@ -4354,6 +4459,8 @@ COMMANDS = {
     "samples_update": cmd_samples_update,
     "samples_auto_group": cmd_samples_auto_group,
     "samples_import_map": cmd_samples_import_map,
+    "scan": cmd_scan,
+    "geo_lookup": cmd_geo_lookup,
     "list": cmd_list,
     "close": cmd_close,
     "preview": cmd_preview,

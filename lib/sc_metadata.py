@@ -78,12 +78,25 @@ def merge_sources(loader, sources, workdir, options=None, progress=None):
     """把多个来源合并成一个数据集：基因取交集，样本列 = 文件名。"""
     options = dict(options or {})
     loaded_list = []
+    sample_meta = []
     warnings = []
-    for index, source in enumerate(sources):
+    for index, item in enumerate(sources):
+        if isinstance(item, dict):
+            source = str(item.get("source") or item.get("path") or "")
+            item_options = dict(options)
+            item_options.update(item.get("options") or {})
+            display = str(item.get("name") or _sample_name(source))
+            group = item.get("group")
+        else:
+            source = str(item)
+            item_options = options
+            display = _sample_name(source)
+            group = None
         if progress:
             progress("读取样本 %d/%d：%s" % (index + 1, len(sources), Path(source).name))
-        loaded = loader.load_source(str(source), workdir=workdir, options=options)
+        loaded = loader.load_source(source, workdir=workdir, options=item_options)
         loaded_list.append((source, loaded))
+        sample_meta.append({"source": source, "display": display, "group": group})
     if not loaded_list:
         raise MetaError("bad_request", "没有可合并的数据文件")
 
@@ -102,7 +115,7 @@ def merge_sources(loader, sources, workdir, options=None, progress=None):
     obs_frames = []
     all_have_counts = True
     cells = []
-    for source, loaded in loaded_list:
+    for index, (source, loaded) in enumerate(loaded_list):
         index_map = {str(gene): position for position, gene in enumerate(loaded["var_names"])}
         columns = [index_map[gene] for gene in genes]
         matrix = _as_csr(loaded["X"])[:, columns]
@@ -116,7 +129,7 @@ def merge_sources(loader, sources, workdir, options=None, progress=None):
                 all_have_counts = False
             else:
                 counts_blocks.append(counts[:, columns])
-        sample = _sample_name(source)
+        sample = sample_meta[index]["display"]
         frame = loaded.get("obs")
         frame = frame.copy() if isinstance(frame, pd.DataFrame) else pd.DataFrame(index=pd.Index(["cell_%d" % (i + 1) for i in range(matrix.shape[0])]))
         frame.insert(0, "sample", sample)
@@ -135,13 +148,21 @@ def merge_sources(loader, sources, workdir, options=None, progress=None):
     obs = pd.concat(obs_frames, axis=0)
     obs["sample"] = obs["sample"].astype("object")
     samples = []
+    group_by_sample = {entry["display"]: entry.get("group") for entry in sample_meta}
     for sample, group in obs.groupby("sample", sort=False):
-        samples.append({"id": str(sample), "name": str(sample), "group": None, "n_cells": int(group.shape[0])})
+        samples.append({"id": str(sample), "name": str(sample),
+                        "group": group_by_sample.get(str(sample)), "n_cells": int(group.shape[0])})
+    if any(entry.get("group") for entry in sample_meta):
+        group_lookup = {str(entry["display"]): entry.get("group") for entry in sample_meta}
+        obs["group"] = [group_lookup.get(str(item)) for item in obs["sample"].tolist()]
+        meta_group_column = "group"
+    else:
+        meta_group_column = None
     meta = {
         "samples": samples,
         "sample_column": "sample",
-        "group_column": None,
-        "sources": [str(item) for item in sources],
+        "group_column": meta_group_column,
+        "sources": [sample_meta_entry["source"] for sample_meta_entry in sample_meta],
     }
     return {
         "X": X,
