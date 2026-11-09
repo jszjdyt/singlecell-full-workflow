@@ -615,7 +615,7 @@
     scanGeoEmpty: '没有查询到 GEO 样本说明',
     scanAdvancedToggle: '高级：直接打开文件 / URL（单文件 / 多路径 / 目录合并 / 压缩包 / RData…）',
     scanAdvancedHint: '原有导入方式保留在这里，不影响上面的扫描流程。',
-    scanBrowseUnavailable: '浏览器没有提供文件绝对路径，请手动粘贴数据根目录。',
+    scanBrowseUnavailable: '系统选择框不可用，请手动粘贴数据根目录。',
     scanGroupsEmpty: '还没有分组：先在上面「新增大组」建 young / old 等分组。',
   }
 
@@ -989,7 +989,7 @@
     scanGeoEmpty: 'No GEO sample notes returned',
     scanAdvancedToggle: 'Advanced: open a file / URL directly (single file / multiple paths / directory merge / archives / RData…)',
     scanAdvancedHint: 'The previous import flow is kept here; it does not affect the scan flow above.',
-    scanBrowseUnavailable: 'The browser did not expose an absolute path; paste the data root manually.',
+    scanBrowseUnavailable: 'The system picker is unavailable; paste the data root manually.',
     scanGroupsEmpty: 'No groups yet: create young / old with "New group" above.',
   }
 
@@ -3319,6 +3319,11 @@
           actor: 'user',
         }, Object.assign({ timeoutMs: 60000 }, extra || {}))
       },
+      pickPath: function (kind, prompt, extra) {
+        // Host 弹本机原生选择框（浏览器拿不到绝对路径）；timeout 留足用户操作时间
+        return jsonPost('/pick', { kind: String(kind || 'dir'), prompt: String(prompt || '') },
+          Object.assign({ timeoutMs: 15 * 60 * 1000 }, extra || {}))
+      },
       getObs: function (datasetId, extra) {
         var query = typeof datasetId === 'string' && datasetId
           ? '?dataset=' + encodeURIComponent(datasetId)
@@ -4290,6 +4295,11 @@
       // ---- 扫描流程动作 ----
       function pickDir() {
         if (busy) return
+        // 优先让 Host 弹本机原生选择框（能拿到绝对路径）；老宿主才退回浏览器目录选择
+        if (typeof props.onPickPath === 'function') {
+          props.onPickPath()
+          return
+        }
         if (dirRef.current && dirRef.current.click) dirRef.current.click()
       }
 
@@ -7850,6 +7860,24 @@
         return refreshState(true)
       }
 
+      async function handlePickPath() {
+        if (scanLoading) return
+        setScanError('')
+        try {
+          var payload = await clientApi.pickPath('dir', T('scanBrowse'))
+          if (!payload || payload.ok !== true) {
+            setScanError((payload && payload.error) || T('scanBrowseUnavailable'))
+            return
+          }
+          if (payload.cancelled) return
+          var first = Array.isArray(payload.paths) ? String(payload.paths[0] || '') : ''
+          if (first) setScanRoot(first)
+          else setScanError(T('scanBrowseUnavailable'))
+        } catch (error) {
+          setScanError(formatError(error) || T('scanBrowseUnavailable'))
+        }
+      }
+
       async function handleScanRun() {
         if (scanLoading) return
         var root = String(scanRoot || '').trim()
@@ -8252,6 +8280,7 @@
               geoResult: geoResult,
               geoError: geoError,
               onScanRootChange: setScanRoot,
+              onPickPath: handlePickPath,
               onScanRecursive: setScanRecursive,
               onScan: handleScanRun,
               onScanRowSelect: handleScanRowSelect,
