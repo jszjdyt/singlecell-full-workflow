@@ -270,7 +270,7 @@ plugins/dsh-singlecell/
 
 ## 5. 环境事实（所有人必读）
 
-- macOS，工作目录 `/Users/dingyuntao/Desktop/deepseek harness`，插件目录 `plugins/dsh-singlecell`。
+- macOS，工作目录 `~/dsh-workspace`，插件目录 `plugins/dsh-singlecell`。
 - Python：`python3` → `/Library/Frameworks/Python.framework/Versions/3.14/bin/python3`（3.14.2），有 numpy 2.5 / pandas 2.3 / scipy 1.17 / sklearn 1.9 / anndata 0.12 / matplotlib 3.11 / h5py；**无 scanpy、无 igraph/leidenalg、无 umap-learn**。
 - `~/.matplotlib` 不可写：Python 侧必须 `os.environ["MPLBACKEND"]="Agg"` 且把 `MPLCONFIGDIR` 指到 `--workdir` 下（Host 已设，引擎里再兜底一次）。
 - 宿主 Electron 进程的 PATH 可能很窄：Host 探测 Python 时按候选列表逐个 `-c "import numpy,anndata,sklearn"` 试。
@@ -442,7 +442,7 @@ def load_source(source, *, workdir, options=None, progress=None) -> dict
 - h5ad、10x_h5、10x_mtx 目录、只给 `.mtx.gz`、loom、dense csv、tsv.gz、geo series matrix txt.gz、zip(10x 三件套)、tar.gz(csv)、Seurat rds、SCE rds、RData（含 2 个对象）、RDS 非 Seurat（matrix）、URL 用本地 `http.server` 临时起一个服务模拟下载。
 - 每个 fixture 都写一份 `truth.json`（n_obs/n_vars/前几个基因名/首细胞某基因值）。
 `test/py_import_test.py` 覆盖：每种格式 load 后 `truth.json` 一致；`inspect` 不加载矩阵且格式判断正确；`ambiguous` 分支（多对象 RData、多文件 zip）能拿到 candidates 且指定 member/object 后成功；坏文件/不存在路径给可读错误不崩；`.gz`/archive 路径穿越被拒；URL 下载（本地 http server）成功。全部通过退出码 0。
-**真实数据验收**（只读，不改用户文件）：`/Users/dingyuntao/Desktop/deepseek harness/neu_analysis/objects/neu_clean.rds` 等 5 个 Seurat rds 必须能读，打印 n_obs/n_vars/obs 列数。
+**真实数据验收**（只读，不改用户文件）：`~/dsh-workspace/neu_analysis/objects/neu_clean.rds` 等 5 个 Seurat rds 必须能读，打印 n_obs/n_vars/obs 列数。
 
 ## 9. 高级分析层（v3，按用户给的能力图全量登记）
 
@@ -635,8 +635,8 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
   - `externalPython`：默认探测 `/opt/miniconda3/bin/python3`（conda base）→ `python3`
   - `Rscript`：默认 `/usr/local/bin/Rscript` → 框架版 → PATH
   - `rLibs`：额外 R 库路径（Seurat 6 独立库 `~/.dsh/sc-plugin-rlib` 会由 sc-seurat6 创建）
-  - `nichenetPriors`：默认 `/Users/dingyuntao/Desktop/祖传R语言单细胞代码/crosstalk`
-  - `scenicMotifDb`：默认 `/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/human/python用`
+  - `nichenetPriors`：默认 `~/nichenet_priors`
+  - `scenicMotifDb`：默认 `~/scenic_databases`
   - 以上**全部"探测 + 配置覆盖"**：探测不到只让对应工具 `available:false` 并给 reason，不得崩。
 - 引擎命令：`external_tools {}` → `{"tools":[…,"available":bool,"reason":str?]}`；`external_run {dataset,id,params}` → `{…result.json, obs_merged:[…], ms}`。
 - `analyses` 目录合并 external：可用 external 项 `available:true, external:true`，Host 层把可用 external 的 `native` 置 true（UI 据此可运行），同时保留 `external:true` 供显示"官方实现"。不可用项 `available:false` + reason。
@@ -649,3 +649,34 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 - 引擎接入：`run` 步骤 `pca/neighbors/cluster/embed` 支持 `params.engine = "seurat"|"seurat6"`：走 `sc_external.seurat_step(dataset, step, params)`，把 clusters 写回 `obs["clusters"]`、PCA/UMAP 写回 `obsm["X_pca"]/["X_emb"]`（后续 markers/annotate/UI 全部可用）。
 - 预设流程新增 `seurat6`：qc→filter→normalize→hvg→pca(engine=seurat)→neighbors(engine=seurat)→cluster(engine=seurat)→embed(engine=seurat)。
 - UI：流程卡参数里 `engine`（自动/内置/Seurat 6）；预设下拉自动出现 seurat6。Seurat 6 不可用时该选项 disabled + reason。
+
+
+---
+
+## §11 输入逻辑 v4：根目录扫描 / 样本表 / 续跑（对齐「单细胞分析器」）
+
+### 11.1 扫描
+
+`scan_data_root(root, recursive=False)`（`lib/sc_scan.py`）识别：
+
+| 单元 | 规则 |
+|---|---|
+| 10X 目录 / GEO 三联体 | 目录内 matrix/barcodes/features；多个前缀按 GSM 配对成多样本 |
+| 嵌套 10X 目录 | 非递归时也向下看一层（`sampleA/filtered_feature_bc_matrix/`） |
+| 单文件 | `.h5`（HDF5 签名校验）、`.h5ad`、`.loom`、`.rds`、`.RData/.rda` |
+| 表达矩阵 | `.csv/.tsv/.txt(.gz)`，首行多字段判定；GEO series matrix 单独标记 |
+| 边车文件 | barcodes/features/genes/matrix 永不当作表达矩阵 |
+
+输出 `{samples:[{id,name,raw_name,format,format_label,path,detail,trio_prefix}], errors, root}`；同名自动加后缀；无样本给可读错误。
+
+### 11.2 样本表合并
+
+`POST /singlecell/dataset/open {samples:[{path,name,group,trio_prefix?,format?}]}`：自定义样本名/大组写入 obs（sample/group），`group_column=group`；`trio_prefix` 用于同目录 GEO 三联体。
+
+### 11.3 GEO 查询
+
+`POST /singlecell/geo {gse}` → NCBI eutils 返回 `{gse,title,samples:[{gsm,title}]}`，辅助分组。
+
+### 11.4 已有进度检测与续跑
+
+导入 `.rds/.RData/.h5ad`：R 桥导出 `pca.csv`/`embed.csv`/`variable_features.txt`/`import_state`；`sc_state.detect/apply` 映射到 10 步流程（normalize/hvg/pca/neighbors/cluster/embed/markers/annotate），写回 steps、obs clusters/cell_type、obsm、var highly_variable；**无过程证据（原始 counts）不冒充进度**，从 QC 开始；提示写入 dataset.notes 与 state/preview 的 import_state。
