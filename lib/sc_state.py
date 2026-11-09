@@ -265,8 +265,8 @@ def detect(dataset, loaded=None):
         details["celltype_column"] = celltype_column
         details["n_celltypes"] = len(set(labels))
 
-    # 没有任何"过程步骤"证据时（如原始 counts 的 RDS），不要冒充已有进度
-    evidence = detected & {"normalize", "hvg", "pca", "neighbors", "cluster", "embed", "markers", "annotate"}
+    # 只有出现"过程产物"才算续跑；仅有标准化（很多 h5ad 已 log 化）不算跑过一半
+    evidence = detected & {"hvg", "pca", "neighbors", "cluster", "embed", "markers", "annotate"}
     if not evidence:
         return {
             "steps": [],

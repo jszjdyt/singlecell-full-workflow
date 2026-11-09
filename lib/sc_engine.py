@@ -3832,8 +3832,11 @@ def cmd_open(args):
         )
     if isinstance(dataset.meta.get("warnings"), list):
         dataset.warnings.extend(str(item) for item in dataset.meta["warnings"])
-    # 已跑过一半的 RDS/RData/h5ad：检测进度并接上（可续跑）
-    _apply_import_state(dataset, loaded)
+    # 已跑过一半的数据：RDS/RData 总能检测；h5ad 需要带嵌入（obsm）才认作续跑
+    _apply_import_state(dataset, loaded) if (
+        str(loaded.get("format") or "") in ("rds", "rdata")
+        or (loaded.get("import_state") and loaded.get("obsm"))
+    ) else None
     DATASETS[dataset.id] = dataset
     return _open_payload(dataset)
 
