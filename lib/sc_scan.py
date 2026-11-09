@@ -354,6 +354,31 @@ def scan_data_root(root_dir, recursive=False):
 # ---------------------------------------------------------------------------
 
 
+def _ssl_context():
+    """Framework Python 常缺 CA 证书：优先 certifi，其次 macOS 系统证书，最后才降级。"""
+    import ssl
+
+    try:
+        import certifi  # type: ignore
+        return ssl.create_default_context(cafile=certifi.where())
+    except Exception:
+        pass
+    for candidate in ("/etc/ssl/cert.pem", "/etc/ssl/certs/ca-certificates.crt"):
+        try:
+            import os
+            if os.path.exists(candidate):
+                return ssl.create_default_context(cafile=candidate)
+        except Exception:
+            continue
+    context = ssl.create_default_context()
+    try:
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+    except Exception:
+        pass
+    return context
+
+
 def geo_lookup(gse):
     import urllib.parse
     import urllib.request
@@ -367,7 +392,7 @@ def geo_lookup(gse):
             "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=gds&term="
             + urllib.parse.quote(gse + "[ACCN]")
         )
-        with urllib.request.urlopen(search_url, timeout=20) as response:
+        with urllib.request.urlopen(search_url, timeout=20, context=_ssl_context()) as response:
             search_root = ET.fromstring(response.read())
         ids = [node.text for node in search_root.iter("Id")]
         if not ids:
@@ -375,7 +400,7 @@ def geo_lookup(gse):
         summary_url = (
             "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=gds&id=" + ids[0]
         )
-        with urllib.request.urlopen(summary_url, timeout=20) as response:
+        with urllib.request.urlopen(summary_url, timeout=20, context=_ssl_context()) as response:
             root = ET.fromstring(response.read())
         title = ""
         samples = []
