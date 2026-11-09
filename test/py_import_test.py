@@ -590,10 +590,12 @@ def test_urls(io, manifest, work, report, make_formats):
 
 
 def test_real_rds(io, manifest, work, report):
-    report.start("7. 真实 Seurat rds 只读验收（neu_analysis/objects/*.rds）")
+    report.start("7. 真实 Seurat rds 只读验收（可选：DSH_SC_TEST_RDS_DIR/*.rds）")
     files = list(manifest.get("real_rds", {}).get("files") or [])
     if not files:
-        report.check("真实 rds 存在", False, "没找到 %s/*.rds" % manifest.get("real_rds", {}).get("dir"))
+        # 开源仓库里没有用户私有 rds：设置 DSH_SC_TEST_RDS_DIR 指向含 *.rds 的目录才会执行本段
+        report.check("真实 rds 存在（可选，跳过）", True,
+                     "未设置 DSH_SC_TEST_RDS_DIR，跳过真实 rds 验收（不影响其它格式）")
         return
     report.check("真实 rds 数量", len(files) >= 5, "找到 %d 个：%s" % (len(files), [Path(p).name for p in files]))
     loaded_info = []
