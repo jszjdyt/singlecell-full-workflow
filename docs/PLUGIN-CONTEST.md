@@ -1,5 +1,7 @@
 # dsh-singlecell 参赛介绍
 
+> **仓库**：https://github.com/jszjdyt/singlecell-full-workflow · **插件包名**：dsh-singlecell
+>
 > **一句话**：面向生物信息学小白和代码苦手的单细胞分析工作台 —— 在 DeepSeek Harness 里，GEO 数据一键读、流程点着跑、官方工具零配置调用，还能直接对 Agent 说人话；同时通过四个带契约的扩展点，让会写代码的人不断把它变大。
 
 ---

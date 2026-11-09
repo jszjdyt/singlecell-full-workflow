@@ -174,3 +174,7 @@ node test/client-logic.test.mjs
 ## 许可证
 
 MIT。见 [LICENSE](LICENSE)。
+
+## 参赛 / 详细介绍
+
+见 [docs/PLUGIN-CONTEST.md](docs/PLUGIN-CONTEST.md)（含长版介绍、300 字表单短版、宣传语）。
