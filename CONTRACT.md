@@ -711,3 +711,24 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 - 预设：`seurat6`（Harmony 0.8）、`pro-rpca`（RPCA 0.8）、`pro-unintegrated`（PCA 0.5），均带 pro.R QC 参数
 - 簇列：当前结果写 `clusters`；整合结果额外保留 `clusters_harmony` / `clusters_rpca`
 - 修复：按样本 merge 构建多层对象会打乱细胞顺序 → 曾导致簇标签错位（ARI≈0）；已改回单对象 + split 路径
+
+
+---
+
+## §15 UI v7：步骤向导式 Shell（v0.8.0）
+
+- 三段布局：左侧步骤导航（Step1 数据读取·分组·质控 / Step2 降维聚类 / Step3 细胞标注 / Step4 高级分析·结果）+ 主区步骤页 + 右侧可折叠抽屉（运行日志 / Agent）
+- 欢迎页（导入/示例/最近数据集）、顶栏数据集选择器与引擎状态
+- 结果画廊：按来源分组、新→旧、同 URL 去重、上限 60、lightbox
+- 移动端 ≤900px 单列；保留「进阶：逐步运行」PipelinePanel 折叠区
+- 测试：client-logic 106/106
+
+## §16 小亚群：按簇提取子数据集（v0.8.0）
+
+`POST /singlecell/dataset/subset {dataset, clusters:["3","7"], column?="clusters", name?}` →
+`{ok, dataset: 摘要, parent, subset_cells, kept_clusters}`
+
+- 按 obs 列（默认 clusters）取选中簇细胞生成新数据集并激活；steps 重置为 qc/filter/normalize/hvg；
+- uns 记录 parent_dataset/subset_clusters/subset_column；全选返回 bad_request；
+- Agent 工具：`action=subset, clusters=[...], cluster_column?`；
+- UI：Step3 底部「提取为小亚群数据集」（簇多选 → 自动切新数据集并跳 Step2）。
