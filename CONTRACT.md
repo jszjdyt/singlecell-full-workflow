@@ -727,3 +727,11 @@ Step2：`n_top_genes` 移入「进阶/参考参数」折叠区（默认 3000，�
 ### 17.1 gene_groups 出图（后端）
 
 `POST /singlecell/plot`（dotplot/heatmap）`params.gene_groups = [{"label":"T cell","genes":[...]}, ...]`：按类型展平、组间分隔线 + 类型名；缺失基因忽略并 warning；同时给 `genes` 时以 gene_groups 为准。
+
+
+---
+
+## §15 UI v7：步骤向导式 Shell + §16 小亚群（v0.8.0）
+
+- 三段布局：左侧步骤导航（Step1 数据读取·分组·质控 / Step2 降维聚类 / Step3 细胞标注 / Step4 高级分析·结果）+ 主区步骤页 + 右侧可折叠抽屉（运行日志/Agent）；欢迎页；结果画廊按来源分组/new→old/去重/上限 60/lightbox；≤900px 单列；保留 PipelinePanel 折叠区。
+- 小亚群：`POST /singlecell/dataset/subset {dataset, clusters:["3","7"], column?="clusters", name?}` → 新数据集（steps 重置 qc/filter/normalize/hvg，uns 记录 parent/subset_clusters/subset_column）；Agent `action=subset`；UI 在 Step3「提取为小亚群数据集」。
