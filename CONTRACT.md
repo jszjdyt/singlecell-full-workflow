@@ -711,3 +711,19 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 - 预设：`seurat6`（Harmony 0.8）、`pro-rpca`（RPCA 0.8）、`pro-unintegrated`（PCA 0.5），均带 pro.R QC 参数
 - 簇列：当前结果写 `clusters`；整合结果额外保留 `clusters_harmony` / `clusters_rpca`
 - 修复：按样本 merge 构建多层对象会打乱细胞顺序 → 曾导致簇标签错位（ARI≈0）；已改回单对象 + split 路径
+
+
+---
+
+## §17 UI v8：Step3 三段式注释 + HVG 降权（v0.9.0）
+
+Step3 按「先方案 → 再出图 → 最后分簇」重排：
+1. 标记方案卡：细胞类型名 + marker 基因可编辑表格；内置人/鼠各 18 类参考方案；粘贴 CSV；校验空/重复/无基因/超限；基因大小写不敏感去重。
+2. 看表达卡：[出 DotPlot]/[出热图] → `/plot {params:{genes, gene_groups, groupby:"clusters"}}`；[画 FeaturePlot] → `/embedding {color_by:{kind:"gene",key}}`。
+3. cluster 分配卡：每簇下拉/手输 → [全部保存注释] → `/run annotate mapping`；注释表/覆盖率/按注释着色；保留小亚群提取。
+
+Step2：`n_top_genes` 移入「进阶/参考参数」折叠区（默认 3000，对齐 pro.R，仅参考）；`defaultDimredParams()/buildDimredPayload()` 保证折叠不丢值。
+
+### 17.1 gene_groups 出图（后端）
+
+`POST /singlecell/plot`（dotplot/heatmap）`params.gene_groups = [{"label":"T cell","genes":[...]}, ...]`：按类型展平、组间分隔线 + 类型名；缺失基因忽略并 warning；同时给 `genes` 时以 gene_groups 为准。
