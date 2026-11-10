@@ -719,6 +719,46 @@
     exportReport: 'report',
     exportScript: 'script',
     step3SubsetTitle: 'Create a sub-cluster dataset',
+    step3SchemeTitle: '① Cell types & marker scheme',
+    step3SchemeSub: 'Define the cell types you expect and their marker genes first; check expression below, then assign clusters.',
+    step3SchemeColType: 'Cell type',
+    step3SchemeColGenes: 'Marker genes (comma/space separated)',
+    step3SchemeAdd: 'Add cell type',
+    step3SchemeDelete: 'Delete',
+    step3SchemePresetHuman: 'Load built-in preset: human',
+    step3SchemePresetMouse: 'Load built-in preset: mouse',
+    step3SchemePasteCsv: 'Paste CSV',
+    step3SchemeCsvPlaceholder: 'One per line: cell_type,gene1 gene2 gene3',
+    step3SchemeCsvApply: 'Apply CSV',
+    step3SchemeEmpty: 'Scheme is empty: add cell types and markers, or load a built-in preset.',
+    step3SchemeInvalid: 'Invalid scheme: cell types must be non-empty and unique',
+    step3SchemeDuplicate: 'Duplicate cell types: {names}',
+    step3SchemeNoGenes: 'Missing genes for: {names}',
+    step3SchemeTooMany: 'More than 50 cell types; consider trimming the scheme',
+    step3SchemeGeneCount: '{types} cell types · {genes} marker genes',
+    step3ExpressionTitle: '② Check expression',
+    step3ExpressionSub: 'Plot grouped by cell type; click a gene chip to color the UMAP by that gene.',
+    step3ExpressionDotplot: 'DotPlot',
+    step3ExpressionHeatmap: 'Heatmap',
+    step3ExpressionFeature: 'FeaturePlot',
+    step3ExpressionNeedScheme: 'Fill in cell types and markers above first',
+    step3ExpressionBusy: 'Plotting…',
+    step3ExpressionGeneChips: 'Scheme genes (click to color UMAP)',
+    step3ExpressionSelected: 'Current gene: {gene}',
+    step3AssignTitle: '③ Assign clusters to cell types',
+    step3AssignSub: 'Pick one cell type per cluster (custom text allowed); saving writes obs.cell_type.',
+    step3AssignCustom: 'Custom type…',
+    step3AssignEmpty: '(unassigned)',
+    step3AssignSave: 'Save all annotations',
+    step3AssignCount: '{mapped}/{total} clusters assigned',
+    step3AssignTopMarkers: 'top markers (click to color UMAP)',
+    step3MarkerDetail: 'Cluster marker details (collapsible)',
+    step3SchemeLoaded: 'Loaded {kind} preset: {count} cell types',
+    step3ColorByGeneHint: 'The UMAP below is colored by the selected gene (click a marker gene to switch).',
+    step3SchemeApplied: 'Applied {count} CSV rows',
+    step3AssignSaved: 'Annotation saved: {count} clusters → cell_type',
+    presetHuman: 'human',
+    presetMouse: 'mouse',
     step3SubsetHint: 'Tick clusters to keep; creates a new dataset with only those cells (reset to after-QC, ready to re-cluster).',
     step3SubsetNamePlaceholder: 'New dataset name (optional)',
     step3SubsetRun: 'Create subset dataset',
@@ -727,6 +767,46 @@
     step3SubsetSuccess: 'Created subset dataset "{name}" ({kept} cells kept); switched to it, ready to re-cluster.',
     exportDone: 'Exported',
     step3SubsetTitle: '提取为小亚群数据集',
+    step3SchemeTitle: '① 细胞类型 & Marker 方案',
+    step3SchemeSub: '先写下你要找的细胞类型和各自 marker 基因；之后看图确认表达，最后把 cluster 分配给类型。',
+    step3SchemeColType: '细胞类型',
+    step3SchemeColGenes: 'marker 基因（逗号/空格分隔）',
+    step3SchemeAdd: '添加细胞类型',
+    step3SchemeDelete: '删除',
+    step3SchemePresetHuman: '载入内置参考方案：人',
+    step3SchemePresetMouse: '载入内置参考方案：鼠',
+    step3SchemePasteCsv: '粘贴 CSV',
+    step3SchemeCsvPlaceholder: '每行：细胞类型,基因1 基因2 基因3',
+    step3SchemeCsvApply: '应用 CSV',
+    step3SchemeEmpty: '方案为空：先添加细胞类型和 marker 基因，或载入内置参考方案。',
+    step3SchemeInvalid: '方案有误：细胞类型不能为空且不能重复',
+    step3SchemeDuplicate: '细胞类型重复：{names}',
+    step3SchemeNoGenes: '这些类型还没填基因：{names}',
+    step3SchemeTooMany: '细胞类型超过 50 行，建议精简方案',
+    step3SchemeGeneCount: '共 {types} 种类型 · {genes} 个 marker 基因',
+    step3ExpressionTitle: '② 看表达（确认 marker 是否在对应簇高表达）',
+    step3ExpressionSub: '按方案分组出图；点下方基因 chips 可把单个基因画到 UMAP 上。',
+    step3ExpressionDotplot: '出 DotPlot',
+    step3ExpressionHeatmap: '出热图',
+    step3ExpressionFeature: '画 FeaturePlot',
+    step3ExpressionNeedScheme: '先在上方填写细胞类型与 marker 基因',
+    step3ExpressionBusy: '出图中…',
+    step3ExpressionGeneChips: '方案基因（点击画到 UMAP）',
+    step3ExpressionSelected: '当前基因：{gene}',
+    step3AssignTitle: '③ 把 cluster 分配给细胞类型',
+    step3AssignSub: '每个簇选一个细胞类型（可手输自定义类型）；保存后写入 obs.cell_type。',
+    step3AssignCustom: '手输自定义类型…',
+    step3AssignEmpty: '（未分配）',
+    step3AssignSave: '全部保存注释',
+    step3AssignCount: '已分配 {mapped}/{total} 簇',
+    step3AssignTopMarkers: 'top markers（点击画到 UMAP）',
+    step3MarkerDetail: '簇 marker 明细（可折叠）',
+    step3SchemeLoaded: '已载入 {kind} 参考方案：{count} 种细胞类型',
+    step3ColorByGeneHint: '下方 UMAP 会按当前基因着色（点击 marker 基因切换）。',
+    step3SchemeApplied: '已应用 {count} 行 CSV',
+    step3AssignSaved: '注释已保存：{count} 个 cluster → cell_type',
+    presetHuman: '人',
+    presetMouse: '鼠',
     step3SubsetHint: '勾选要保留的簇，会创建一个只含这些细胞的新数据集（自动重置到 QC 后，可重新降维聚类）。',
     step3SubsetNamePlaceholder: '新数据集名称（可选）',
     step3SubsetRun: '提取为小亚群数据集',
@@ -801,6 +881,9 @@
     shellRecent: '最近',
     unnamedDataset: '未命名数据集',
     step2PresetHint: '预设会从 QC 开始整跑（0.8 / 0.5 分辨率对齐 pro.R）；只重聚类只影响 clusters 与 UMAP。',
+    step2AdvancedParams: '进阶 / 参考参数（通常无需修改）',
+    step2HvgHint: '高变基因数默认 3000（对齐 pro.R 内部设定，作为参考保留，一般不用改）',
+    step2HvgRef: '参考：高变基因 {n} 个',
 
     samplesRemoveHint: '按样本从数据集中移除细胞（会重置聚类/嵌入结果）。',
     samplesRemoved: '已移除 {v} 个细胞；聚类/嵌入已重置，请重新一键降维聚类。',
@@ -1354,6 +1437,9 @@
     shellRecent: 'Recent',
     unnamedDataset: 'Unnamed dataset',
     step2PresetHint: 'Presets re-run from QC (0.8 / 0.5 resolution matching pro.R); re-cluster only updates clusters + UMAP.',
+    step2AdvancedParams: 'Advanced / reference parameters (usually no need to change)',
+    step2HvgHint: 'n_top_genes defaults to 3000 (matching pro.R); kept as reference, usually unchanged',
+    step2HvgRef: 'Reference: {n} variable genes',
 
     samplesRemoveHint: 'Remove this sample\u2019s cells from the dataset (resets clustering/embedding).',
     samplesRemoved: 'Removed {v} cells; clustering/embedding were reset, re-run dimensionality reduction.',
@@ -4067,11 +4153,36 @@
     return { id: preset.id }
   }
 
+  /** Step2 主参数默认值（n_top_genes 仍是 3000，UI 折叠不影响取值）。 */
+  function defaultDimredParams() {
+    return normalizeStep2Settings(STEP2_DEFAULTS)
+  }
+
+  /** 降维聚类合并 payload：主参数 + 折叠区参考参数（n_top_genes 默认 3000）。 */
+  function buildDimredPayload(settings, autoBatchKey) {
+    var normalized = normalizeStep2Settings(settings)
+    var payload = {
+      engine: normalized.engine,
+      integration: normalized.integration,
+      resolution: normalized.resolution,
+      n_pcs: normalized.nPcs,
+      n_neighbors: normalized.neighbors,
+      n_top_genes: normalized.nTopGenes,
+    }
+    if (normalized.engine === 'seurat') {
+      payload.use_harmony = normalized.integration === 'harmony'
+      payload.dims = normalized.nPcs
+      var batchKey = normalized.batchKey || (typeof autoBatchKey === 'string' ? autoBatchKey : '')
+      if (batchKey) payload.batch_key = batchKey
+    }
+    return payload
+  }
+
   /** Step2 cluster 参数：Seurat 6.0 走 integration；内置引擎只发 resolution/method。 */
   function buildStep2ClusterParams(settings, autoBatchKey) {
     var normalized = normalizeStep2Settings(settings)
     if (normalized.engine !== 'seurat') {
-      return { resolution: normalized.resolution, method: 'louvain' }
+      return { resolution: normalized.resolution, method: 'louvain', n_top_genes: normalized.nTopGenes }
     }
     var params = {
       engine: 'seurat',
@@ -4081,6 +4192,7 @@
       dims: normalized.nPcs,
       n_pcs: normalized.nPcs,
       n_neighbors: normalized.neighbors,
+      n_top_genes: normalized.nTopGenes,
     }
     var batchKey = normalized.batchKey || (typeof autoBatchKey === 'string' ? autoBatchKey : '')
     if (batchKey) params.batch_key = batchKey
@@ -4486,6 +4598,230 @@
     return EXPORT_QUICK_KINDS.map(function (kind) {
       return { kind: kind, labelKey: EXPORT_QUICK_LABELS[kind] }
     })
+  }
+
+  // ==========================================================================
+  // v8：Step3 三段式（细胞类型 & marker 方案 → 看表达 → cluster 分配）
+  // ==========================================================================
+
+  var SCHEME_MAX_ROWS = 50
+
+  /** 内置参考方案（照用户 pro.R / 参考软件 PRESET_MARKERS 整理；鼠版保留基因原始大小写）。 */
+  var MARKER_PRESETS = {
+    human: {
+      labelKey: 'presetHuman',
+      rows: [
+        { cellType: 'Mast cell', genes: ['TPSAB1', 'CPA3', 'KIT'] },
+        { cellType: 'Neutrophil', genes: ['FCGR3B', 'CSF3R', 'S100A8', 'S100A9'] },
+        { cellType: 'DC', genes: ['FCER1A', 'CD1C', 'CST3'] },
+        { cellType: 'Monocyte', genes: ['LYZ', 'CD14', 'FCN1', 'VCAN'] },
+        { cellType: 'Macrophage', genes: ['CD163', 'MSR1', 'ITGAL', 'CD68', 'APOE'] },
+        { cellType: 'B cell', genes: ['MS4A1', 'CD79A', 'CD74', 'CD40'] },
+        { cellType: 'Plasma cell', genes: ['MZB1', 'IGKC', 'JCHAIN', 'XBP1'] },
+        { cellType: 'T cell', genes: ['TRAC', 'CD3D', 'CD3E', 'CD247', 'CD2'] },
+        { cellType: 'CD4 T', genes: ['CD4', 'IL7R'] },
+        { cellType: 'CD8 T', genes: ['CD8A', 'CD8B'] },
+        { cellType: 'Treg', genes: ['FOXP3', 'CTLA4', 'TIGIT', 'ICOS'] },
+        { cellType: 'NK cell', genes: ['NKG7', 'GNLY', 'PRF1', 'KLRD1', 'KLRF1', 'NCAM1', 'FCGR3A'] },
+        { cellType: 'Epithelial', genes: ['EPCAM', 'KRT8', 'KRT18'] },
+        { cellType: 'Tumor/Epithelial', genes: ['IGFBP2', 'TSPAN8', 'AGR3', 'AGR2', 'KRT7', 'MUC3A', 'CLDN7', 'CLDN4'] },
+        { cellType: 'Endothelial cells', genes: ['PECAM1', 'VWF', 'KDR', 'EMCN'] },
+        { cellType: 'CAF', genes: ['COL1A1', 'COL1A2', 'DCN', 'LUM', 'COL3A1', 'PDGFRA', 'CXCL12'] },
+        { cellType: 'Smooth muscle cells', genes: ['RGS5', 'PDGFRB', 'CSPG4', 'MCAM', 'TAGLN', 'ACTA2'] },
+        { cellType: 'Proliferating', genes: ['MKI67', 'TOP2A', 'PCNA'] },
+      ],
+    },
+    mouse: {
+      labelKey: 'presetMouse',
+      rows: [
+        { cellType: 'B cell', genes: ['Cd19', 'Cd22', 'Cd79a', 'Ighm', 'Ms4a1'] },
+        { cellType: 'Plasma cell', genes: ['Jchain', 'Mzb1', 'Igkc', 'Xbp1'] },
+        { cellType: 'NK cell', genes: ['Nkg7', 'Ncr1', 'Klrb1c', 'Klrb1b', 'Prf1', 'Gnly'] },
+        { cellType: 'T cell', genes: ['Cd3d', 'Cd3e', 'Cd2', 'Trbc2'] },
+        { cellType: 'CD4 T', genes: ['Cd4', 'Il7r'] },
+        { cellType: 'CD8 T', genes: ['Cd8a', 'Cd8b1'] },
+        { cellType: 'Treg', genes: ['Foxp3', 'Ctla4', 'Tigit', 'Icos'] },
+        { cellType: 'DC', genes: ['Itgax', 'H2-Aa', 'H2-Ab1', 'H2-Eb1', 'Irf8', 'Ly75', 'Zbtb46'] },
+        { cellType: 'Macrophage', genes: ['Adgre1', 'Ly6c1', 'Cd68', 'Apoe'] },
+        { cellType: 'Monocyte', genes: ['Csf1r', 'Cd14', 'Fcn1', 'Vcan'] },
+        { cellType: 'Neutrophil', genes: ['S100a8', 'S100a9', 'Csf3r', 'Ly6g'] },
+        { cellType: 'Mast cell', genes: ['Cpa3', 'Kit', 'Cma1'] },
+        { cellType: 'Epithelial', genes: ['Epcam', 'Krt8', 'Krt18'] },
+        { cellType: 'Tumor cell', genes: ['Aqp5', 'Krt8', 'Ar', 'Areg'] },
+        { cellType: 'Endothelial cells', genes: ['Pecam1', 'Vwf', 'Kdr', 'Emcn'] },
+        { cellType: 'CAF', genes: ['Il3ra', 'Fabp4', 'Lyz1', 'Col1a1', 'Col1a2', 'Fn1'] },
+        { cellType: 'Smooth muscle cells', genes: ['Rgs5', 'Pdgfrb', 'Cspg4', 'Mcam', 'Tagln', 'Acta2'] },
+        { cellType: 'Proliferating', genes: ['Mki67', 'Top2a', 'Pcna'] },
+      ],
+    },
+  }
+
+  /** marker 基因文本 → 基因数组：逗号/空格/换行/分号分隔，大小写不敏感去重（保留原始写法，方便鼠版）。 */
+  function normalizeSchemeGenes(text) {
+    var raw = Array.isArray(text) ? text.join(' ') : String(text === null || text === undefined ? '' : text)
+    var tokens = raw.split(/[\s,;，；、]+/)
+    var output = []
+    var seen = {}
+    for (var index = 0; index < tokens.length; index++) {
+      var token = String(tokens[index] || '').trim()
+      if (!token) continue
+      var key = token.toUpperCase()
+      if (seen[key]) continue
+      seen[key] = true
+      output.push(token)
+    }
+    return output
+  }
+
+  function schemeRowsFromPreset(kind) {
+    var preset = MARKER_PRESETS[kind] || MARKER_PRESETS.human
+    var rows = []
+    for (var index = 0; index < preset.rows.length; index++) {
+      rows.push({ cellType: preset.rows[index].cellType, genesText: preset.rows[index].genes.join(' ') })
+    }
+    return rows
+  }
+
+  /** 原始行 → 方案：{rows:[{cellType,genes,genesText}], errors, warnings, geneCount, valid}。 */
+  function buildMarkerScheme(rawRows) {
+    var list = Array.isArray(rawRows) ? rawRows : []
+    var rows = []
+    var errors = []
+    var warnings = []
+    var names = {}
+    var geneCount = 0
+    for (var index = 0; index < list.length; index++) {
+      var raw = list[index] && typeof list[index] === 'object' ? list[index] : {}
+      var cellType = String(raw.cellType === null || raw.cellType === undefined ? '' : raw.cellType).trim()
+      var genesText = Array.isArray(raw.genes) ? raw.genes.join(' ') : String(raw.genesText === null || raw.genesText === undefined ? '' : raw.genesText)
+      var genes = normalizeSchemeGenes(genesText)
+      geneCount += genes.length
+      if (!cellType) {
+        errors.push('EMPTY_TYPE')
+      } else if (names[cellType.toLowerCase()]) {
+        errors.push('DUPLICATE:' + cellType)
+      } else {
+        names[cellType.toLowerCase()] = true
+      }
+      if (cellType && !genes.length) warnings.push('NO_GENES:' + cellType)
+      rows.push({ cellType: cellType, genes: genes, genesText: genes.join(' ') })
+    }
+    if (rows.length > SCHEME_MAX_ROWS) warnings.push('TOO_MANY_ROWS')
+    var effective = rows.filter(function (row) { return row.cellType && row.genes.length })
+    return {
+      rows: rows,
+      errors: errors,
+      warnings: warnings,
+      geneCount: geneCount,
+      valid: errors.length === 0,
+      usableRows: effective,
+      typedRows: rows.filter(function (row) { return row.cellType }).length,
+    }
+  }
+
+  /** 方案 → 扁平化基因列表（去重、保序）。 */
+  function flattenSchemeGenes(scheme) {
+    var built = scheme && Array.isArray(scheme.rows) ? scheme : buildMarkerScheme(scheme || [])
+    var output = []
+    var seen = {}
+    for (var index = 0; index < built.rows.length; index++) {
+      var genes = built.rows[index].genes || []
+      for (var geneIndex = 0; geneIndex < genes.length; geneIndex++) {
+        var gene = genes[geneIndex]
+        var key = gene.toUpperCase()
+        if (seen[key]) continue
+        seen[key] = true
+        output.push(gene)
+      }
+    }
+    return output
+  }
+
+  /** DotPlot/热图参数：genes 扁平 + gene_groups（按细胞类型分组，后端画分隔线/类型名）。 */
+  function buildGroupedDotplotParams(scheme) {
+    var built = scheme && Array.isArray(scheme.rows) ? scheme : buildMarkerScheme(scheme || [])
+    var groups = []
+    for (var index = 0; index < built.rows.length; index++) {
+      var row = built.rows[index]
+      if (!row.cellType || !row.genes || !row.genes.length) continue
+      groups.push({ label: row.cellType, genes: row.genes.slice() })
+    }
+    return {
+      genes: flattenSchemeGenes(built),
+      gene_groups: groups,
+      groupby: 'clusters',
+    }
+  }
+
+  /** 粘贴「cell_type,genes」CSV → 原始行（genes 支持逗号/空格/分号）。 */
+  function normalizeMarkerCsv(text) {
+    var raw = String(text === null || text === undefined ? '' : text)
+    var lines = raw.split(/\r?\n/)
+    var rows = []
+    var errors = []
+    for (var index = 0; index < lines.length; index++) {
+      var line = String(lines[index] || '').trim()
+      if (!line) continue
+      var parts = line.split(/[\t,，;；]/)
+      var cellType = String(parts[0] || '').trim()
+      var genes = []
+      for (var partIndex = 1; partIndex < parts.length; partIndex++) {
+        var tokens = normalizeSchemeGenes(parts[partIndex])
+        for (var tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) genes.push(tokens[tokenIndex])
+      }
+      if (!cellType) {
+        errors.push('EMPTY_TYPE')
+        continue
+      }
+      if (index === 0 && /cell.?type|类型|细胞/i.test(cellType) && !genes.length) continue
+      if (index === 0 && /^genes?$/i.test(genes.join(' ')) && /cell.?type|类型/i.test(cellType)) continue
+      rows.push({ cellType: cellType, genesText: genes.join(' ') })
+    }
+    return { rows: rows, errors: errors }
+  }
+
+  /** 每个 cluster 的分配行：{id,label,nCells,topGenes,assignment,custom}。 */
+  function buildClusterAssignmentRows(clusterRows, scheme, assignments, customs) {
+    var list = Array.isArray(clusterRows) ? clusterRows : []
+    var built = scheme && Array.isArray(scheme.rows) ? scheme : buildMarkerScheme(scheme || [])
+    var schemeTypes = []
+    for (var index = 0; index < built.rows.length; index++) {
+      if (built.rows[index].cellType) schemeTypes.push(built.rows[index].cellType)
+    }
+    var map = assignments && typeof assignments === 'object' ? assignments : {}
+    var customMap = customs && typeof customs === 'object' ? customs : {}
+    var output = []
+    for (var clusterIndex = 0; clusterIndex < list.length; clusterIndex++) {
+      var cluster = list[clusterIndex] || {}
+      var id = String(cluster.id === null || cluster.id === undefined ? '' : cluster.id)
+      output.push({
+        id: id,
+        label: String(cluster.label === null || cluster.label === undefined ? id : cluster.label),
+        nCells: Number(cluster.nCells) || 0,
+        topGenes: Array.isArray(cluster.topGenes) ? cluster.topGenes.slice() : [],
+        assignment: String(map[id] || ''),
+        custom: String(customMap[id] || ''),
+        options: schemeTypes.slice(),
+      })
+    }
+    return output
+  }
+
+  /** 分配表 → annotate mapping（空/未填的簇跳过；custom 优先）。 */
+  function buildClusterAnnotation(assignments, customs) {
+    var map = assignments && typeof assignments === 'object' ? assignments : {}
+    var customMap = customs && typeof customs === 'object' ? customs : {}
+    var mapping = {}
+    var keys = Object.keys(map)
+    for (var index = 0; index < keys.length; index++) {
+      var cluster = keys[index]
+      var value = String(map[cluster] === null || map[cluster] === undefined ? '' : map[cluster]).trim()
+      var custom = String(customMap[cluster] === null || customMap[cluster] === undefined ? '' : customMap[cluster]).trim()
+      var label = custom || value
+      if (!label || label === '__custom__') continue
+      mapping[String(cluster)] = label
+    }
+    return mapping
   }
 
   // ==========================================================================
@@ -4936,6 +5272,8 @@
     normalizeStep2Settings: normalizeStep2Settings,
     step2PresetById: step2PresetById,
     buildStep2RecipeRequest: buildStep2RecipeRequest,
+    defaultDimredParams: defaultDimredParams,
+    buildDimredPayload: buildDimredPayload,
     buildStep2ClusterParams: buildStep2ClusterParams,
     buildStep2EmbedParams: buildStep2EmbedParams,
     TRIAL_COLUMNS: TRIAL_COLUMNS,
@@ -4957,6 +5295,16 @@
     layoutModeForWidth: layoutModeForWidth,
     EXPORT_QUICK_KINDS: EXPORT_QUICK_KINDS,
     buildExportOptions: buildExportOptions,
+    MARKER_PRESETS: MARKER_PRESETS,
+    SCHEME_MAX_ROWS: SCHEME_MAX_ROWS,
+    normalizeSchemeGenes: normalizeSchemeGenes,
+    schemeRowsFromPreset: schemeRowsFromPreset,
+    buildMarkerScheme: buildMarkerScheme,
+    flattenSchemeGenes: flattenSchemeGenes,
+    buildGroupedDotplotParams: buildGroupedDotplotParams,
+    normalizeMarkerCsv: normalizeMarkerCsv,
+    buildClusterAssignmentRows: buildClusterAssignmentRows,
+    buildClusterAnnotation: buildClusterAnnotation,
     validateSubsetSelection: validateSubsetSelection,
     buildSubsetPayload: buildSubsetPayload,
     normalizeSubsetResult: normalizeSubsetResult,
@@ -5575,6 +5923,13 @@
       '.sc-side-toggle{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}',
       '.sc-side-toggle-on{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-brand-primary)}',
 
+      // v8：Step3 三段式（方案表 / 表达卡 / 分配表）
+      '.sc-scheme-card .sc-scheme-table input.sc-scheme-type{width:130px}',
+      '.sc-scheme-card .sc-scheme-table input.sc-scheme-genes{width:100%;min-width:220px}',
+      '.sc-scheme-info{font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.sc-card-inner{display:flex;flex-direction:column;gap:5px;margin-top:4px}',
+      '.sc-assign-table select.sc-assignment-select{width:150px}',
+      '.sc-assign-table input.sc-scheme-type{width:150px;margin-top:3px}',
       // v7 Phase B：注释表 / 小亚群 / 画廊分组 / 进阶折叠 / 移动端单列
       '.sc-gallery-groups{display:flex;flex-direction:column;gap:10px}',
       '.sc-gallery-group{display:flex;flex-direction:column;gap:5px}',
@@ -8461,7 +8816,10 @@
         h('div', { className: 'sc-page-head' },
           h('div', null,
             h('div', { className: 'sc-page-title' }, T('pageStep2')),
-            h('div', { className: 'sc-page-sub' }, T('step2Sub'))),
+            h('div', { className: 'sc-page-sub' }, T('step2Sub')),
+            props.hvgReference
+              ? h('div', { className: 'sc-hint-line' }, tfv(T, 'step2HvgRef', { n: formatNumber(props.hvgReference) }))
+              : null),
           h('div', { className: 'sc-page-actions' })),
         h('div', { className: 'sc-card' },
           h('div', { className: 'sc-card-head' },
@@ -8551,17 +8909,6 @@
                 disabled: Boolean(props.runningPreset || props.runningRecluster || props.runningEmbed),
                 onChange: function (event) { props.onNeighbors(event.target.value) },
               })),
-            h('label', { className: 'sc-field' },
-              h('span', null, T('dimredTopGenes')),
-              h('input', {
-                className: 'sc-input',
-                type: 'number',
-                min: 100,
-                step: 100,
-                value: String(settings.nTopGenes),
-                disabled: Boolean(props.runningRecluster || props.runningEmbed),
-                onChange: function (event) { props.onTopGenes(event.target.value) },
-              })),
             h('div', { className: 'sc-field sc-dimred-slider-row' },
               h('span', null, T('step2Resolution')),
               h('input', {
@@ -8576,6 +8923,21 @@
               }),
               h('span', { className: 'sc-dimred-value' }, String(settings.resolution)),
               h('span', { className: 'sc-muted' }, T('dimredHint')))),
+          h('details', { className: 'sc-advanced' },
+            h('summary', null, T('step2AdvancedParams')),
+            h('div', { className: 'sc-hint-line' }, T('step2HvgHint')),
+            h('div', { className: 'sc-card-grid' },
+              h('label', { className: 'sc-field' },
+                h('span', null, T('dimredTopGenes')),
+                h('input', {
+                  className: 'sc-input',
+                  type: 'number',
+                  min: 100,
+                  step: 100,
+                  value: String(settings.nTopGenes),
+                  disabled: Boolean(props.runningRecluster || props.runningEmbed),
+                  onChange: function (event) { props.onTopGenes(event.target.value) },
+                })))),
           props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null),
         h('div', { className: 'sc-card' },
           h('div', { className: 'sc-card-head' },
@@ -8629,11 +8991,234 @@
           : null)
     }
 
+    function MarkerSchemeCard(props) {
+      var scheme = props.scheme || buildMarkerScheme(props.rows || [])
+      var rows = props.rows || EMPTY_LIST
+      var errorText = scheme.errors.length
+        ? T('step3SchemeInvalid')
+        : ''
+      var duplicateNames = scheme.errors.filter(function (item) { return item.indexOf('DUPLICATE:') === 0 }).map(function (item) { return item.substring(10) })
+      var noGenes = scheme.warnings.filter(function (item) { return item.indexOf('NO_GENES:') === 0 }).map(function (item) { return item.substring(9) })
+      return h('div', { className: 'sc-card sc-scheme-card' },
+        h('div', { className: 'sc-card-head' },
+          h('div', null,
+            h('div', { className: 'sc-card-title' }, T('step3SchemeTitle')),
+            h('div', { className: 'sc-card-sub' }, T('step3SchemeSub'))),
+          h('div', { className: 'sc-card-actions' },
+            h('button', { type: 'button', className: 'sc-btn sc-btn-sm', disabled: Boolean(props.csvOpen), onClick: props.onToggleCsv }, T('step3SchemePasteCsv')),
+            h('button', { type: 'button', className: 'sc-btn sc-btn-sm', onClick: function () { props.onLoadPreset('human') } }, T('step3SchemePresetHuman')),
+            h('button', { type: 'button', className: 'sc-btn sc-btn-sm', onClick: function () { props.onLoadPreset('mouse') } }, T('step3SchemePresetMouse')),
+            h('button', { type: 'button', className: 'sc-btn sc-btn-sm sc-btn-primary', onClick: props.onAdd }, '+ ' + T('step3SchemeAdd')))),
+        h('div', { className: 'sc-scheme-info' },
+          tfv(T, 'step3SchemeGeneCount', { types: scheme.typedRows, genes: scheme.geneCount })),
+        scheme.rows.length
+          ? h('div', { className: 'sc-table-wrap' },
+              h('table', { className: 'sc-table sc-scheme-table' },
+                h('thead', null, h('tr', null,
+                  h('th', null, T('step3SchemeColType')),
+                  h('th', null, T('step3SchemeColGenes')),
+                  h('th', { className: 'sc-td-num' }, T('step3SchemeDelete')))),
+                h('tbody', null, rows.map(function (row, index) {
+                  return h('tr', { key: 'scheme-row-' + index },
+                    h('td', null, h('input', {
+                      className: 'sc-input sc-scheme-type',
+                      type: 'text',
+                      value: row.cellType || '',
+                      placeholder: T('step3SchemeColType'),
+                      onChange: function (event) { props.onChange(index, 'cellType', event.target.value) },
+                    })),
+                    h('td', null, h('input', {
+                      className: 'sc-input sc-scheme-genes',
+                      type: 'text',
+                      value: row.genesText || '',
+                      placeholder: T('step3SchemeColGenes'),
+                      onChange: function (event) { props.onChange(index, 'genesText', event.target.value) },
+                    })),
+                    h('td', { className: 'sc-td-num' },
+                      h('button', {
+                        type: 'button',
+                        className: 'sc-btn sc-btn-sm sc-sample-del',
+                        onClick: function () { props.onDelete(index) },
+                      }, '×')))
+                }))))
+          : h('div', { className: 'sc-hint-line' }, T('step3SchemeEmpty')),
+        duplicateNames.length
+          ? h('div', { className: 'sc-inline-err' }, tfv(T, 'step3SchemeDuplicate', { names: duplicateNames.join('、') }))
+          : null,
+        errorText ? h('div', { className: 'sc-inline-err' }, errorText) : null,
+        noGenes.length
+          ? h('div', { className: 'sc-warn-text' }, tfv(T, 'step3SchemeNoGenes', { names: noGenes.join('、') }))
+          : null,
+        scheme.warnings.indexOf('TOO_MANY_ROWS') >= 0
+          ? h('div', { className: 'sc-warn-text' }, T('step3SchemeTooMany'))
+          : null,
+        props.message ? h('div', { className: 'sc-ok' }, props.message) : null,
+        props.csvOpen
+          ? h('div', { className: 'sc-annot-csv' },
+              h('textarea', {
+                value: props.csvText || '',
+                placeholder: T('step3SchemeCsvPlaceholder'),
+                onChange: function (event) { props.onCsvText(event.target.value) },
+              }),
+              h('div', { className: 'sc-annot-actions' },
+                h('button', {
+                  type: 'button',
+                  className: 'sc-btn sc-btn-sm sc-btn-primary',
+                  disabled: !String(props.csvText || '').trim(),
+                  onClick: props.onApplyCsv,
+                }, T('step3SchemeCsvApply')),
+                h('button', { type: 'button', className: 'sc-btn sc-btn-sm', onClick: props.onToggleCsv }, T('cancel'))))
+          : null)
+    }
+
+    function ExpressionCard(props) {
+      var scheme = props.scheme || buildMarkerScheme([])
+      var genes = flattenSchemeGenes(scheme)
+      var disabled = !scheme.geneCount || Boolean(props.busy)
+      return h('div', { className: 'sc-card' },
+        h('div', { className: 'sc-card-head' },
+          h('div', null,
+            h('div', { className: 'sc-card-title' }, T('step3ExpressionTitle')),
+            h('div', { className: 'sc-card-sub' }, T('step3ExpressionSub'))),
+          h('div', { className: 'sc-card-actions' },
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm sc-btn-primary',
+              disabled: disabled,
+              onClick: function () { props.onPlot('dotplot') },
+            }, props.busy ? T('step3ExpressionBusy') : T('step3ExpressionDotplot')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: disabled,
+              onClick: function () { props.onPlot('heatmap') },
+            }, T('step3ExpressionHeatmap')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: disabled,
+              onClick: props.onFeaturePlot,
+            }, T('step3ExpressionFeature')))),
+        disabled && !scheme.geneCount
+          ? h('div', { className: 'sc-hint-line' }, T('step3ExpressionNeedScheme'))
+          : null,
+        genes.length
+          ? h('div', { className: 'sc-annot-genes' }, genes.map(function (gene) {
+              return h('button', {
+                key: 'scheme-gene-' + gene,
+                type: 'button',
+                className: 'sc-annot-gene-chip' + (props.selectedGene === gene ? ' sc-annot-gene-chip-on' : ''),
+                onClick: function () { props.onSelectGene(gene) },
+              }, gene)
+            }))
+          : null,
+        props.selectedGene
+          ? h('div', { className: 'sc-hint-line' }, tfv(T, 'step3ExpressionSelected', { gene: props.selectedGene }))
+          : null,
+        props.addGeneNode ? h('div', { className: 'sc-annot-actions' }, props.addGeneNode) : null,
+        props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null,
+        props.figure
+          ? h('div', { className: 'sc-figure' },
+              h('img', { src: props.figure.url, alt: props.figureKind || 'dotplot', loading: 'lazy' }))
+          : null,
+        props.embeddingNode
+          ? h('div', { className: 'sc-card-inner' },
+              h('div', { className: 'sc-card-sub' }, T('step3ColorByGeneHint')),
+              props.embeddingNode)
+          : null)
+    }
+
+    function ClusterAssignCard(props) {
+      var rows = props.rows || EMPTY_LIST
+      var coverage = props.coverage || annotationCoverage([])
+      var scheme = props.scheme || buildMarkerScheme([])
+      var assignedCount = 0
+      for (var assignedIndex = 0; assignedIndex < rows.length; assignedIndex++) {
+        var assignedRow = rows[assignedIndex]
+        var customLabel = String(assignedRow.custom || '').trim()
+        var pick = String(assignedRow.assignment || '').trim()
+        if (customLabel || (pick && pick !== '__custom__')) assignedCount += 1
+      }
+      var schemeTypes = []
+      for (var index = 0; index < scheme.rows.length; index++) {
+        if (scheme.rows[index].cellType) schemeTypes.push(scheme.rows[index].cellType)
+      }
+      return h('div', { className: 'sc-card' },
+        h('div', { className: 'sc-card-head' },
+          h('div', null,
+            h('div', { className: 'sc-card-title' }, T('step3AssignTitle')),
+            h('div', { className: 'sc-card-sub' }, T('step3AssignSub'))),
+          h('div', { className: 'sc-card-actions' },
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: !props.hasMapping,
+              onClick: props.onColorUmap,
+            }, T('step3ColorUmap')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm sc-btn-primary',
+              disabled: Boolean(props.saving) || assignedCount === 0,
+              onClick: props.onSave,
+            }, props.saving ? T('running') : T('step3AssignSave')))),
+        h('div', { className: 'sc-hint-line' },
+          tfv(T, 'step3AssignCount', { mapped: assignedCount, total: rows.length }) +
+          (coverage.pending.length ? ' · ' + T('step3Pending') + ' ' + coverage.pending.join(', ') : '')),
+        rows.length
+          ? h('div', { className: 'sc-table-wrap' },
+              h('table', { className: 'sc-table sc-assign-table' },
+                h('thead', null, h('tr', null,
+                  h('th', null, T('tableCluster')),
+                  h('th', { className: 'sc-td-num' }, T('samplesColCells')),
+                  h('th', null, T('step3AssignTopMarkers')),
+                  h('th', null, T('step3SchemeColType')))),
+                h('tbody', null, rows.map(function (row) {
+                  var value = row.assignment || ''
+                  var customValue = row.custom || ''
+                  var options = [h('option', { key: 'assign-empty', value: '' }, T('step3AssignEmpty'))]
+                  for (var optionIndex = 0; optionIndex < schemeTypes.length; optionIndex++) {
+                    options.push(h('option', { key: 'assign-' + schemeTypes[optionIndex], value: schemeTypes[optionIndex] }, schemeTypes[optionIndex]))
+                  }
+                  options.push(h('option', { key: 'assign-custom', value: '__custom__' }, T('step3AssignCustom')))
+                  return h('tr', { key: 'assign-row-' + row.id },
+                    h('td', { className: 'sc-td-group' }, 'cluster ' + row.label),
+                    h('td', { className: 'sc-td-num' }, formatNumber(row.nCells)),
+                    h('td', null, h('div', { className: 'sc-annot-genes' }, row.topGenes.map(function (gene) {
+                      return h('button', {
+                        key: 'assign-gene-' + row.id + '-' + gene,
+                        type: 'button',
+                        className: 'sc-annot-gene-chip' + (props.selectedGene === gene ? ' sc-annot-gene-chip-on' : ''),
+                        onClick: function () { props.onSelectGene(gene) },
+                      }, gene)
+                    }))),
+                    h('td', null,
+                      h('select', {
+                        className: 'sc-input sc-select sc-assignment-select',
+                        value: value,
+                        onChange: function (event) { props.onAssignmentChange(row.id, event.target.value) },
+                      }, options),
+                      value === '__custom__'
+                        ? h('input', {
+                            className: 'sc-input sc-scheme-type',
+                            type: 'text',
+                            value: customValue,
+                            placeholder: T('step3AssignCustom'),
+                            onChange: function (event) { props.onCustomChange(row.id, event.target.value) },
+                          })
+                        : null))
+                }))))
+          : h('div', { className: 'sc-hint-line' }, T('annotNeedMarkers')),
+        props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null,
+        props.message ? h('div', { className: 'sc-ok' }, props.message) : null)
+    }
+
     function Step3Page(props) {
-      var rows = props.annotationRows || EMPTY_LIST
-      var coverage = annotationCoverage(rows)
+      var scheme = props.scheme || buildMarkerScheme(props.schemeRows || [])
+      var annotationRows = props.annotationRows || EMPTY_LIST
+      var coverage = annotationCoverage(annotationRows)
       var annotation = props.annotation || {}
-      var annotationRows = rows.map(function (row) {
+      var assignmentRows = buildClusterAssignmentRows(annotationRows, scheme, props.assignments || {}, props.customs || {})
+      var annotationTable = annotationRows.map(function (row) {
         return h('tr', { key: 'annot-table-' + row.id },
           h('td', { className: 'sc-td-group' }, 'cluster ' + row.label),
           h('td', { className: 'sc-td-num' }, formatNumber(row.nCells)),
@@ -8644,25 +9229,48 @@
         h('div', { className: 'sc-page-head' },
           h('div', null,
             h('div', { className: 'sc-page-title' }, T('pageStep3')),
-            h('div', { className: 'sc-page-sub' }, T('step3Sub'))),
-          h('div', { className: 'sc-page-actions' },
-            h('button', {
-              type: 'button',
-              className: 'sc-btn sc-btn-sm' + (props.colorKind === 'cell_type' ? ' sc-btn-primary' : ''),
-              disabled: !props.hasMapping,
-              onClick: function () { props.onColorBy('cell_type') },
-            }, T('step3ColorByAnnotation')),
-            h('button', {
-              type: 'button',
-              className: 'sc-btn sc-btn-sm' + (props.colorKind === 'clusters' ? ' sc-btn-primary' : ''),
-              onClick: function () { props.onColorBy('clusters') },
-            }, T('step3ColorByCluster')))),
-        h('div', { className: 'sc-card' },
-          h('div', { className: 'sc-card-head' },
-            h('div', { className: 'sc-card-title' }, T('step3Umap')),
-            h('span', { className: 'sc-card-sub' }, props.colorLabel || '')),
-          props.embeddingNode || h('div', { className: 'sc-notice-card' }, T('step2NeedCluster'))),
-        h(MarkersTab, props.markersProps),
+            h('div', { className: 'sc-page-sub' }, T('step3Sub')))),
+        h(MarkerSchemeCard, {
+          rows: props.schemeRows,
+          scheme: scheme,
+          onChange: props.onSchemeChange,
+          onAdd: props.onSchemeAdd,
+          onDelete: props.onSchemeDelete,
+          onLoadPreset: props.onLoadPreset,
+          csvOpen: props.schemeCsvOpen,
+          csvText: props.schemeCsvText,
+          onToggleCsv: props.onToggleSchemeCsv,
+          onCsvText: props.onSchemeCsvText,
+          onApplyCsv: props.onApplySchemeCsv,
+          message: props.schemeMessage,
+        }),
+        h(ExpressionCard, {
+          scheme: scheme,
+          busy: props.expressionBusy,
+          error: props.expressionError,
+          figure: props.expressionFigure,
+          figureKind: props.expressionKind,
+          selectedGene: props.selectedGene,
+          onSelectGene: props.onSelectGene,
+          onPlot: props.onPlotScheme,
+          onFeaturePlot: props.onFeaturePlotScheme,
+          embeddingNode: props.embeddingNode,
+        }),
+        h(ClusterAssignCard, {
+          rows: assignmentRows,
+          scheme: scheme,
+          coverage: coverage,
+          selectedGene: props.selectedGene,
+          onSelectGene: props.onSelectGene,
+          onAssignmentChange: props.onAssignmentChange,
+          onCustomChange: props.onCustomChange,
+          onSave: props.onSaveAssignments,
+          saving: props.savingAnnotation,
+          hasMapping: props.hasMapping,
+          onColorUmap: props.onColorUmap,
+          error: props.assignError,
+          message: props.assignMessage,
+        }),
         h('div', { className: 'sc-card' },
           h('div', { className: 'sc-card-head' },
             h('div', null,
@@ -8677,7 +9285,7 @@
                 disabled: Boolean(props.savingAnnotation) || !Object.keys(annotation).length,
                 onClick: props.onSaveAnnotation,
               }, props.savingAnnotation ? T('running') : T('annotSave')))),
-          rows.length
+          annotationRows.length
             ? h('div', { className: 'sc-table-wrap' },
                 h('table', { className: 'sc-table' },
                   h('thead', null, h('tr', null,
@@ -8685,14 +9293,14 @@
                     h('th', { className: 'sc-td-num' }, T('samplesColCells')),
                     h('th', null, T('cellTypePlaceholder')),
                     h('th', null, T('annotMarkerTable')))),
-                  h('tbody', null, annotationRows)))
+                  h('tbody', null, annotationTable)))
             : h('div', { className: 'sc-hint-line' }, T('annotNeedMarkers'))),
         h('div', { className: 'sc-card' },
           h('div', { className: 'sc-card-head' },
             h('div', null,
               h('div', { className: 'sc-card-title' }, T('step3SubsetTitle')),
               h('div', { className: 'sc-card-sub' }, T('step3SubsetHint')))),
-          h('div', { className: 'sc-subset-chips' }, rows.map(function (row) {
+          h('div', { className: 'sc-subset-chips' }, annotationRows.map(function (row) {
             var selected = (props.subsetClusters || EMPTY_LIST).indexOf(row.id) >= 0
             return h('button', {
               key: 'subset-chip-' + row.id,
@@ -8717,7 +9325,11 @@
               onClick: function () { props.onRunSubset() },
             }, props.subsetBusy ? T('step3SubsetBusy') : T('step3SubsetRun')),
             props.subsetMessage ? h('span', { className: 'sc-ok' }, props.subsetMessage) : null),
-          props.subsetError ? h('div', { className: 'sc-inline-err' }, props.subsetError) : null))
+          props.subsetError ? h('div', { className: 'sc-inline-err' }, props.subsetError) : null),
+        h('details', { className: 'sc-advanced' },
+          h('summary', null, T('step3MarkerDetail')),
+          props.markersNode || null,
+          props.annotationCsvNode || null))
     }
 
     function Step4Page(props) {
@@ -9206,6 +9818,33 @@
       var subsetMessageRes = React.useState('')
       var subsetMessage = subsetMessageRes[0]
       var setSubsetMessage = subsetMessageRes[1]
+      var schemeRowsRes = React.useState([{ cellType: '', genesText: '' }])
+      var schemeRows = schemeRowsRes[0]
+      var setSchemeRows = schemeRowsRes[1]
+      var schemeCsvOpenRes = React.useState(false)
+      var schemeCsvOpen = schemeCsvOpenRes[0]
+      var setSchemeCsvOpen = schemeCsvOpenRes[1]
+      var schemeCsvTextRes = React.useState('')
+      var schemeCsvText = schemeCsvTextRes[0]
+      var setSchemeCsvText = schemeCsvTextRes[1]
+      var schemeMessageRes = React.useState('')
+      var schemeMessage = schemeMessageRes[0]
+      var setSchemeMessage = schemeMessageRes[1]
+      var schemePlotFigureRes = React.useState(null)
+      var schemePlotFigure = schemePlotFigureRes[0]
+      var setSchemePlotFigure = schemePlotFigureRes[1]
+      var schemePlotKindRes = React.useState('dotplot')
+      var schemePlotKind = schemePlotKindRes[0]
+      var setSchemePlotKind = schemePlotKindRes[1]
+      var assignMessageRes = React.useState('')
+      var assignMessage = assignMessageRes[0]
+      var setAssignMessage = assignMessageRes[1]
+      var clusterAssignmentsRes = React.useState({})
+      var clusterAssignments = clusterAssignmentsRes[0]
+      var setClusterAssignments = clusterAssignmentsRes[1]
+      var clusterCustomsRes = React.useState({})
+      var clusterCustoms = clusterCustomsRes[0]
+      var setClusterCustoms = clusterCustomsRes[1]
       var layoutModeRes = React.useState('wide')
       var layoutMode = layoutModeRes[0]
       var setLayoutMode = layoutModeRes[1]
@@ -10997,6 +11636,149 @@
         setCurrentStep('cluster')
       }
 
+      // ---- v8：Step3 三段式（marker 方案 / 看表达 / cluster 分配） ----
+
+      function handleSchemeChange(index, field, value) {
+        setSchemeRows(function (previous) {
+          var next = previous.slice()
+          if (!next[index]) next[index] = { cellType: '', genesText: '' }
+          next[index] = Object.assign({}, next[index])
+          next[index][field] = value
+          return next
+        })
+        setSchemeMessage('')
+      }
+
+      function handleSchemeAdd() {
+        setSchemeRows(function (previous) {
+          return previous.concat([{ cellType: '', genesText: '' }])
+        })
+        setSchemeMessage('')
+      }
+
+      function handleSchemeDelete(index) {
+        setSchemeRows(function (previous) {
+          return previous.filter(function (row, rowIndex) { return rowIndex !== index })
+        })
+        setSchemeMessage('')
+      }
+
+      function handleLoadPreset(kind) {
+        var rows = schemeRowsFromPreset(kind)
+        setSchemeRows(rows)
+        setSchemeMessage(tfv(T, 'step3SchemeLoaded', {
+          kind: kind === 'mouse' ? T('presetMouse') : T('presetHuman'),
+          count: rows.length,
+        }))
+      }
+
+      function handleToggleSchemeCsv() {
+        setSchemeCsvOpen(function (value) { return !value })
+      }
+
+      function handleApplySchemeCsv() {
+        var parsed = normalizeMarkerCsv(schemeCsvText)
+        if (!parsed.rows.length) {
+          setErrors(function (previous) {
+            var next = Object.assign({}, previous)
+            next.scheme = T('step3SchemeEmpty')
+            return next
+          })
+          return
+        }
+        setSchemeRows(parsed.rows)
+        setSchemeCsvOpen(false)
+        setSchemeCsvText('')
+        setSchemeMessage(tfv(T, 'step3SchemeApplied', { count: parsed.rows.length }))
+      }
+
+      async function handlePlotScheme(kind) {
+        if (!activeId) return
+        var built = buildMarkerScheme(schemeRows)
+        if (!built.geneCount || !built.valid) {
+          setErrors(function (previous) {
+            var next = Object.assign({}, previous)
+            next.scheme = built.errors.length ? T('step3SchemeInvalid') : T('step3ExpressionNeedScheme')
+            return next
+          })
+          return
+        }
+        var params = buildGroupedDotplotParams(built)
+        var payload = await runTask('schemePlot', function () {
+          return clientApi.plot(activeId, kind === 'heatmap' ? 'heatmap' : 'dotplot', params)
+        })
+        if (!payload) return
+        var figure = normalizeFigure(payload)
+        if (!figure) return
+        setSchemePlotFigure(figure)
+        setSchemePlotKind(kind === 'heatmap' ? 'heatmap' : 'dotplot')
+        pushGalleryFigure(figure, { title: T('step3ExpressionTitle'), kind: kind === 'heatmap' ? 'heatmap' : 'dotplot', source: T('pageStep3') })
+      }
+
+      function handleSelectSchemeGene(gene) {
+        var name = String(gene || '')
+        if (!name) return
+        setSelectedGene(name)
+        setColorBy({ kind: 'gene', key: name })
+        setEmbedNonce(function (value) { return value + 1 })
+      }
+
+      function handleFeaturePlotScheme() {
+        var built = buildMarkerScheme(schemeRows)
+        var gene = String(selectedGene || '')
+        if (!gene) {
+          var flat = flattenSchemeGenes(built)
+          gene = flat.length ? flat[0] : ''
+        }
+        if (!gene) {
+          setErrors(function (previous) {
+            var next = Object.assign({}, previous)
+            next.scheme = T('step3ExpressionNeedScheme')
+            return next
+          })
+          return
+        }
+        handleSelectSchemeGene(gene)
+      }
+
+      function handleAssignmentChange(clusterId, value) {
+        var id = String(clusterId)
+        setClusterAssignments(function (previous) {
+          var next = Object.assign({}, previous)
+          if (value) next[id] = value
+          else delete next[id]
+          return next
+        })
+        setAssignMessage('')
+      }
+
+      function handleCustomChange(clusterId, value) {
+        var id = String(clusterId)
+        setClusterCustoms(function (previous) {
+          var next = Object.assign({}, previous)
+          next[id] = value
+          return next
+        })
+        setAssignMessage('')
+      }
+
+      async function handleSaveClusterAssignments() {
+        if (!activeId) return
+        var mapping = buildClusterAnnotation(clusterAssignments, clusterCustoms)
+        if (!Object.keys(mapping).length) {
+          setErrors(function (previous) {
+            var next = Object.assign({}, previous)
+            next.assign = T('step3AssignEmpty')
+            return next
+          })
+          return
+        }
+        setAnnotation(function (previous) { return Object.assign({}, previous, mapping) })
+        var payload = await handleSaveAnnotation(mapping)
+        if (!payload) return
+        setAssignMessage(tfv(T, 'step3AssignSaved', { count: Object.keys(mapping).length }))
+      }
+
       // ---- 渲染 ----
 
       var embeddingNode = null
@@ -11121,6 +11903,102 @@
         onRunStep: handleRunStep,
       })
       var annotationRows = buildClusterAnnotationRows(markerGroups, annotation)
+      var scheme = buildMarkerScheme(schemeRows)
+      var markerDetailRows = []
+      for (var markerGroupIndex = 0; markerGroupIndex < markerGroups.length; markerGroupIndex++) {
+        var markerGroupItem = markerGroups[markerGroupIndex]
+        var groupGenes = Array.isArray(markerGroupItem.genes) ? markerGroupItem.genes : []
+        for (var markerGeneIndex = 0; markerGeneIndex < groupGenes.length; markerGeneIndex++) {
+          markerDetailRows.push({
+            key: markerGroupItem.id + '-' + (groupGenes[markerGeneIndex].gene || markerGeneIndex),
+            cluster: markerGroupItem.label,
+            gene: groupGenes[markerGeneIndex].gene,
+            logfc: groupGenes[markerGeneIndex].logfc,
+            padj: groupGenes[markerGeneIndex].pvalAdj,
+            pctIn: groupGenes[markerGeneIndex].pctIn,
+          })
+        }
+      }
+      var markerDetailNode = h('div', { className: 'sc-marker-detail' },
+        h('div', { className: 'sc-annot-actions' },
+          h('label', { className: 'sc-tool-field' },
+            h('span', null, T('paramMarkerMethod')),
+            h('select', {
+              className: 'sc-input sc-select',
+              value: markersMethod,
+              onChange: function (event) { setMarkersMethod(event.target.value) },
+            },
+              h('option', { value: 't-test' }, 't-test'),
+              h('option', { value: 'wilcoxon' }, 'wilcoxon'))),
+          h('label', { className: 'sc-tool-field' },
+            h('span', null, T('paramTopN')),
+            h('select', {
+              className: 'sc-input sc-select',
+              value: String(markersTop),
+              onChange: function (event) { setMarkersTop(Number(event.target.value)) },
+            },
+              h('option', { value: '5' }, '5'),
+              h('option', { value: '10' }, '10'),
+              h('option', { value: '20' }, '20'))),
+          h('button', { type: 'button', className: 'sc-btn sc-btn-sm', onClick: handleReloadMarkers }, T('reloadMarkers')),
+          h('button', { type: 'button', className: 'sc-btn sc-btn-sm', disabled: Boolean(busy.dotplot), onClick: handleDotplot }, T('generateDotplot'))),
+        markerDetailRows.length
+          ? h('div', { className: 'sc-table-wrap' },
+              h('table', { className: 'sc-table' },
+                h('thead', null, h('tr', null,
+                  h('th', null, T('tableCluster')),
+                  h('th', null, T('tableGene')),
+                  h('th', { className: 'sc-td-num' }, T('tableLogfc')),
+                  h('th', { className: 'sc-td-num' }, T('tablePval')),
+                  h('th', { className: 'sc-td-num' }, T('tablePctIn')))),
+                h('tbody', null, markerDetailRows.map(function (row) {
+                  return h('tr', { key: 'marker-detail-' + row.key },
+                    h('td', { className: 'sc-td-group' }, row.cluster),
+                    h('td', null, h('button', {
+                      type: 'button',
+                      className: 'sc-annot-gene-chip',
+                      onClick: function () { handleSelectSchemeGene(row.gene) },
+                    }, row.gene || '—')),
+                    h('td', { className: 'sc-td-num' }, formatNumber(row.logfc, 2)),
+                    h('td', { className: 'sc-td-num' }, formatPValue(row.padj)),
+                    h('td', { className: 'sc-td-num' }, formatPct(row.pctIn)))
+                }))))
+          : h('div', { className: 'sc-hint-line' }, T('annotNeedMarkers')))
+      var annotationCsvNode = h('div', { className: 'sc-annot-csv' },
+        h('div', { className: 'sc-annot-actions' },
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-sm',
+            onClick: function () { setAnnotCsvOpen(function (value) { return !value }) },
+          }, T('annotCsv'))),
+        annotCsvOpen
+          ? h('div', { className: 'sc-annot-csv' },
+              h('textarea', {
+                value: annotCsvText,
+                placeholder: T('annotCsvPlaceholder'),
+                onChange: function (event) { setAnnotCsvText(event.target.value) },
+              }),
+              h('div', { className: 'sc-annot-actions' },
+                h('button', {
+                  type: 'button',
+                  className: 'sc-btn sc-btn-sm sc-btn-primary',
+                  disabled: !String(annotCsvText || '').trim(),
+                  onClick: handleApplyAnnotationCsv,
+                }, T('annotCsvApply'))))
+          : null)
+      var hvgReference = 0
+      if (preview && preview.importState && preview.importState.mapped) {
+        hvgReference = Number(preview.importState.mapped.nVariableFeatures) || 0
+      }
+      if (!hvgReference && mergedSummaries.hvg && Array.isArray(mergedSummaries.hvg.bullets)) {
+        for (var hvgBulletIndex = 0; hvgBulletIndex < mergedSummaries.hvg.bullets.length; hvgBulletIndex++) {
+          var hvgMatch = String(mergedSummaries.hvg.bullets[hvgBulletIndex] || '').match(/(\d[\d,]*)\s*个高变基因/)
+          if (hvgMatch) {
+            hvgReference = Number(String(hvgMatch[1]).replace(/,/g, '')) || 0
+            break
+          }
+        }
+      }
       var stepStatuses = computeStepNavStatuses(activeDataset)
       var trialOptions = buildTrialOptions(obsColumns)
       var trialIds = []
@@ -11192,6 +12070,7 @@
           clusterBarFigure: clusterBar ? clusterBar.figure : null,
           onClusterBar: handleGenerateClusterBar,
           warnings: dimWarnings,
+          hvgReference: hvgReference,
           advancedNode: pipelineNode,
         })
       } else if (activeId && currentStep === 'annotate') {
@@ -11199,13 +12078,40 @@
           hasMapping: annotationCount > 0,
           annotation: annotation,
           annotationRows: annotationRows,
+          schemeRows: schemeRows,
+          scheme: scheme,
+          schemeMessage: schemeMessage,
+          schemeCsvOpen: schemeCsvOpen,
+          schemeCsvText: schemeCsvText,
+          onSchemeChange: handleSchemeChange,
+          onSchemeAdd: handleSchemeAdd,
+          onSchemeDelete: handleSchemeDelete,
+          onLoadPreset: handleLoadPreset,
+          onToggleSchemeCsv: handleToggleSchemeCsv,
+          onSchemeCsvText: setSchemeCsvText,
+          onApplySchemeCsv: handleApplySchemeCsv,
+          expressionBusy: Boolean(busy.schemePlot),
+          expressionError: errors.scheme || '',
+          expressionFigure: schemePlotFigure,
+          expressionKind: schemePlotKind,
+          selectedGene: selectedGene,
+          onSelectGene: handleSelectSchemeGene,
+          onPlotScheme: handlePlotScheme,
+          onFeaturePlotScheme: handleFeaturePlotScheme,
           embeddingNode: embeddingNode,
-          colorKind: colorBy.kind === 'obs' ? String(colorBy.key || '') : '',
-          colorLabel: colorBy.kind === 'obs' ? 'obs.' + String(colorBy.key || '') : '',
-          onColorBy: handleColorByObs,
+          assignments: clusterAssignments,
+          customs: clusterCustoms,
+          onAssignmentChange: handleAssignmentChange,
+          onCustomChange: handleCustomChange,
+          onSaveAssignments: handleSaveClusterAssignments,
+          assignError: errors.assign || '',
+          assignMessage: assignMessage,
+          onColorUmap: function () { handleColorByObs('cell_type') },
           onSaveAnnotation: function () { handleSaveAnnotation(annotationMapping) },
           savingAnnotation: Boolean(busy.annotate),
-          markersProps: markersNode ? markersNode.props : {},
+          markerNode: markerDetailNode,
+          markersNode: markerDetailNode,
+          annotationCsvNode: annotationCsvNode,
           subsetClusters: subsetClusters,
           subsetName: subsetName,
           subsetMessage: subsetMessage,

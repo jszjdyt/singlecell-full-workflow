@@ -2788,6 +2788,49 @@ def _selected_gene_list(dataset, params):
     return genes[:120]
 
 
+def _parse_gene_groups(params):
+    """解析 params.gene_groups = [{"label": "T cell", "genes": ["CD3D", ...]}, ...]。"""
+    raw = params.get("gene_groups") if isinstance(params, dict) else None
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return []
+    groups = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        label = str(item.get("label") or item.get("name") or "").strip()
+        genes = item.get("genes")
+        if isinstance(genes, str):
+            genes = [value for value in genes.replace(",", " ").replace(";", " ").split() if value]
+        if not isinstance(genes, (list, tuple)):
+            continue
+        clean = [str(gene).strip() for gene in genes if str(gene).strip()]
+        if clean:
+            groups.append({"label": label, "genes": clean})
+    return groups
+
+
+def _flatten_gene_groups(dataset, groups):
+    """把 gene_groups 展平成可用基因列表 + 分组边界；不在矩阵里的基因丢弃。"""
+    index = dataset.var_index()
+    ordered, bounds, labels, missing = [], [], [], []
+    for group in groups:
+        genes = []
+        for gene in group["genes"]:
+            if gene in index and gene not in ordered:
+                genes.append(gene)
+            elif gene not in index and gene not in missing:
+                missing.append(gene)
+        if not genes:
+            continue
+        start = len(ordered)
+        ordered.extend(genes)
+        bounds.append((start, len(ordered)))
+        labels.append(group["label"] or ("Group %d" % len(labels)))
+    if missing:
+        dataset.warnings.append("点图/热图忽略不在表达矩阵中的基因：%s" % ", ".join(missing[:10]))
+    return ordered, bounds, labels
+
+
 def _expression_by_cluster(dataset, genes, clusters=None):
     """选中基因 × 簇 的平均表达 / 表达比例矩阵（用户手动选 marker 出图用）。"""
     index = dataset.var_index()
@@ -2813,8 +2856,20 @@ def _expression_by_cluster(dataset, genes, clusters=None):
 
 def _plot_dotplot(dataset, params):
     _require_step(dataset, "cluster", "生成 dotplot 需要先完成 cluster 步骤")
-    selected = _selected_gene_list(dataset, params)
-    if selected:
+    groups_raw = _parse_gene_groups(params)
+    if groups_raw:
+        ordered, bounds, labels = _flatten_gene_groups(dataset, groups_raw)
+        if ordered:
+            genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, ordered)
+            title = "Marker genes by cell type"
+        else:
+            groups_raw, genes, clusters, mean_matrix, pct_matrix, title = [], None, None, None, None, None
+    else:
+        genes = None
+    selected = _selected_gene_list(dataset, params) if genes is None else []
+    if genes is not None:
+        pass
+    elif selected:
         genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, selected)
         title = "Selected marker genes (%d)" % len(genes)
     else:
@@ -2840,6 +2895,12 @@ def _plot_dotplot(dataset, params):
     axis.set_xlabel("marker gene")
     axis.set_ylabel("cluster")
     axis.set_title(title)
+    if groups_raw and 'bounds' in dir():
+        for start, end in bounds:
+            if start > 0:
+                axis.axvline(start - 0.5, color="#888888", linewidth=0.8, linestyle="--", alpha=0.7)
+            axis.text((start + end - 1) / 2.0, len(clusters) - 0.35, labels[bounds.index((start, end))],
+                      ha="center", va="bottom", fontsize=8, rotation=0, clip_on=False)
     axis.set_xlim(-0.5, len(genes) - 0.5)
     axis.set_ylim(-0.5, len(clusters) - 0.5)
     fig.tight_layout()
@@ -2848,8 +2909,20 @@ def _plot_dotplot(dataset, params):
 
 def _plot_heatmap(dataset, params):
     _require_step(dataset, "cluster", "生成 heatmap 需要先完成 cluster 步骤")
-    selected = _selected_gene_list(dataset, params)
-    if selected:
+    groups_raw = _parse_gene_groups(params)
+    selected = [] if groups_raw else _selected_gene_list(dataset, params)
+    if groups_raw:
+        ordered, _bounds_h, _labels_h = _flatten_gene_groups(dataset, groups_raw)
+        if ordered:
+            genes, clusters, mean_matrix, _pct = _expression_by_cluster(dataset, ordered)
+            title = "Marker genes by cell type (heatmap)"
+        else:
+            genes = None
+    else:
+        genes = None
+    if genes is not None:
+        pass
+    elif selected:
         genes, clusters, mean_matrix, _pct = _expression_by_cluster(dataset, selected)
         title = "Selected marker genes heatmap (%d)" % len(genes)
     else:

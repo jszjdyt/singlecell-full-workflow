@@ -1777,7 +1777,7 @@ test('buildStep2ClusterParams / EmbedParams：integration / harmony / batch_key 
   assert.equal(none.resolution, 0.5)
 
   const builtin = SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ engine: 'builtin' }))
-  assert.deepEqual(builtin, { resolution: 0.8, method: 'louvain' })
+  assert.deepEqual(builtin, { resolution: 0.8, method: 'louvain', n_top_genes: 3000 })
 
   const embed = SC.buildStep2EmbedParams(SC.normalizeStep2Settings({ integration: 'rpca' }), 'sample')
   assert.equal(embed.layout, 'umap')
@@ -2046,6 +2046,170 @@ test('静态：Phase B（小亚群 API / Step3 内联 UMAP / 进阶 PipelinePane
   assert.doesNotMatch(CLIENT_SOURCE, /function TabsBar\(props\)/)
   assert.doesNotMatch(CLIENT_SOURCE, /function ClustersTab\(props\)/)
   assert.doesNotMatch(CLIENT_SOURCE, /function LogTab\(props\)/)
+})
+
+// ---------------------------------------------------------------------------
+// 8.11 v8：Step3 三段式（marker 方案 / 看表达 / cluster 分配）+ HVG 降权
+// ---------------------------------------------------------------------------
+
+test('normalizeSchemeGenes / schemeRowsFromPreset：基因解析与内置方案', () => {
+  assert.deepEqual(SC.normalizeSchemeGenes('CD3D, CD3E; IL7R\nNKG7   GNLY'), ['CD3D', 'CD3E', 'IL7R', 'NKG7', 'GNLY'])
+  assert.deepEqual(SC.normalizeSchemeGenes('cd3d CD3D Cd3d'), ['cd3d'])
+  assert.deepEqual(SC.normalizeSchemeGenes('CD3D cd3d Cd3D'), ['CD3D'], '大小写不敏感去重且保留首个写法')
+  assert.deepEqual(SC.normalizeSchemeGenes(''), [])
+  assert.deepEqual(SC.normalizeSchemeGenes(['A', 'a', 'B']), ['A', 'B'])
+
+  const human = SC.MARKER_PRESETS.human.rows
+  const mouse = SC.MARKER_PRESETS.mouse.rows
+  assert.ok(human.length >= 18, '人方案 ≥ 18 类')
+  assert.ok(mouse.length >= 18, '鼠方案 ≥ 18 类')
+  for (const name of ['Mast cell', 'Neutrophil', 'DC', 'Monocyte', 'Macrophage', 'B cell', 'Plasma cell', 'T cell', 'NK cell', 'Epithelial', 'Endothelial cells', 'CAF', 'Smooth muscle cells', 'Tumor/Epithelial']) {
+    assert.ok(human.some((row) => row.cellType === name), '人方案缺少：' + name)
+  }
+  assert.ok(mouse.some((row) => row.cellType === 'Mast cell'))
+  assert.ok(mouse.some((row) => row.cellType === 'Tumor cell'))
+  const humanRows = SC.schemeRowsFromPreset('human')
+  assert.equal(humanRows.length, human.length)
+  assert.ok(humanRows[0].genesText.length > 0)
+  assert.equal(SC.schemeRowsFromPreset('unknown').length, human.length)
+})
+
+test('buildMarkerScheme：校验（空类型/重复类型/无基因/超 50 行）', () => {
+  const scheme = SC.buildMarkerScheme([
+    { cellType: 'T cell', genesText: 'CD3D CD3E' },
+    { cellType: 'B cell', genesText: 'MS4A1 CD79A' },
+  ])
+  assert.equal(scheme.valid, true)
+  assert.equal(scheme.errors.length, 0)
+  assert.equal(scheme.geneCount, 4)
+  assert.equal(scheme.typedRows, 2)
+  assert.equal(scheme.usableRows.length, 2)
+
+  const bad = SC.buildMarkerScheme([
+    { cellType: '', genesText: 'CD3D' },
+    { cellType: 'T cell', genesText: 'CD3D' },
+    { cellType: 't cell', genesText: 'CD3E' },
+    { cellType: 'B cell', genesText: '' },
+  ])
+  assert.equal(bad.valid, false)
+  assert.ok(bad.errors.some((item) => item === 'EMPTY_TYPE'))
+  assert.ok(bad.errors.some((item) => item.indexOf('DUPLICATE:') === 0))
+  assert.ok(bad.warnings.some((item) => item === 'NO_GENES:B cell'))
+
+  const many = []
+  for (let index = 0; index < 55; index += 1) many.push({ cellType: 'T' + index, genesText: 'CD3D' })
+  assert.ok(SC.buildMarkerScheme(many).warnings.includes('TOO_MANY_ROWS'))
+  assert.equal(SC.buildMarkerScheme([]).geneCount, 0)
+  assert.equal(SC.SCHEME_MAX_ROWS, 50)
+})
+
+test('flattenSchemeGenes / buildGroupedDotplotParams：扁平化与分组出图参数', () => {
+  const scheme = SC.buildMarkerScheme([
+    { cellType: 'T cell', genesText: 'CD3D CD3E' },
+    { cellType: 'B cell', genesText: 'cd3d MS4A1' },
+  ])
+  assert.deepEqual(SC.flattenSchemeGenes(scheme), ['CD3D', 'CD3E', 'MS4A1'], '跨类型全局去重')
+  const params = SC.buildGroupedDotplotParams(scheme)
+  assert.equal(params.groupby, 'clusters')
+  assert.deepEqual(params.genes, ['CD3D', 'CD3E', 'MS4A1'])
+  assert.deepEqual(params.gene_groups, [
+    { label: 'T cell', genes: ['CD3D', 'CD3E'] },
+    { label: 'B cell', genes: ['cd3d', 'MS4A1'] },
+  ])
+  const empty = SC.buildGroupedDotplotParams(SC.buildMarkerScheme([{ cellType: 'X', genesText: '' }]))
+  assert.deepEqual(empty.genes, [])
+  assert.deepEqual(empty.gene_groups, [])
+})
+
+test('normalizeMarkerCsv：cell_type,genes 两列解析', () => {
+  const parsed = SC.normalizeMarkerCsv('cell_type,genes\nT cell,CD3D CD3E\nB cell,MS4A1\n')
+  assert.equal(parsed.rows.length, 2)
+  assert.deepEqual(parsed.rows[0], { cellType: 'T cell', genesText: 'CD3D CD3E' })
+  const noHeader = SC.normalizeMarkerCsv('T cell,CD3D\nB cell,MS4A1 CD79A')
+  assert.equal(noHeader.rows.length, 2)
+  const tabs = SC.normalizeMarkerCsv('NK cell\tNKG7,GNLY\tPRF1')
+  assert.equal(tabs.rows[0].cellType, 'NK cell')
+  assert.equal(tabs.rows[0].genesText, 'NKG7 GNLY PRF1')
+  assert.deepEqual(SC.normalizeMarkerCsv('').rows, [])
+  assert.deepEqual(SC.normalizeMarkerCsv(',CD3D').errors, ['EMPTY_TYPE'])
+})
+
+test('buildClusterAssignmentRows / buildClusterAnnotation：cluster → 类型映射', () => {
+  const scheme = SC.buildMarkerScheme([
+    { cellType: 'T cell', genesText: 'CD3D' },
+    { cellType: 'B cell', genesText: 'MS4A1' },
+  ])
+  const clusterRows = [
+    { id: '0', label: '0', nCells: 312, topGenes: ['CD3D', 'CD3E'] },
+    { id: '1', label: '1', nCells: 120, topGenes: [] },
+  ]
+  const rows = SC.buildClusterAssignmentRows(clusterRows, scheme, { 0: 'T cell', 1: '__custom__' }, { 1: 'Myoepithelial' })
+  assert.deepEqual(rows[0].options, ['T cell', 'B cell'])
+  assert.equal(rows[0].assignment, 'T cell')
+  assert.equal(rows[1].assignment, '__custom__')
+  assert.equal(rows[1].custom, 'Myoepithelial')
+  assert.deepEqual(rows[0].topGenes, ['CD3D', 'CD3E'])
+
+  assert.deepEqual(SC.buildClusterAnnotation({ 0: 'T cell', 1: '__custom__' }, { 1: 'Myoepithelial' }), { 0: 'T cell', 1: 'Myoepithelial' })
+  assert.deepEqual(SC.buildClusterAnnotation({ 0: '', 1: '__custom__', 2: 'B cell' }, {}), { 2: 'B cell' })
+  assert.deepEqual(SC.buildClusterAnnotation({}, {}), {})
+})
+
+test('HVG 参考参数：defaultDimredParams / buildDimredPayload 仍带 3000', () => {
+  assert.equal(SC.defaultDimredParams().nTopGenes, 3000)
+  assert.equal(SC.STEP2_DEFAULTS.nTopGenes, 3000)
+  const payload = SC.buildDimredPayload(SC.defaultDimredParams(), 'sample')
+  assert.equal(payload.n_top_genes, 3000)
+  assert.equal(payload.engine, 'seurat')
+  assert.equal(payload.integration, 'harmony')
+  assert.equal(payload.use_harmony, true)
+  assert.equal(payload.resolution, 0.8)
+  assert.equal(payload.n_pcs, 30)
+  assert.equal(payload.dims, 30)
+  assert.equal(payload.n_neighbors, 30)
+  assert.equal(payload.batch_key, 'sample')
+  // 折叠 UI 改值后仍会生效
+  const custom = SC.buildDimredPayload(SC.normalizeStep2Settings({ nTopGenes: 2000, engine: 'builtin' }))
+  assert.equal(custom.n_top_genes, 2000)
+  assert.equal(custom.engine, 'builtin')
+  assert.equal(custom.use_harmony, undefined)
+  // 只重聚类 payload 也带 n_top_genes
+  assert.equal(SC.buildStep2ClusterParams(SC.defaultDimredParams()).n_top_genes, 3000)
+  assert.equal(SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ engine: 'builtin' })).n_top_genes, 3000)
+})
+
+test('静态：Step2 HVG 降权（主参数区无 n_top_genes，折叠区保留 hint）', () => {
+  const start = CLIENT_SOURCE.indexOf('function Step2Page(props) {')
+  const end = CLIENT_SOURCE.indexOf('function Step3Page(props) {', start)
+  assert.ok(start > 0 && end > start, 'Step2Page 代码段存在')
+  const snippet = CLIENT_SOURCE.slice(start, end)
+  const advancedIndex = snippet.indexOf("T('step2AdvancedParams')")
+  const topGenesIndex = snippet.indexOf("T('dimredTopGenes')")
+  assert.ok(advancedIndex > 0, '进阶折叠区存在')
+  assert.ok(topGenesIndex > advancedIndex, 'n_top_genes 只在折叠区出现（排在进阶标题之后）')
+  assert.ok(snippet.indexOf("T('step2HvgHint')") > advancedIndex, '折叠区有 hint 文案')
+  assert.match(SC.DICT_ZH.step2HvgHint, /3000/)
+  assert.ok(snippet.indexOf('hvgReference') > 0, '页面有 hvg 参考行')
+  // 主区字段只剩 引擎/整合/预设/batch/resolution/n_pcs/neighbors
+  const mainTopGenes = snippet.slice(0, advancedIndex).indexOf("T('dimredTopGenes')")
+  assert.equal(mainTopGenes, -1, '主参数区不应出现 n_top_genes')
+})
+
+test('静态：Step3 三段式顺序（方案卡 → 看表达 → cluster 分配）与 gene_groups 接线', () => {
+  const start = CLIENT_SOURCE.indexOf('function Step3Page(props) {')
+  const end = CLIENT_SOURCE.indexOf('function Step4Page(props) {', start)
+  const snippet = CLIENT_SOURCE.slice(start, end)
+  const schemeIndex = snippet.indexOf('h(MarkerSchemeCard, {')
+  const expressionIndex = snippet.indexOf('h(ExpressionCard, {')
+  const assignIndex = snippet.indexOf('h(ClusterAssignCard, {')
+  assert.ok(schemeIndex >= 0 && expressionIndex > schemeIndex && assignIndex > expressionIndex, '三段顺序：方案 → 看表达 → 分配')
+  assert.ok(snippet.indexOf('h(AnnotationWorkbench') < 0, '旧「先列 cluster」工作台不再出现在 Step3 主流程')
+  assert.match(CLIENT_SOURCE, /buildGroupedDotplotParams\(built\)/)
+  assert.match(CLIENT_SOURCE, /gene_groups/)
+  assert.match(CLIENT_SOURCE, /handleSchemeChange/)
+  assert.match(CLIENT_SOURCE, /handleSaveClusterAssignments/)
+  assert.match(CLIENT_SOURCE, /buildMarkerScheme\(schemeRows\)/)
+  assert.match(CLIENT_SOURCE, /MARKER_PRESETS/)
 })
 
 // ---------------------------------------------------------------------------
