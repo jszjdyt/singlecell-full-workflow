@@ -1666,8 +1666,8 @@ test('agentActionInstruction：建议动作 → 中文指令', () => {
 test('静态：v6 降维卡 / 注释工作台 / 分组删除 / Agent 输入接线', () => {
   assert.match(CLIENT_SOURCE, /function DimredCard\(props\)/)
   assert.match(CLIENT_SOURCE, /function AnnotationWorkbench\(props\)/)
-  assert.match(CLIENT_SOURCE, /onRunRecipe: handleDimredRecipe/)
-  assert.match(CLIENT_SOURCE, /onRecluster: handleDimredRecluster/)
+  assert.match(CLIENT_SOURCE, /onRunPreset: handleStep2Preset/)
+  assert.match(CLIENT_SOURCE, /onRecluster: handleStep2Recluster/)
   assert.match(CLIENT_SOURCE, /buildReclusterParams\(settings, batchKey\)/)
   assert.match(CLIENT_SOURCE, /buildReclusterEmbedParams\(settings, batchKey\)/)
   assert.match(CLIENT_SOURCE, /onPlotMarker: handlePlotMarker/)
@@ -1704,6 +1704,348 @@ test('parseAgentIntent：比例/通讯 与 未知句子的 fallback', () => {
   const methods = SC.parseAgentIntent('导出 methods', { steps: ['cluster'] })
   assert.ok(methods.suggestions.some((item) => item.action.type === 'export' && item.action.what === 'methods'))
   assert.deepEqual(SC.parseAgentIntent('', {}), { suggestions: [], fallback: true })
+})
+
+// ---------------------------------------------------------------------------
+// 8.9 v7：新 Shell（步骤导航 / Step2 参数 / 三套结果 / 日志 / 画廊 / 最近数据）
+// ---------------------------------------------------------------------------
+
+test('STEP_NAV：4 个步骤的顺序与默认步骤推导', () => {
+  assert.deepEqual(SC.STEP_NAV.map((step) => step.id), ['read', 'cluster', 'annotate', 'results'])
+  assert.deepEqual(SC.STEP_NAV_IDS, ['read', 'cluster', 'annotate', 'results'])
+  assert.equal(SC.normalizeStepNavId('cluster'), 'cluster')
+  assert.equal(SC.normalizeStepNavId('nope'), 'read')
+  assert.equal(SC.defaultStepForDataset(null), 'read')
+  assert.equal(SC.defaultStepForDataset({ id: 'ds', steps: [] }), 'read')
+  assert.equal(SC.defaultStepForDataset({ id: 'ds', steps: ['qc', 'filter'] }), 'cluster')
+  assert.equal(SC.defaultStepForDataset({ id: 'ds', steps: ['qc', 'filter', 'cluster'] }), 'annotate')
+  assert.equal(SC.defaultStepForDataset({ id: 'ds', steps: ['qc', 'filter', 'cluster', 'annotate'] }), 'results')
+})
+
+test('computeStepNavStatuses：未开始 / 进行中 / 已完成 / warning', () => {
+  const empty = SC.computeStepNavStatuses(null)
+  assert.equal(empty.read.status, 'empty')
+  assert.equal(empty.cluster.status, 'empty')
+  assert.equal(empty.annotate.status, 'empty')
+  assert.equal(empty.results.status, 'empty')
+
+  const partial = SC.computeStepNavStatuses({ id: 'ds', steps: ['qc'], warnings: [] })
+  assert.equal(partial.read.status, 'partial')
+  assert.equal(partial.cluster.status, 'empty')
+
+  const done = SC.computeStepNavStatuses({
+    id: 'ds',
+    steps: ['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed', 'markers', 'annotate'],
+    warnings: [],
+    analysesRun: [{ id: 'de_group' }],
+  })
+  assert.equal(done.read.status, 'done')
+  assert.equal(done.cluster.status, 'done')
+  assert.equal(done.annotate.status, 'done')
+  assert.equal(done.results.status, 'done')
+  assert.equal(done.cluster.warn, false)
+
+  const warned = SC.computeStepNavStatuses({
+    id: 'ds', steps: ['qc', 'filter', 'pca', 'neighbors', 'cluster', 'embed'],
+    warnings: ['聚类数 35 偏多（参考 20–30）'],
+  })
+  assert.equal(warned.cluster.warn, true)
+  const qcWarn = SC.computeStepNavStatuses({ id: 'ds', steps: ['qc', 'filter'], warnings: ['线粒体比例偏高'] })
+  assert.equal(qcWarn.read.warn, true)
+  assert.match(SC.stepNavStatusClass('done', false), /sc-rail-done/)
+  assert.match(SC.stepNavStatusClass('partial', true), /sc-rail-warn/)
+})
+
+test('buildStep2ClusterParams / EmbedParams：integration / harmony / batch_key / dims', () => {
+  const harmony = SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ integration: 'harmony', resolution: 0.8 }), 'sample')
+  assert.equal(harmony.engine, 'seurat')
+  assert.equal(harmony.integration, 'harmony')
+  assert.equal(harmony.use_harmony, true)
+  assert.equal(harmony.resolution, 0.8)
+  assert.equal(harmony.dims, 30)
+  assert.equal(harmony.n_pcs, 30)
+  assert.equal(harmony.n_neighbors, 30)
+  assert.equal(harmony.batch_key, 'sample')
+
+  const rpca = SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ integration: 'rpca', resolution: 0.8 }))
+  assert.equal(rpca.integration, 'rpca')
+  assert.equal(rpca.use_harmony, false)
+  assert.equal(rpca.batch_key, undefined)
+
+  const none = SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ integration: 'none', resolution: 0.5 }))
+  assert.equal(none.integration, 'none')
+  assert.equal(none.resolution, 0.5)
+
+  const builtin = SC.buildStep2ClusterParams(SC.normalizeStep2Settings({ engine: 'builtin' }))
+  assert.deepEqual(builtin, { resolution: 0.8, method: 'louvain' })
+
+  const embed = SC.buildStep2EmbedParams(SC.normalizeStep2Settings({ integration: 'rpca' }), 'sample')
+  assert.equal(embed.layout, 'umap')
+  assert.equal(embed.integration, 'rpca')
+  assert.equal(embed.engine, 'seurat')
+  assert.equal(embed.batch_key, 'sample')
+})
+
+test('STEP2_PRESETS / buildStep2RecipeRequest：三套预设与 recipe id', () => {
+  assert.deepEqual(SC.STEP2_PRESETS.map((preset) => preset.id), ['seurat6', 'pro-rpca', 'pro-unintegrated'])
+  assert.equal(SC.buildStep2RecipeRequest('seurat6').id, 'seurat6')
+  assert.equal(SC.buildStep2RecipeRequest('pro-rpca').id, 'pro-rpca')
+  assert.equal(SC.buildStep2RecipeRequest('pro-unintegrated').id, 'pro-unintegrated')
+  assert.equal(SC.step2PresetById('pro-rpca').integration, 'rpca')
+  assert.equal(SC.step2PresetById('unknown').id, 'seurat6')
+  assert.equal(SC.step2PresetById('pro-unintegrated').resolution, 0.5)
+})
+
+test('buildTrialOptions / pickTrialOption / buildTrialColorBy：三套结果选择', () => {
+  const obsColumns = [
+    { key: 'clusters', nUnique: 8 },
+    { key: 'clusters_harmony', nUnique: 12 },
+    { key: 'clusters_rpca', nUnique: 10 },
+    { key: 'cell_type', nUnique: 8 },
+  ]
+  const options = SC.buildTrialOptions(obsColumns)
+  assert.deepEqual(options.map((item) => item.id), ['harmony', 'rpca', 'unintegrated'])
+  assert.equal(options[0].available, true)
+  assert.equal(options[0].nClusters, 12)
+  assert.equal(options[2].column, 'clusters')
+  assert.equal(options[2].nClusters, 8)
+
+  const partial = SC.buildTrialOptions([{ key: 'clusters', nUnique: 5 }])
+  assert.equal(partial[0].available, false)
+  assert.equal(partial[2].available, true)
+  assert.equal(SC.pickTrialOption(partial, 'harmony').id, 'unintegrated')
+  assert.equal(SC.pickTrialOption(SC.buildTrialOptions([]), 'harmony'), null)
+
+  assert.deepEqual(SC.buildTrialColorBy(SC.pickTrialOption(options, 'rpca')), { kind: 'obs', key: 'clusters_rpca' })
+  const rows = SC.buildTrialCompareRows(options, 'clusters_harmony')
+  assert.equal(rows.length, 3)
+  assert.equal(rows[0].current, true)
+  assert.equal(rows[1].current, false)
+})
+
+test('buildQcCardRequest：Step1 QC / 过滤参数载荷', () => {
+  const qc = SC.buildQcCardRequest('qc', { min_genes: 300, max_genes: 5000, min_counts: 500, max_pct_mt: 15, min_cells: 3 })
+  assert.equal(qc.step, 'qc')
+  assert.equal(qc.params.min_genes, 300)
+  assert.equal(qc.params.max_pct_mt, 15)
+  assert.equal(qc.params.max_genes, 5000)
+  assert.equal(qc.params.min_counts, 500)
+  assert.equal(qc.params.min_cells, undefined)
+
+  const filter = SC.buildQcCardRequest('filter', { min_genes: 200, max_genes: null, min_counts: null, max_pct_mt: 20, min_cells: 3 })
+  assert.equal(filter.step, 'filter')
+  assert.equal(filter.params.min_genes, 200)
+  assert.equal(filter.params.max_genes, undefined)
+  assert.equal(filter.params.min_counts, undefined)
+  assert.equal(filter.params.min_cells, 3)
+  const defaults = SC.normalizeQcCardValues({})
+  assert.equal(defaults.min_genes, 200)
+  assert.equal(defaults.max_pct_mt, 20)
+  assert.equal(defaults.max_genes, null)
+})
+
+test('formatLogEntries：运行日志格式化（时间/动作/耗时/ok）', () => {
+  const entries = SC.formatLogEntries([
+    { at: '2026-11-10T05:20:30.000Z', actor: 'user', action: 'step:cluster', detail: 'resolution=0.8', ok: true, ms: 1234 },
+    { at: '2026-11-10T05:20:00.000Z', actor: 'agent', action: 'run:qc', ok: false, ms: 88 },
+  ], 10)
+  assert.equal(entries.length, 2)
+  assert.ok(entries[0].time && entries[0].time !== '—')
+  assert.equal(entries[0].action, 'step:cluster')
+  assert.equal(entries[0].ok, true)
+  assert.ok(entries[0].duration.length > 0)
+  assert.equal(entries[1].ok, false)
+  assert.equal(SC.formatLogEntries(null).length, 0)
+  const single = SC.formatLogEntry({ action: 'x' })
+  assert.equal(single.action, 'x')
+  assert.equal(single.time, '—')
+  assert.equal(single.ok, true)
+})
+
+test('appendGalleryFigure：画廊顺序（新图在前、同 URL 去重、上限 60）', () => {
+  const first = SC.appendGalleryFigure([], { url: '/fig/a.png', title: 'A' }, { kind: 'qc' })
+  assert.equal(first.length, 1)
+  assert.equal(first[0].url, '/fig/a.png')
+  const second = SC.appendGalleryFigure(first, { url: '/fig/b.png', title: 'B' }, { kind: 'dotplot' })
+  assert.deepEqual(second.map((item) => item.url), ['/fig/b.png', '/fig/a.png'])
+  const dedup = SC.appendGalleryFigure(second, { url: '/fig/a.png', title: 'A2' }, { kind: 'qc_v2' })
+  assert.deepEqual(dedup.map((item) => item.url), ['/fig/a.png', '/fig/b.png'])
+  assert.equal(dedup[0].title, 'A2')
+  assert.equal(SC.appendGalleryFigure(first, null).length, 1)
+  let many = []
+  for (let index = 0; index < 70; index += 1) {
+    many = SC.appendGalleryFigure(many, { url: '/fig/' + index + '.png' })
+  }
+  assert.equal(many.length, 60)
+  assert.equal(many[0].url, '/fig/69.png')
+  assert.equal(SC.formatGalleryCaption(dedup[0]), 'A2 · qc_v2')
+})
+
+test('最近数据集：upsert / 排序 / localStorage 往返', () => {
+  const now = 1700000000000
+  const list = SC.upsertRecentDataset([], { id: 'ds1', name: 'A', nObs: 100, nVars: 20, path: '/tmp/a' }, now)
+  assert.equal(list[0].id, 'ds1')
+  assert.equal(list[0].path, '/tmp/a')
+  const list2 = SC.upsertRecentDataset(list, { id: 'ds2', name: 'B' }, now + 10)
+  assert.deepEqual(list2.map((item) => item.id), ['ds2', 'ds1'])
+  const list3 = SC.upsertRecentDataset(list2, { id: 'ds1', name: 'A2' }, now + 20)
+  assert.deepEqual(list3.map((item) => item.id), ['ds1', 'ds2'])
+  assert.equal(list3[0].name, 'A2')
+  const storage = {
+    data: {},
+    getItem(key) { return this.data[key] || null },
+    setItem(key, value) { this.data[key] = value },
+  }
+  assert.equal(SC.writeRecentDatasets(storage, list3), true)
+  assert.deepEqual(SC.readRecentDatasets(storage).map((item) => item.id), ['ds1', 'ds2'])
+  storage.data[SC.RECENT_STORAGE_KEY] = '{broken json'
+  assert.deepEqual(SC.readRecentDatasets(storage), [])
+  assert.equal(SC.normalizeRecentDatasets([{ id: 'x' }, { id: 'x' }]).length, 1)
+})
+
+test('静态：新 Shell（欢迎页/顶栏/步骤导航/日志/画廊/Step1/Step2）接线', () => {
+  assert.match(CLIENT_SOURCE, /function ShellTopBar\(props\)/)
+  assert.match(CLIENT_SOURCE, /function StepRail\(props\)/)
+  assert.match(CLIENT_SOURCE, /function WelcomePage\(props\)/)
+  assert.match(CLIENT_SOURCE, /function RunLogPanel\(props\)/)
+  assert.match(CLIENT_SOURCE, /function GalleryPanel\(props\)/)
+  assert.match(CLIENT_SOURCE, /function Step1Page\(props\)/)
+  assert.match(CLIENT_SOURCE, /function Step2Page\(props\)/)
+  assert.match(CLIENT_SOURCE, /function Step3Page\(props\)/)
+  assert.match(CLIENT_SOURCE, /function Step4Page\(props\)/)
+  assert.match(CLIENT_SOURCE, /h\(ShellTopBar, \{/)
+  assert.match(CLIENT_SOURCE, /h\(StepRail, \{/)
+  assert.match(CLIENT_SOURCE, /h\(WelcomePage, \{/)
+  assert.match(CLIENT_SOURCE, /h\(RunLogPanel, \{/)
+  assert.match(CLIENT_SOURCE, /h\(GalleryPanel, \{/)
+  assert.match(CLIENT_SOURCE, /currentStep === 'cluster'/)
+  assert.match(CLIENT_SOURCE, /setCurrentStep\(defaultStepForDataset\(activeDataset\)\)/)
+  assert.match(CLIENT_SOURCE, /buildStep2RecipeRequest\(dimPreset\)/)
+  assert.match(CLIENT_SOURCE, /buildTrialOptions\(obsColumns\)/)
+  assert.match(CLIENT_SOURCE, /appendGalleryFigure\(previous, figure/)
+  assert.match(CLIENT_SOURCE, /sc-shell-top/)
+})
+
+// ---------------------------------------------------------------------------
+// 8.10 v7 Phase B：小亚群 / 注释表 / 画廊分组 / 移动端 / 进阶区
+// ---------------------------------------------------------------------------
+
+test('validateSubsetSelection / buildSubsetPayload：小亚群请求体', () => {
+  assert.equal(SC.validateSubsetSelection([]).ok, false)
+  assert.equal(SC.validateSubsetSelection(['', '  ']).ok, false)
+  const cleaned = SC.validateSubsetSelection(['1', '1', ' 2 ', '', '3'])
+  assert.equal(cleaned.ok, true)
+  assert.deepEqual(cleaned.clusters, ['1', '2', '3'])
+  const body = SC.buildSubsetPayload('ds1', ['0', '2', '0'], 'T-cells')
+  assert.deepEqual(body, { dataset: 'ds1', clusters: ['0', '2'], name: 'T-cells' })
+  const noName = SC.buildSubsetPayload('ds1', ['1'], '  ')
+  assert.equal(noName.name, undefined)
+  assert.equal(noName.clusters.length, 1)
+})
+
+test('normalizeSubsetResult：/dataset/subset 响应解析', () => {
+  const result = SC.normalizeSubsetResult({
+    ok: true,
+    dataset: { id: 'ds_sub', name: 'sub-cluster', n_obs: 1478, n_vars: 800, steps: ['qc', 'filter', 'normalize', 'hvg'] },
+    removed_cells: 3600,
+    parent: 'ds1',
+  })
+  assert.equal(result.ok, true)
+  assert.equal(result.datasetId, 'ds_sub')
+  assert.equal(result.name, 'sub-cluster')
+  assert.equal(result.removedCells, 3600)
+  assert.equal(result.parent, 'ds1')
+  assert.equal(result.nObs, 1478)
+  assert.deepEqual(result.steps, ['qc', 'filter', 'normalize', 'hvg'])
+  const live = SC.normalizeSubsetResult({ ok: true, dataset: { id: 'sub', n_obs: 1478, steps: ['qc'] }, subset_cells: 1478, kept_clusters: ['1', '2'], parent: 'ds1' })
+  assert.equal(live.subsetCells, 1478)
+  assert.deepEqual(live.keptClusters, ['1', '2'])
+  assert.equal(live.removedCells, 0)
+  const plain = SC.normalizeSubsetResult({ ok: false })
+  assert.equal(plain.ok, false)
+  assert.equal(plain.datasetId, '')
+  assert.equal(plain.removedCells, 0)
+})
+
+test('annotationCoverage：注释表覆盖/待注释', () => {
+  const rows = [
+    { id: '0', label: '0', cellType: 'T cell' },
+    { id: '1', label: '1', cellType: 'B cell' },
+    { id: '2', label: '2', cellType: '' },
+    { id: '3', label: '3', cellType: '  ' },
+  ]
+  const coverage = SC.annotationCoverage(rows)
+  assert.equal(coverage.total, 4)
+  assert.equal(coverage.mapped, 2)
+  assert.deepEqual(coverage.pending, ['2', '3'])
+  assert.equal(coverage.percent, 50)
+  assert.equal(coverage.complete, false)
+  const empty = SC.annotationCoverage([])
+  assert.equal(empty.total, 0)
+  assert.equal(empty.percent, 0)
+  assert.equal(empty.complete, false)
+  assert.equal(SC.annotationCoverage([{ id: '0', cellType: 'X' }]).complete, true)
+  const zhDict = {
+    cover: '已注释 {mapped}/{total} 簇（{percent}%）',
+  }
+  const translate = (key) => zhDict[key] || key
+  assert.equal(SC.tfv(translate, 'cover', { mapped: 2, total: 4, percent: 50 }), '已注释 2/4 簇（50%）')
+  assert.equal(SC.tfv(translate, 'cover', { mapped: 0 }), '已注释 0/ 簇（%）')
+})
+
+test('groupGalleryFigures：画廊按来源分组且保持首次出现顺序', () => {
+  const figures = [
+    { url: '/f/a.png', source: 'Step 2' },
+    { url: '/f/b.png', source: 'Step 3' },
+    { url: '/f/c.png', source: 'Step 2' },
+    { url: '/f/d.png', source: '' },
+    { url: '/f/dup.png', source: 'Step 3' },
+    { url: '/f/dup.png', source: 'Step 3' },
+  ]
+  const groups = SC.groupGalleryFigures(figures)
+  assert.deepEqual(groups.map((group) => group.source), ['Step 2', 'Step 3', ''])
+  assert.deepEqual(groups[0].figures.map((figure) => figure.url), ['/f/a.png', '/f/c.png'])
+  assert.equal(groups[1].figures.length, 3)
+  assert.deepEqual(SC.groupGalleryFigures([]), [])
+})
+
+test('layoutModeForWidth / buildExportOptions：移动端判定与 Step4 导出顺序', () => {
+  assert.equal(SC.layoutModeForWidth(1280), 'wide')
+  assert.equal(SC.layoutModeForWidth(900), 'wide')
+  assert.equal(SC.layoutModeForWidth(899), 'narrow')
+  assert.equal(SC.layoutModeForWidth(375), 'narrow')
+  assert.equal(SC.layoutModeForWidth(undefined), 'wide')
+  assert.equal(SC.layoutModeForWidth('abc'), 'wide')
+  assert.deepEqual(SC.EXPORT_QUICK_KINDS, ['h5ad', 'protocol', 'methods', 'report', 'script'])
+  const options = SC.buildExportOptions()
+  assert.deepEqual(options.map((option) => option.kind), ['h5ad', 'protocol', 'methods', 'report', 'script'])
+  assert.deepEqual(options.map((option) => option.labelKey), ['exportH5ad', 'exportProtocol', 'exportMethods', 'exportReport', 'exportScript'])
+})
+
+test('静态：Phase B（小亚群 API / Step3 内联 UMAP / 进阶 PipelinePanel / 移动端）', () => {
+  assert.match(CLIENT_SOURCE, /subsetDataset: function \(datasetId, clusters, name, extra\)/)
+  assert.match(CLIENT_SOURCE, /jsonPost\('\/dataset\/subset'/)
+  assert.match(CLIENT_SOURCE, /validateSubsetSelection\(subsetClusters\)/)
+  assert.match(CLIENT_SOURCE, /setSubsetMessage\(tfv\(T, 'step3SubsetSuccess'/)
+  assert.match(CLIENT_SOURCE, /handleSelect\(result\.datasetId\)/)
+  assert.match(CLIENT_SOURCE, /setCurrentStep\('cluster'\)/)
+  // Step3 内联 UMAP + 注释表 + 小亚群入口
+  assert.match(CLIENT_SOURCE, /props\.embeddingNode \|\| h\('div', \{ className: 'sc-notice-card' \}/)
+  assert.match(CLIENT_SOURCE, /T\('step3AnnotationTable'\)/)
+  assert.match(CLIENT_SOURCE, /T\('step3SubsetTitle'\)/)
+  // 进阶 PipelinePanel 折叠区
+  assert.match(CLIENT_SOURCE, /h\(PipelinePanel, \{/)
+  assert.match(CLIENT_SOURCE, /T\('advancedSteps'\)/)
+  assert.match(CLIENT_SOURCE, /advancedNode: pipelineNode/)
+  // 移动端单列 + 布局模式
+  assert.match(CLIENT_SOURCE, /@media \(max-width:900px\)/)
+  assert.match(CLIENT_SOURCE, /layoutModeForWidth\(window\.innerWidth\)/)
+  assert.match(CLIENT_SOURCE, /sc-app-narrow/)
+  // 旧 7-tab 死代码已清理
+  assert.doesNotMatch(CLIENT_SOURCE, /function TopBar\(props\)/)
+  assert.doesNotMatch(CLIENT_SOURCE, /function TabsBar\(props\)/)
+  assert.doesNotMatch(CLIENT_SOURCE, /function ClustersTab\(props\)/)
+  assert.doesNotMatch(CLIENT_SOURCE, /function LogTab\(props\)/)
 })
 
 // ---------------------------------------------------------------------------

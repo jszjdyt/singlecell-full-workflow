@@ -670,6 +670,138 @@
     annotCsvEmpty: '没有解析到注释行（每行：cluster,细胞类型）',
     cancel: '取消',
     annotCsvApplied: '已应用 {v} 条注释',
+    // v7：新 Shell
+    navRead: '数据读取',
+    navReadHint: '分组 · 质控',
+    navCluster: '降维聚类',
+    navClusterHint: 'Seurat 6 / Harmony / RPCA',
+    navAnnotate: '细胞标注',
+    navAnnotateHint: 'marker · 注释',
+    navResults: '高级分析 · 结果',
+    navResultsHint: '分析目录 · 画廊 · 导出',
+    appName: '单细胞分析器',
+    appTagline: '单细胞分析工作台',
+    shellProject: '当前项目',
+    shellNewProject: '新建 / 导入',
+    shellAgent: 'Agent',
+    shellLog: '运行日志',
+    shellRefresh: '刷新',
+    welcomeTitle: '从一个项目开始',
+    welcomeSubtitle: '导入 GEO 数据根目录（每个文件=一个样本），或载入内置示例数据，3 步开始分析。',
+    welcomeStart: '导入数据',
+    welcomeDemo: '载入示例数据',
+    welcomeRecent: '最近数据集',
+    welcomeRecentEmpty: '还没有最近数据集',
+    welcomeGuide: '三步上手',
+    welcomeGuide1: '导入数据：扫描 GEO 根目录 → 勾选样本 → 命名并分组',
+    welcomeGuide2: '降维聚类：选 Seurat 6.0 引擎与整合方式 → 一键跑完 → 看 UMAP',
+    welcomeGuide3: '标注 + 分析：选簇看 marker → 填细胞类型 → 高级分析与导出',
+    welcomeReopen: '打开',
+    welcomeRecentNote: '点「打开」会按记录的原路径重新导入。',
+    railFlow: '分析流程',
+    railFlowSub: '按步骤完成，随时可回看',
+    railGroupPrepare: '准备与标注',
+    clustersUnit: '簇',
+    recentMissing: '该数据集没有记录路径且不在当前列表，请重新导入。',
+    advancedSteps: '进阶：逐步运行（可选）',
+    advancedStepsHint: '想手动控制每一步时展开；日常用上面的步骤卡片即可。',
+    step3Umap: 'UMAP（按注释/基因着色）',
+    step3ColorByAnnotation: '按注释着色',
+    step3ColorByCluster: '按 cluster 着色',
+    step3AnnotationTable: '注释表（cluster → cell_type）',
+    step3Coverage: '已注释 {mapped}/{total} 簇（{percent}%）',
+    step3Pending: '未注释',
+    galleryGroupAll: '全部图',
+    exportQuick: '导出产物',
+    exportH5ad: 'h5ad',
+    exportProtocol: 'protocol',
+    exportMethods: 'methods',
+    exportReport: 'report',
+    exportScript: 'script',
+    step3SubsetTitle: 'Create a sub-cluster dataset',
+    step3SubsetHint: 'Tick clusters to keep; creates a new dataset with only those cells (reset to after-QC, ready to re-cluster).',
+    step3SubsetNamePlaceholder: 'New dataset name (optional)',
+    step3SubsetRun: 'Create subset dataset',
+    step3SubsetBusy: 'Creating subset…',
+    step3SubsetEmpty: 'Select at least one cluster',
+    step3SubsetSuccess: 'Created subset dataset "{name}" ({kept} cells kept); switched to it, ready to re-cluster.',
+    exportDone: 'Exported',
+    step3SubsetTitle: '提取为小亚群数据集',
+    step3SubsetHint: '勾选要保留的簇，会创建一个只含这些细胞的新数据集（自动重置到 QC 后，可重新降维聚类）。',
+    step3SubsetNamePlaceholder: '新数据集名称（可选）',
+    step3SubsetRun: '提取为小亚群数据集',
+    step3SubsetBusy: '正在提取…',
+    step3SubsetEmpty: '请至少勾选一个簇',
+    step3SubsetSuccess: '已创建小亚群数据集「{name}」（保留 {kept} 个细胞）；已切换到新数据集，可继续降维聚类。',
+    exportDone: '已导出',
+    umapTitle: 'UMAP',
+    railGroupDeep: '深入分析',
+    railStatusEmpty: '未开始',
+    railStatusPartial: '进行中',
+    railStatusDone: '已完成',
+    railWarn: '有提示',
+    pageStep1: 'Step 1 · 数据读取 · 分组 · 质控',
+    pageStep2: 'Step 2 · 降维聚类',
+    pageStep3: 'Step 3 · 细胞标注',
+    pageStep4: 'Step 4 · 高级分析 · 结果',
+    step1QcTitle: '质控参数',
+    step1QcSub: '先看 QC 指标，再按阈值过滤低质量细胞',
+    step1RunQc: '运行 QC',
+    step1RunFilter: '运行过滤',
+    step1QcFigure: '生成 QC 图',
+    step1QcResult: 'QC 结果',
+    step1FilterResult: '过滤结果',
+    step1NeedData: '还没有数据集：先导入数据或载入示例。',
+    step1Imported: '数据集',
+    step2Title: '降维聚类',
+    step2Sub: 'Seurat 6.0 官方流程（Harmony / RPCA / 未整合），结果写到 obs 的 clusters_* 列',
+    step2Engine: '引擎',
+    step2Integration: '整合方式',
+    step2Preset: '预设流程',
+    step2Resolution: 'resolution',
+    step2RunPreset: '一键降维聚类',
+    step2Recluster: '只重聚类',
+    step2EmbedOnly: '运行 UMAP',
+    step2Trial: '三套结果对比',
+    step2TrialSub: 'obs 里已有 clusters_harmony / clusters_rpca / clusters 时可直接切换着色',
+    step2ClusterTable: 'cluster 表',
+    step2ClusterBar: '生成聚类柱状图',
+    step2Warnings: '运行提示',
+    step2NeedCluster: '还没有聚类结果：一键降维聚类或只重聚类。',
+    integrationHarmony: 'Harmony 整合',
+    integrationRpca: 'RPCA 整合',
+    integrationNone: '未整合 PCA',
+    presetSeurat6: '一键 Seurat 6.0（Harmony, res 0.8）',
+    presetProRpca: 'pro-RPCA（RPCA, res 0.8）',
+    presetProUnintegrated: 'pro-未整合（res 0.5）',
+    trialHarmony: 'Harmony',
+    trialRpca: 'RPCA',
+    trialUnintegrated: '未整合',
+    trialUnavailable: '暂无',
+    step3Title: '细胞标注',
+    step3Sub: '选簇 → 看 marker → 出图 → 填细胞类型 → 保存到 obs.cell_type',
+    step3ColorUmap: '按注释着色 UMAP',
+    step4Title: '高级分析 · 结果',
+    step4Sub: '分析目录 / 结果画廊 / 导出产物',
+    step4Gallery: '结果画廊',
+    step4GalleryEmpty: '还没有生成图片：QC 图、dotplot、UMAP、分析图都会出现在这里。',
+    step4GalleryOpen: '点击放大',
+    step4Export: '导出',
+    step4Records: '数据与记录',
+    step4Analyses: '高级分析目录',
+    logTitle: '运行日志',
+    logEmpty: '还没有运行记录',
+    logRefresh: '刷新',
+    logRunning: '运行中…',
+    agentDrawerTitle: 'Agent',
+    close: '关闭',
+    galleryZoom: '查看大图',
+    pageNeedData: '先在上方导数据',
+    shellSelectDataset: '选择数据集',
+    shellRecent: '最近',
+    unnamedDataset: '未命名数据集',
+    step2PresetHint: '预设会从 QC 开始整跑（0.8 / 0.5 分辨率对齐 pro.R）；只重聚类只影响 clusters 与 UMAP。',
+
     samplesRemoveHint: '按样本从数据集中移除细胞（会重置聚类/嵌入结果）。',
     samplesRemoved: '已移除 {v} 个细胞；聚类/嵌入已重置，请重新一键降维聚类。',
     // v6：Agent 输入
@@ -1108,6 +1240,121 @@
     annotCsvEmpty: 'No annotation lines parsed (one per line: cluster,cell type)',
     cancel: 'Cancel',
     annotCsvApplied: 'Applied {v} annotations',
+    navRead: 'Data & QC',
+    navReadHint: 'samples · QC',
+    navCluster: 'Embedding & clustering',
+    navClusterHint: 'Seurat 6 / Harmony / RPCA',
+    navAnnotate: 'Cell annotation',
+    navAnnotateHint: 'markers · labels',
+    navResults: 'Analyses · results',
+    navResultsHint: 'catalog · gallery · export',
+    appName: 'Single-cell Analyzer',
+    appTagline: 'Single-cell analysis workbench',
+    shellProject: 'Project',
+    shellNewProject: 'New / import',
+    shellAgent: 'Agent',
+    shellLog: 'Run log',
+    shellRefresh: 'Refresh',
+    welcomeTitle: 'Start with a project',
+    welcomeSubtitle: 'Import a GEO data root (one file = one sample), or load the built-in demo, then run the pipeline in 3 steps.',
+    welcomeStart: 'Import data',
+    welcomeDemo: 'Load demo data',
+    welcomeRecent: 'Recent datasets',
+    welcomeRecentEmpty: 'No recent datasets yet',
+    welcomeGuide: 'Three steps',
+    welcomeGuide1: 'Import: scan a GEO root → pick samples → name and group them',
+    welcomeGuide2: 'Embedding: choose Seurat 6.0 engine + integration → run → inspect UMAP',
+    welcomeGuide3: 'Annotate + analyze: pick a cluster, inspect markers, name cell types, run analyses and export',
+    welcomeReopen: 'Open',
+    welcomeRecentNote: 'Open re-imports from the recorded path.',
+    railFlow: 'Workflow',
+    railFlowSub: 'Follow the steps; revisit anytime',
+    railGroupPrepare: 'Prepare & annotate',
+    clustersUnit: 'clusters',
+    recentMissing: 'This dataset has no recorded path and is not in the list; please re-import.',
+    advancedSteps: 'Advanced: step-by-step (optional)',
+    advancedStepsHint: 'Expand to drive each step manually; the cards above cover the common path.',
+    step3Umap: 'UMAP (annotation / gene coloring)',
+    step3ColorByAnnotation: 'Color by annotation',
+    step3ColorByCluster: 'Color by cluster',
+    step3AnnotationTable: 'Annotation table (cluster → cell_type)',
+    step3Coverage: 'Annotated {mapped}/{total} clusters ({percent}%)',
+    step3Pending: 'not annotated',
+    galleryGroupAll: 'All figures',
+    exportQuick: 'Export artifacts',
+    exportH5ad: 'h5ad',
+    exportProtocol: 'protocol',
+    exportMethods: 'methods',
+    exportReport: 'report',
+    exportScript: 'script',
+    umapTitle: 'UMAP',
+    railGroupDeep: 'Deep dive',
+    railStatusEmpty: 'Not started',
+    railStatusPartial: 'In progress',
+    railStatusDone: 'Done',
+    railWarn: 'has notes',
+    pageStep1: 'Step 1 · Data · samples · QC',
+    pageStep2: 'Step 2 · Embedding & clustering',
+    pageStep3: 'Step 3 · Cell annotation',
+    pageStep4: 'Step 4 · Analyses · results',
+    step1QcTitle: 'QC parameters',
+    step1QcSub: 'Inspect QC metrics, then filter low-quality cells',
+    step1RunQc: 'Run QC',
+    step1RunFilter: 'Run filter',
+    step1QcFigure: 'Generate QC plot',
+    step1QcResult: 'QC result',
+    step1FilterResult: 'Filter result',
+    step1NeedData: 'No dataset yet: import data or load the demo first.',
+    step1Imported: 'Dataset',
+    step2Title: 'Embedding & clustering',
+    step2Sub: 'Seurat 6.0 official pipeline (Harmony / RPCA / none); writes clusters_* obs columns',
+    step2Engine: 'Engine',
+    step2Integration: 'Integration',
+    step2Preset: 'Preset',
+    step2Resolution: 'resolution',
+    step2RunPreset: 'One-click pipeline',
+    step2Recluster: 'Re-cluster only',
+    step2EmbedOnly: 'Run UMAP',
+    step2Trial: 'Compare clustering runs',
+    step2TrialSub: 'Switch coloring between clusters_harmony / clusters_rpca / clusters when present',
+    step2ClusterTable: 'Cluster table',
+    step2ClusterBar: 'Generate cluster bar',
+    step2Warnings: 'Run notes',
+    step2NeedCluster: 'No clustering yet: run the one-click pipeline or re-cluster.',
+    integrationHarmony: 'Harmony',
+    integrationRpca: 'RPCA',
+    integrationNone: 'No integration',
+    presetSeurat6: 'Seurat 6.0 (Harmony, res 0.8)',
+    presetProRpca: 'pro-RPCA (RPCA, res 0.8)',
+    presetProUnintegrated: 'pro-unintegrated (res 0.5)',
+    trialHarmony: 'Harmony',
+    trialRpca: 'RPCA',
+    trialUnintegrated: 'Unintegrated',
+    trialUnavailable: 'n/a',
+    step3Title: 'Cell annotation',
+    step3Sub: 'Pick a cluster → inspect markers → plot → name the cell type → save to obs.cell_type',
+    step3ColorUmap: 'Color UMAP by annotation',
+    step4Title: 'Analyses & results',
+    step4Sub: 'Analysis catalog / result gallery / export artifacts',
+    step4Gallery: 'Result gallery',
+    step4GalleryEmpty: 'No figures yet: QC plots, dotplots, UMAPs and analysis figures show up here.',
+    step4GalleryOpen: 'Click to zoom',
+    step4Export: 'Export',
+    step4Records: 'Data & records',
+    step4Analyses: 'Analysis catalog',
+    logTitle: 'Run log',
+    logEmpty: 'No runs yet',
+    logRefresh: 'Refresh',
+    logRunning: 'Running…',
+    agentDrawerTitle: 'Agent',
+    close: 'Close',
+    galleryZoom: 'View figure',
+    pageNeedData: 'Import data above first',
+    shellSelectDataset: 'Select dataset',
+    shellRecent: 'Recent',
+    unnamedDataset: 'Unnamed dataset',
+    step2PresetHint: 'Presets re-run from QC (0.8 / 0.5 resolution matching pro.R); re-cluster only updates clusters + UMAP.',
+
     samplesRemoveHint: 'Remove this sample\u2019s cells from the dataset (resets clustering/embedding).',
     samplesRemoved: 'Removed {v} cells; clustering/embedding were reset, re-run dimensionality reduction.',
     agentAskPlaceholder: 'What do you want? e.g. add harmony, set resolution 0.3, find markers, between-group DE, export report',
@@ -3660,6 +3907,588 @@
   }
 
   // ==========================================================================
+  // v7：新 Shell（欢迎页 / 步骤导航 / Step2 参数 / 三套结果 / 日志 / 画廊）
+  // ==========================================================================
+
+  /** 左侧步骤导航（信息架构照参考软件：4 个主步骤）。 */
+  var STEP_NAV = [
+    { id: 'read', number: '01', titleKey: 'navRead', hintKey: 'navReadHint', steps: ['qc', 'filter'] },
+    { id: 'cluster', number: '02', titleKey: 'navCluster', hintKey: 'navClusterHint', steps: ['pca', 'neighbors', 'cluster', 'embed'] },
+    { id: 'annotate', number: '03', titleKey: 'navAnnotate', hintKey: 'navAnnotateHint', steps: ['markers', 'annotate'] },
+    { id: 'results', number: '04', titleKey: 'navResults', hintKey: 'navResultsHint', steps: [] },
+  ]
+
+  var STEP_NAV_IDS = ['read', 'cluster', 'annotate', 'results']
+
+  function normalizeStepNavId(value) {
+    var text = String(value || '')
+    return STEP_NAV_IDS.indexOf(text) >= 0 ? text : 'read'
+  }
+
+  function stepNavIncludes(list, ids) {
+    var steps = Array.isArray(list) ? list : []
+    for (var index = 0; index < ids.length; index++) {
+      if (steps.indexOf(ids[index]) >= 0) return true
+    }
+    return false
+  }
+
+  function stepNavAllIncludes(list, ids) {
+    var steps = Array.isArray(list) ? list : []
+    for (var index = 0; index < ids.length; index++) {
+      if (steps.indexOf(ids[index]) < 0) return false
+    }
+    return true
+  }
+
+  function stepNavWarnings(warnings, pattern) {
+    var list = Array.isArray(warnings) ? warnings : []
+    for (var index = 0; index < list.length; index++) {
+      if (pattern.test(String(list[index] || ''))) return true
+    }
+    return false
+  }
+
+  /** 每个步骤的状态：empty / partial / done + warn 标记（供左侧导航圆点）。 */
+  function computeStepNavStatuses(dataset) {
+    var source = dataset && typeof dataset === 'object' ? dataset : {}
+    var steps = Array.isArray(source.steps) ? source.steps : []
+    var warnings = Array.isArray(source.warnings) ? source.warnings : []
+    var analysesRun = Array.isArray(source.analysesRun) ? source.analysesRun : []
+    var hasDataset = Boolean(source.id)
+    var readDone = stepNavAllIncludes(steps, ['qc', 'filter'])
+    var readPartial = stepNavIncludes(steps, ['qc', 'filter'])
+    var clusterDone = stepNavAllIncludes(steps, ['cluster', 'embed'])
+    var clusterPartial = stepNavIncludes(steps, ['pca', 'neighbors', 'cluster', 'embed'])
+    var annotateDone = stepNavIncludes(steps, ['annotate'])
+    var annotatePartial = stepNavIncludes(steps, ['markers', 'annotate'])
+    var resultsDone = analysesRun.length > 0
+    var resultsPartial = annotateDone || clusterDone
+    var statusOf = function (done, partial) {
+      if (done) return 'done'
+      if (partial) return 'partial'
+      return 'empty'
+    }
+    return {
+      read: {
+        status: hasDataset ? statusOf(readDone, readPartial) : 'empty',
+        warn: hasDataset && stepNavWarnings(warnings, /QC|线粒体|细胞数|质控|基因数/i),
+        detail: readDone ? 'QC + 过滤已完成' : (readPartial ? '部分 QC 步骤已完成' : '导入数据并跑 QC'),
+      },
+      cluster: {
+        status: hasDataset ? statusOf(clusterDone, clusterPartial) : 'empty',
+        warn: stepNavWarnings(warnings, /聚类数|resolution|harmony|RPCA|主成分|近邻/i),
+        detail: clusterDone ? '已完成聚类与嵌入' : (clusterPartial ? '降维/聚类进行中' : '降维 + 聚类'),
+      },
+      annotate: {
+        status: hasDataset ? statusOf(annotateDone, annotatePartial) : 'empty',
+        warn: false,
+        detail: annotateDone ? '注释已写回 cell_type' : (annotatePartial ? '已有 marker，可开始注释' : '标注细胞类型'),
+      },
+      results: {
+        status: hasDataset ? statusOf(resultsDone, resultsPartial) : 'empty',
+        warn: false,
+        detail: resultsDone ? '已有 ' + analysesRun.length + ' 个分析结果' : '高级分析与导出',
+      },
+    }
+  }
+
+  /** 打开数据集时默认落在哪一步。 */
+  function defaultStepForDataset(dataset) {
+    if (!dataset || !dataset.id) return 'read'
+    var steps = Array.isArray(dataset.steps) ? dataset.steps : []
+    if (!stepNavIncludes(steps, ['qc', 'filter'])) return 'read'
+    if (!stepNavIncludes(steps, ['cluster'])) return 'cluster'
+    if (!stepNavIncludes(steps, ['annotate'])) return 'annotate'
+    return 'results'
+  }
+
+  function stepNavStatusClass(status, warn) {
+    var base = status === 'done' ? 'sc-rail-done' : (status === 'partial' ? 'sc-rail-partial' : 'sc-rail-empty')
+    return warn ? base + ' sc-rail-warn' : base
+  }
+
+  // --------------------------------------------------------------------------
+  // Step 2：降维聚类参数（Seurat 6.0 多整合方式 + 三套预设）
+  // --------------------------------------------------------------------------
+
+  var STEP2_INTEGRATIONS = [
+    { id: 'harmony', labelKey: 'integrationHarmony' },
+    { id: 'rpca', labelKey: 'integrationRpca' },
+    { id: 'none', labelKey: 'integrationNone' },
+  ]
+
+  var STEP2_PRESETS = [
+    { id: 'seurat6', labelKey: 'presetSeurat6', integration: 'harmony', resolution: 0.8 },
+    { id: 'pro-rpca', labelKey: 'presetProRpca', integration: 'rpca', resolution: 0.8 },
+    { id: 'pro-unintegrated', labelKey: 'presetProUnintegrated', integration: 'none', resolution: 0.5 },
+  ]
+
+  var STEP2_DEFAULTS = {
+    engine: 'seurat',
+    integration: 'harmony',
+    resolution: 0.8,
+    nPcs: 30,
+    neighbors: 30,
+    nTopGenes: 3000,
+    batchKey: '',
+  }
+
+  function normalizeStep2Settings(overrides) {
+    var source = overrides && typeof overrides === 'object' ? overrides : {}
+    var positive = function (value, fallback) {
+      var number = Number(value)
+      return Number.isFinite(number) && number > 1 ? Math.floor(number) : fallback
+    }
+    var integration = String(source.integration || '').toLowerCase()
+    if (integration !== 'harmony' && integration !== 'rpca' && integration !== 'none') integration = STEP2_DEFAULTS.integration
+    return {
+      engine: source.engine === 'builtin' ? 'builtin' : 'seurat',
+      integration: integration,
+      resolution: clampResolution(source.resolution === undefined ? STEP2_DEFAULTS.resolution : source.resolution),
+      nPcs: positive(source.nPcs, STEP2_DEFAULTS.nPcs),
+      neighbors: positive(source.neighbors, STEP2_DEFAULTS.neighbors),
+      nTopGenes: positive(source.nTopGenes, STEP2_DEFAULTS.nTopGenes),
+      batchKey: typeof source.batchKey === 'string' ? source.batchKey : '',
+    }
+  }
+
+  function step2PresetById(presetId) {
+    var wanted = String(presetId || '')
+    for (var index = 0; index < STEP2_PRESETS.length; index++) {
+      if (STEP2_PRESETS[index].id === wanted) return STEP2_PRESETS[index]
+    }
+    return STEP2_PRESETS[0]
+  }
+
+  /** 「一键降维聚类」预设对应的 POST /recipe body（id 直接来自预设）。 */
+  function buildStep2RecipeRequest(presetId) {
+    var preset = step2PresetById(presetId)
+    return { id: preset.id }
+  }
+
+  /** Step2 cluster 参数：Seurat 6.0 走 integration；内置引擎只发 resolution/method。 */
+  function buildStep2ClusterParams(settings, autoBatchKey) {
+    var normalized = normalizeStep2Settings(settings)
+    if (normalized.engine !== 'seurat') {
+      return { resolution: normalized.resolution, method: 'louvain' }
+    }
+    var params = {
+      engine: 'seurat',
+      integration: normalized.integration,
+      use_harmony: normalized.integration === 'harmony',
+      resolution: normalized.resolution,
+      dims: normalized.nPcs,
+      n_pcs: normalized.nPcs,
+      n_neighbors: normalized.neighbors,
+    }
+    var batchKey = normalized.batchKey || (typeof autoBatchKey === 'string' ? autoBatchKey : '')
+    if (batchKey) params.batch_key = batchKey
+    return params
+  }
+
+  /** Step2 embed（UMAP）参数。 */
+  function buildStep2EmbedParams(settings, autoBatchKey) {
+    var normalized = normalizeStep2Settings(settings)
+    var params = { layout: 'umap', n_neighbors: normalized.neighbors }
+    if (normalized.engine === 'seurat') {
+      params.engine = 'seurat'
+      params.integration = normalized.integration
+      params.use_harmony = normalized.integration === 'harmony'
+      params.dims = normalized.nPcs
+      params.n_pcs = normalized.nPcs
+      var batchKey = normalized.batchKey || (typeof autoBatchKey === 'string' ? autoBatchKey : '')
+      if (batchKey) params.batch_key = batchKey
+    }
+    return params
+  }
+
+  var TRIAL_COLUMNS = [
+    { id: 'harmony', column: 'clusters_harmony', labelKey: 'trialHarmony' },
+    { id: 'rpca', column: 'clusters_rpca', labelKey: 'trialRpca' },
+    { id: 'unintegrated', column: 'clusters', labelKey: 'trialUnintegrated' },
+  ]
+
+  /** 数据集 obs 里现有的三套聚类结果（clusters_harmony / clusters_rpca / clusters）。 */
+  function buildTrialOptions(obsColumns) {
+    var columns = Array.isArray(obsColumns) ? obsColumns : []
+    var nUniqueOf = function (column) {
+      if (!column || typeof column !== 'object') return 0
+      var raw = column.nUnique !== undefined ? column.nUnique
+        : (column.n_unique !== undefined ? column.n_unique
+          : (column.levels !== undefined ? column.levels
+            : (Array.isArray(column.categories) ? column.categories.length : 0)))
+      return Number(raw) || 0
+    }
+    var keyOf = function (column) {
+      if (typeof column === 'string') return column
+      return column && typeof column === 'object' ? String(column.key || '') : ''
+    }
+    var output = []
+    for (var index = 0; index < TRIAL_COLUMNS.length; index++) {
+      var definition = TRIAL_COLUMNS[index]
+      var matched = null
+      for (var columnIndex = 0; columnIndex < columns.length; columnIndex++) {
+        if (keyOf(columns[columnIndex]) === definition.column) matched = columns[columnIndex]
+      }
+      output.push({
+        id: definition.id,
+        labelKey: definition.labelKey,
+        column: definition.column,
+        available: Boolean(matched),
+        nClusters: nUniqueOf(matched),
+        kind: definition.id === 'unintegrated' ? 'none' : definition.id,
+      })
+    }
+    return output
+  }
+
+  function pickTrialOption(options, trialId) {
+    var list = Array.isArray(options) ? options : []
+    var wanted = String(trialId || '')
+    for (var index = 0; index < list.length; index++) {
+      if (list[index].id === wanted && list[index].available) return list[index]
+    }
+    for (var fallbackIndex = 0; fallbackIndex < list.length; fallbackIndex++) {
+      if (list[fallbackIndex].available) return list[fallbackIndex]
+    }
+    return null
+  }
+
+  /** 选择某套聚类结果 → 嵌入图着色参数（obs 列）。 */
+  function buildTrialColorBy(trial) {
+    var item = trial && typeof trial === 'object' ? trial : {}
+    var column = typeof item.column === 'string' && item.column ? item.column : 'clusters'
+    return { kind: 'obs', key: column }
+  }
+
+  /** 三套结果对比行（簇数/是否可用）。 */
+  function buildTrialCompareRows(options, currentColumn) {
+    var list = Array.isArray(options) ? options : []
+    var rows = []
+    for (var index = 0; index < list.length; index++) {
+      rows.push({
+        id: list[index].id,
+        labelKey: list[index].labelKey,
+        column: list[index].column,
+        available: list[index].available === true,
+        nClusters: Number(list[index].nClusters) || 0,
+        current: currentColumn ? currentColumn === list[index].column : false,
+      })
+    }
+    return rows
+  }
+
+  // --------------------------------------------------------------------------
+  // Step 1：QC 参数卡
+  // --------------------------------------------------------------------------
+
+  var QC_CARD_DEFAULTS = {
+    min_genes: 200,
+    max_genes: null,
+    min_counts: null,
+    max_pct_mt: 20,
+    min_cells: 3,
+  }
+
+  function normalizeQcCardValues(overrides) {
+    var source = overrides && typeof overrides === 'object' ? overrides : {}
+    var number = function (value, fallback) {
+      if (value === null || value === undefined || value === '') return fallback
+      var parsed = Number(value)
+      return Number.isFinite(parsed) ? parsed : fallback
+    }
+    return {
+      min_genes: number(source.min_genes, QC_CARD_DEFAULTS.min_genes),
+      max_genes: number(source.max_genes, null),
+      min_counts: number(source.min_counts, null),
+      max_pct_mt: number(source.max_pct_mt, QC_CARD_DEFAULTS.max_pct_mt),
+      min_cells: number(source.min_cells, QC_CARD_DEFAULTS.min_cells),
+    }
+  }
+
+  /** Step1 运行 QC / 过滤的 payload。 */
+  function buildQcCardRequest(action, values) {
+    var normalized = normalizeQcCardValues(values)
+    if (action === 'qc') {
+      var qcParams = {
+        min_genes: normalized.min_genes,
+        max_pct_mt: normalized.max_pct_mt,
+      }
+      if (normalized.max_genes !== null) qcParams.max_genes = normalized.max_genes
+      if (normalized.min_counts !== null) qcParams.min_counts = normalized.min_counts
+      return { step: 'qc', params: qcParams }
+    }
+    var filterParams = {
+      min_genes: normalized.min_genes,
+      max_pct_mt: normalized.max_pct_mt,
+      min_cells: normalized.min_cells,
+    }
+    if (normalized.max_genes !== null) filterParams.max_genes = normalized.max_genes
+    if (normalized.min_counts !== null) filterParams.min_counts = normalized.min_counts
+    return { step: 'filter', params: filterParams }
+  }
+
+  // --------------------------------------------------------------------------
+  // 运行日志（右栏）
+  // --------------------------------------------------------------------------
+
+  function formatLogEntry(entry) {
+    var item = entry && typeof entry === 'object' ? entry : {}
+    return {
+      at: typeof item.at === 'string' ? item.at : '',
+      time: formatClock(item.at) || '—',
+      icon: activityIcon(item.actor),
+      actor: item.actor || 'user',
+      action: String(item.action || '—'),
+      detail: String(item.detail || ''),
+      ok: item.ok !== false,
+      duration: item.ms === null || item.ms === undefined ? '' : formatDuration(item.ms),
+      ms: item.ms === null || item.ms === undefined ? null : Number(item.ms),
+      text: String(item.action || '—') + (item.detail ? ' · ' + item.detail : ''),
+    }
+  }
+
+  /** /activity 列表 → 日志行（保持 Host 的新→旧顺序）。 */
+  function formatLogEntries(entries, limit) {
+    var list = Array.isArray(entries) ? entries : []
+    var max = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : 50
+    var output = []
+    for (var index = 0; index < list.length && index < max; index++) {
+      output.push(formatLogEntry(list[index]))
+    }
+    return output
+  }
+
+  // --------------------------------------------------------------------------
+  // 结果画廊（所有生成过的图）
+  // --------------------------------------------------------------------------
+
+  function normalizeGalleryFigure(figure, meta) {
+    var raw = figure && typeof figure === 'object' ? figure : {}
+    var url = typeof raw.url === 'string' ? raw.url : ''
+    if (!url) return null
+    var extra = meta && typeof meta === 'object' ? meta : {}
+    return {
+      url: url,
+      title: typeof raw.title === 'string' && raw.title
+        ? raw.title
+        : (typeof extra.title === 'string' && extra.title ? extra.title : ''),
+      kind: typeof raw.kind === 'string' ? raw.kind : (typeof extra.kind === 'string' ? extra.kind : ''),
+      source: typeof extra.source === 'string' ? extra.source : '',
+      width: Number(raw.width) || 0,
+      height: Number(raw.height) || 0,
+      at: Number.isFinite(Number(extra.at)) ? Number(extra.at) : 0,
+    }
+  }
+
+  /** 追加图到画廊：同 URL 去重（保留最新）、新图在前、最多保留 60 张。 */
+  function appendGalleryFigure(list, figure, meta) {
+    var normalized = normalizeGalleryFigure(figure, meta)
+    if (!normalized) return Array.isArray(list) ? list.slice() : []
+    var output = [normalized]
+    var previous = Array.isArray(list) ? list : []
+    for (var index = 0; index < previous.length; index++) {
+      var item = previous[index]
+      if (!item || item.url === normalized.url) continue
+      output.push(item)
+    }
+    return output.slice(0, 60)
+  }
+
+  function formatGalleryCaption(figure) {
+    var item = figure && typeof figure === 'object' ? figure : {}
+    var parts = []
+    if (item.title) parts.push(String(item.title))
+    if (item.kind) parts.push(String(item.kind))
+    if (item.source) parts.push(String(item.source))
+    if (item.at) parts.push(formatClock(item.at))
+    return parts.join(' · ') || 'figure'
+  }
+
+  // --------------------------------------------------------------------------
+  // 欢迎页：最近数据集（localStorage）
+  // --------------------------------------------------------------------------
+
+  var RECENT_STORAGE_KEY = 'dsh-singlecell:recent'
+
+  function normalizeRecentDatasets(list) {
+    var output = []
+    var seen = {}
+    var source = Array.isArray(list) ? list : []
+    for (var index = 0; index < source.length; index++) {
+      var item = source[index]
+      if (!item || typeof item !== 'object') continue
+      var id = String(item.id || '')
+      if (!id || seen[id]) continue
+      seen[id] = true
+      output.push({
+        id: id,
+        name: typeof item.name === 'string' && item.name ? item.name : id,
+        path: typeof item.path === 'string' ? item.path : '',
+        nObs: Number(item.n_obs !== undefined ? item.n_obs : item.nObs) || 0,
+        nVars: Number(item.n_vars !== undefined ? item.n_vars : item.nVars) || 0,
+        at: Number(item.at) || 0,
+      })
+    }
+    output.sort(function (left, right) { return right.at - left.at })
+    return output.slice(0, 8)
+  }
+
+  function upsertRecentDataset(list, dataset, now) {
+    var source = dataset && typeof dataset === 'object' ? dataset : {}
+    if (!source.id) return normalizeRecentDatasets(list)
+    var entries = normalizeRecentDatasets(list)
+    var output = [{
+      id: String(source.id),
+      name: typeof source.name === 'string' && source.name ? source.name : String(source.id),
+      path: typeof source.path === 'string' ? source.path : '',
+      nObs: Number(source.nObs) || 0,
+      nVars: Number(source.nVars) || 0,
+      at: Number.isFinite(Number(now)) ? Number(now) : Date.now(),
+    }]
+    for (var index = 0; index < entries.length; index++) {
+      if (entries[index].id === source.id) continue
+      output.push(entries[index])
+    }
+    return output.slice(0, 8)
+  }
+
+  function readRecentDatasets(storage) {
+    if (!storage || typeof storage.getItem !== 'function') return []
+    try {
+      var raw = storage.getItem(RECENT_STORAGE_KEY)
+      if (!raw) return []
+      return normalizeRecentDatasets(JSON.parse(raw))
+    } catch (error) {
+      return []
+    }
+  }
+
+  function writeRecentDatasets(storage, list) {
+    if (!storage || typeof storage.setItem !== 'function') return false
+    try {
+      storage.setItem(RECENT_STORAGE_KEY, JSON.stringify(normalizeRecentDatasets(list)))
+      return true
+    } catch (error) {
+      return false
+    }
+  }
+
+  // --------------------------------------------------------------------------
+  // v7 Phase B：Step3 注释覆盖 / 画廊分组 / 移动端布局
+  // --------------------------------------------------------------------------
+
+  /** 注释覆盖率（Step3 注释表头）：mapped/total/percent/pending。 */
+  function annotationCoverage(clusterRows) {
+    var rows = Array.isArray(clusterRows) ? clusterRows : []
+    var mapped = 0
+    var pending = []
+    for (var index = 0; index < rows.length; index++) {
+      var cellType = String(rows[index] && rows[index].cellType !== undefined ? rows[index].cellType : '').trim()
+      if (cellType) mapped += 1
+      else pending.push(String(rows[index] && rows[index].id !== undefined ? rows[index].id : ''))
+    }
+    var total = rows.length
+    return {
+      total: total,
+      mapped: mapped,
+      pending: pending,
+      percent: total ? Math.round((mapped / total) * 100) : 0,
+      complete: total > 0 && mapped === total,
+    }
+  }
+
+  /** 结果画廊按来源分组（保持首次出现顺序，组内保持新→旧）。 */
+  function groupGalleryFigures(figures) {
+    var list = Array.isArray(figures) ? figures : []
+    var order = []
+    var buckets = {}
+    for (var index = 0; index < list.length; index++) {
+      var figure = list[index]
+      if (!figure || !figure.url) continue
+      var source = String(figure.source || '')
+      if (!buckets[source]) {
+        buckets[source] = []
+        order.push(source)
+      }
+      buckets[source].push(figure)
+    }
+    var output = []
+    for (var sourceIndex = 0; sourceIndex < order.length; sourceIndex++) {
+      output.push({ source: order[sourceIndex], figures: buckets[order[sourceIndex]] })
+    }
+    return output
+  }
+
+  /** 窄屏判定（纯函数，便于测试）：< 900px 视为单列。 */
+  function layoutModeForWidth(width) {
+    var number = Number(width)
+    if (!Number.isFinite(number) || number <= 0) return 'wide'
+    return number < 900 ? 'narrow' : 'wide'
+  }
+
+  /** 小亚群：校验并生成 /dataset/subset 的 clusters 列表。 */
+  function validateSubsetSelection(clusters) {
+    var list = Array.isArray(clusters) ? clusters : []
+    var cleaned = []
+    var seen = {}
+    for (var index = 0; index < list.length; index++) {
+      var cluster = String(list[index] === null || list[index] === undefined ? '' : list[index]).trim()
+      if (!cluster || seen[cluster]) continue
+      seen[cluster] = true
+      cleaned.push(cluster)
+    }
+    return { ok: cleaned.length > 0, clusters: cleaned, error: cleaned.length ? '' : 'step3SubsetEmpty' }
+  }
+
+  /** 小亚群请求体。 */
+  function buildSubsetPayload(datasetId, clusters, name) {
+    var selection = validateSubsetSelection(clusters)
+    var payload = { dataset: String(datasetId || ''), clusters: selection.clusters.slice() }
+    var datasetName = String(name === null || name === undefined ? '' : name).trim()
+    if (datasetName) payload.name = datasetName
+    return payload
+  }
+
+  /** /dataset/subset 响应 → {datasetId, name, removedCells, subsetCells, keptClusters, parent, nObs, nVars}。 */
+  function normalizeSubsetResult(payload) {
+    var raw = payload && typeof payload === 'object' ? payload : {}
+    var dataset = raw.dataset && typeof raw.dataset === 'object' ? raw.dataset : {}
+    var nObs = Number(dataset.n_obs) || 0
+    var subsetCells = Number(raw.subset_cells) || nObs
+    var keptClusters = Array.isArray(raw.kept_clusters) ? raw.kept_clusters.map(function (item) { return String(item) }) : []
+    return {
+      ok: raw.ok !== false,
+      datasetId: String(raw.dataset_id || dataset.id || ''),
+      name: typeof dataset.name === 'string' ? dataset.name : String(raw.name || ''),
+      removedCells: Number(raw.removed_cells) || 0,
+      subsetCells: subsetCells,
+      keptClusters: keptClusters,
+      parent: String(raw.parent || ''),
+      nObs: nObs,
+      nVars: Number(dataset.n_vars) || 0,
+      steps: Array.isArray(dataset.steps) ? dataset.steps.slice() : [],
+    }
+  }
+
+  /** Step4 导出快捷按钮顺序（与 v2 记录 tab 的 EXPORT_KINDS 不同，单独命名以免冲突）。 */
+  var EXPORT_QUICK_KINDS = ['h5ad', 'protocol', 'methods', 'report', 'script']
+  var EXPORT_QUICK_LABELS = {
+    h5ad: 'exportH5ad',
+    protocol: 'exportProtocol',
+    methods: 'exportMethods',
+    report: 'exportReport',
+    script: 'exportScript',
+  }
+
+  function buildExportOptions() {
+    return EXPORT_QUICK_KINDS.map(function (kind) {
+      return { kind: kind, labelKey: EXPORT_QUICK_LABELS[kind] }
+    })
+  }
+
+  // ==========================================================================
   // API 客户端：同源相对路径 + 可注入 fetch（node 测试用假 fetch）。
   // 所有失败都转成可读中文 Error；HTTP 错误与 {ok:false,error} 都解析。
   // ==========================================================================
@@ -3877,6 +4706,13 @@
       openPath: function (filePath, extra) {
         return jsonPost('/dataset/open', { path: String(filePath || ''), actor: 'user' }, extra)
       },
+      subsetDataset: function (datasetId, clusters, name, extra) {
+        var payload = { dataset: String(datasetId || ''), clusters: [], actor: 'user' }
+        var list = Array.isArray(clusters) ? clusters : []
+        for (var index = 0; index < list.length; index++) payload.clusters.push(String(list[index]))
+        if (name) payload.name = String(name)
+        return jsonPost('/dataset/subset', payload, extra)
+      },
       openDemo: function (extra) {
         return jsonPost('/dataset/demo', { actor: 'user' }, extra)
       },
@@ -3997,6 +4833,17 @@
     return String(template).replace(/\{v\}/g, value === null || value === undefined ? '' : String(value))
   }
 
+  /** 命名占位符版本：tfv(T, 'key', { name: 'x', kept: 1478 })。 */
+  function tfv(translate, key, values) {
+    var raw = typeof translate === 'function' ? translate(key) : ''
+    var template = typeof raw === 'string' && raw && raw !== key ? raw : (DICT_ZH[key] || '')
+    var source = values && typeof values === 'object' ? values : {}
+    return String(template).replace(/\{([A-Za-z0-9_]+)\}/g, function (match, name) {
+      var value = source[name]
+      return value === null || value === undefined ? '' : String(value)
+    })
+  }
+
   // ==========================================================================
   // 纯函数测试出口。node 环境（typeof window === 'undefined'）挂到
   // globalThis.__SC_TEST__；浏览器里也会挂进 factory 返回的 __test__，便于排查。
@@ -4077,6 +4924,47 @@
     activityIcon: activityIcon,
     createApi: createApi,
     createTranslator: createTranslator,
+    STEP_NAV: STEP_NAV,
+    STEP_NAV_IDS: STEP_NAV_IDS,
+    normalizeStepNavId: normalizeStepNavId,
+    computeStepNavStatuses: computeStepNavStatuses,
+    defaultStepForDataset: defaultStepForDataset,
+    stepNavStatusClass: stepNavStatusClass,
+    STEP2_INTEGRATIONS: STEP2_INTEGRATIONS,
+    STEP2_PRESETS: STEP2_PRESETS,
+    STEP2_DEFAULTS: STEP2_DEFAULTS,
+    normalizeStep2Settings: normalizeStep2Settings,
+    step2PresetById: step2PresetById,
+    buildStep2RecipeRequest: buildStep2RecipeRequest,
+    buildStep2ClusterParams: buildStep2ClusterParams,
+    buildStep2EmbedParams: buildStep2EmbedParams,
+    TRIAL_COLUMNS: TRIAL_COLUMNS,
+    buildTrialOptions: buildTrialOptions,
+    pickTrialOption: pickTrialOption,
+    buildTrialColorBy: buildTrialColorBy,
+    buildTrialCompareRows: buildTrialCompareRows,
+    QC_CARD_DEFAULTS: QC_CARD_DEFAULTS,
+    normalizeQcCardValues: normalizeQcCardValues,
+    buildQcCardRequest: buildQcCardRequest,
+    tfv: tfv,
+    formatLogEntry: formatLogEntry,
+    formatLogEntries: formatLogEntries,
+    normalizeGalleryFigure: normalizeGalleryFigure,
+    appendGalleryFigure: appendGalleryFigure,
+    formatGalleryCaption: formatGalleryCaption,
+    annotationCoverage: annotationCoverage,
+    groupGalleryFigures: groupGalleryFigures,
+    layoutModeForWidth: layoutModeForWidth,
+    EXPORT_QUICK_KINDS: EXPORT_QUICK_KINDS,
+    buildExportOptions: buildExportOptions,
+    validateSubsetSelection: validateSubsetSelection,
+    buildSubsetPayload: buildSubsetPayload,
+    normalizeSubsetResult: normalizeSubsetResult,
+    RECENT_STORAGE_KEY: RECENT_STORAGE_KEY,
+    normalizeRecentDatasets: normalizeRecentDatasets,
+    upsertRecentDataset: upsertRecentDataset,
+    readRecentDatasets: readRecentDatasets,
+    writeRecentDatasets: writeRecentDatasets,
     DIMRED_DEFAULTS: DIMRED_DEFAULTS,
     DIMRED_RECIPE_ID: DIMRED_RECIPE_ID,
     clampResolution: clampResolution,
@@ -4604,6 +5492,115 @@
       '.sc-agent-sug-actions{display:flex;gap:5px;flex-wrap:wrap}',
       '.sc-agent-result{margin-top:2px;padding:4px 7px;border-radius:6px;border:1px solid color-mix(in srgb,var(--dsw-alias-state-success-primary) 30%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-state-success-primary) 6%,transparent);font-size:10.5px;word-break:break-word}',
 
+      // v7：新 Shell（参考软件的顶栏/步骤导航/内容区/右侧日志）
+      '.sc-app{display:flex;flex-direction:column;height:100%;min-height:72vh;overflow:hidden;isolation:isolate;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);border-radius:12px;font-size:13px;line-height:1.5}',
+      '.sc-app *,.sc-app *::before,.sc-app *::after{box-sizing:border-box}',
+      '.sc-shell-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:none;padding:9px 16px;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1)}',
+      '.sc-brand{display:flex;align-items:center;gap:9px;min-width:0}',
+      '.sc-brand-mark{display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex:none;border-radius:9px;border:1px solid color-mix(in srgb,var(--dsw-alias-brand-primary) 35%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-brand-primary)}',
+      '.sc-brand-text{display:flex;flex-direction:column;gap:0;min-width:0}',
+      '.sc-brand-title{font-size:14.5px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.sc-brand-sub{font-size:10.5px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.sc-shell-top-right{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-left:auto}',
+      '.sc-project{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}',
+      '.sc-project select{height:28px;min-width:150px;max-width:260px;font-size:11.5px}',
+      '.sc-engine{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--dsw-alias-label-secondary);white-space:nowrap}',
+      '.sc-engine-dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--dsw-alias-state-idle-primary)}',
+      '.sc-engine-dot-ok{background:var(--dsw-alias-state-success-primary)}',
+      '.sc-engine-dot-bad{background:var(--dsw-alias-state-error-primary)}',
+      '.sc-shell-body{display:flex;flex:1 1 auto;min-height:0;overflow:hidden}',
+      '.sc-rail{display:flex;flex-direction:column;gap:4px;flex:0 0 196px;width:196px;min-height:0;padding:12px 9px;border-right:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);overflow-y:auto}',
+      '.sc-rail-head{padding:0 6px 8px;display:flex;flex-direction:column;gap:1px}',
+      '.sc-rail-eyebrow{font-size:9.5px;letter-spacing:.14em;color:var(--dsw-alias-label-tertiary)}',
+      '.sc-rail-title{font-size:12.5px;font-weight:650}',
+      '.sc-rail-note{padding:6px 6px 10px;font-size:10.5px;color:var(--dsw-alias-label-tertiary)}',
+      '.sc-rail-group{font-size:9.5px;letter-spacing:.1em;color:var(--dsw-alias-label-tertiary);padding:8px 8px 3px}',
+      '.sc-rail-item{display:flex;align-items:center;gap:8px;width:100%;padding:9px 9px;border:1px solid transparent;border-radius:9px;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;text-align:left;cursor:pointer;transition:background .12s,border-color .12s}',
+      '.sc-rail-item:hover{background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary)}',
+      '.sc-rail-item-on{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-brand-primary) 9%,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-brand-primary)}',
+      '.sc-rail-num{display:flex;align-items:center;justify-content:center;flex:none;width:24px;height:24px;border-radius:50%;border:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-layer-2);font-size:10.5px;font-weight:600}',
+      '.sc-rail-item-on .sc-rail-num{background:color-mix(in srgb,var(--dsw-alias-brand-primary) 18%,transparent);border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,transparent);color:var(--dsw-alias-brand-primary)}',
+      '.sc-rail-text{display:flex;flex-direction:column;gap:0;min-width:0;flex:1 1 auto}',
+      '.sc-rail-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.sc-rail-hint{font-size:10px;color:var(--dsw-alias-label-tertiary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.sc-rail-dot{width:7px;height:7px;border-radius:50%;flex:none;background:var(--dsw-alias-state-idle-primary)}',
+      '.sc-rail-partial .sc-rail-dot{background:var(--dsw-alias-brand-primary)}',
+      '.sc-rail-done .sc-rail-dot{background:var(--dsw-alias-state-success-primary)}',
+      '.sc-rail-warn .sc-rail-dot{background:var(--dsw-alias-state-warn-primary)}',
+      '.sc-content{display:flex;flex:1 1 auto;flex-direction:column;min-width:0;min-height:0;overflow-y:auto;background:var(--dsw-alias-bg-base)}',
+      '.sc-page{display:flex;flex-direction:column;gap:12px;padding:16px 20px 28px;max-width:1180px;width:100%;margin:0 auto}',
+      '.sc-page-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}',
+      '.sc-page-title{font-size:16px;font-weight:650}',
+      '.sc-page-sub{font-size:11.5px;color:var(--dsw-alias-label-secondary);max-width:760px;margin-top:2px}',
+      '.sc-page-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+      '.sc-card{display:flex;flex-direction:column;gap:9px;padding:12px 14px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);flex:none}',
+      '.sc-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}',
+      '.sc-card-title{font-size:12.5px;font-weight:650}',
+      '.sc-card-sub{font-size:10.5px;color:var(--dsw-alias-label-tertiary);margin-top:1px}',
+      '.sc-card-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}',
+      '.sc-card-grid{display:flex;flex-wrap:wrap;gap:10px 16px}',
+      '.sc-field{display:flex;flex-direction:column;gap:3px;font-size:11px;color:var(--dsw-alias-label-secondary);min-width:120px}',
+      '.sc-field .sc-input{height:26px;font-size:11.5px;width:140px}',
+      '.sc-summary-list{display:flex;flex-direction:column;gap:3px;margin:0;padding-left:16px;font-size:11.5px;color:var(--dsw-alias-label-secondary)}',
+      '.sc-welcome{display:flex;flex:1 1 auto;flex-direction:column;gap:16px;padding:34px 24px 40px;max-width:1000px;width:100%;margin:0 auto}',
+      '.sc-welcome-hero{display:flex;flex-direction:column;gap:8px;padding:26px 26px;border:1px solid var(--dsw-alias-border-l1);border-radius:16px;background:linear-gradient(135deg,color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,var(--dsw-alias-bg-layer-1)),var(--dsw-alias-bg-layer-1))}',
+      '.sc-welcome-title{font-size:22px;font-weight:700;letter-spacing:.01em}',
+      '.sc-welcome-sub{font-size:12.5px;color:var(--dsw-alias-label-secondary);max-width:620px;line-height:1.6}',
+      '.sc-welcome-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}',
+      '.sc-welcome-grid{display:flex;gap:14px;flex-wrap:wrap}',
+      '.sc-welcome-col{display:flex;flex-direction:column;gap:8px;flex:1 1 300px;min-width:260px;padding:14px 16px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1)}',
+      '.sc-welcome-item{display:flex;gap:9px;font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.55}',
+      '.sc-welcome-item-num{display:flex;align-items:center;justify-content:center;flex:none;width:20px;height:20px;border-radius:50%;background:color-mix(in srgb,var(--dsw-alias-brand-primary) 13%,transparent);color:var(--dsw-alias-brand-primary);font-size:10.5px;font-weight:600}',
+      '.sc-recent-row{display:flex;align-items:center;gap:8px;padding:6px 8px;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);font-size:11.5px}',
+      '.sc-recent-name{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.sc-recent-meta{font-size:10.5px;color:var(--dsw-alias-label-tertiary);white-space:nowrap}',
+      '.sc-side{display:flex;flex-direction:column;flex:0 0 320px;width:320px;min-height:0;border-left:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);overflow:hidden}',
+      '.sc-side-tabs{display:flex;gap:2px;flex:none;padding:6px 8px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}',
+      '.sc-side-tab{flex:1 1 0;height:28px;border:none;border-bottom:2px solid transparent;border-radius:7px 7px 0 0;background:transparent;color:var(--dsw-alias-label-secondary);font:inherit;font-size:11.5px;cursor:pointer}',
+      '.sc-side-tab-on{color:var(--dsw-alias-brand-primary);border-bottom-color:var(--dsw-alias-brand-primary);font-weight:600}',
+      '.sc-side-body{display:flex;flex-direction:column;gap:6px;flex:1 1 auto;min-height:0;padding:10px;overflow-y:auto}',
+      '.sc-log-row{display:grid;grid-template-columns:56px 16px minmax(70px,1fr) auto;gap:6px;align-items:baseline;padding:4px 6px;border-bottom:1px solid color-mix(in srgb,var(--dsw-alias-border-l1) 55%,transparent);font-size:10.5px}',
+      '.sc-log-row:last-child{border-bottom:none}',
+      '.sc-log-time{color:var(--dsw-alias-label-tertiary);font-variant-numeric:tabular-nums}',
+      '.sc-log-action{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:10px;color:var(--dsw-alias-brand-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.sc-log-detail{grid-column:2/5;color:var(--dsw-alias-label-secondary);font-size:10px;word-break:break-word;margin-top:-2px}',
+      '.sc-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}',
+      '.sc-gallery-item{display:flex;flex-direction:column;gap:4px;padding:7px;border:1px solid var(--dsw-alias-border-l1);border-radius:10px;background:var(--dsw-alias-bg-base);cursor:zoom-in}',
+      '.sc-gallery-item img{display:block;width:100%;height:150px;object-fit:contain;border-radius:6px;background:var(--dsw-alias-bg-layer-2)}',
+      '.sc-gallery-cap{font-size:10.5px;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
+      '.sc-lightbox{position:fixed;inset:0;z-index:1400;display:flex;align-items:center;justify-content:center;padding:30px;background:color-mix(in srgb,var(--dsw-alias-label-primary) 62%,transparent);cursor:zoom-out}',
+      '.sc-lightbox img{max-width:94vw;max-height:90vh;border-radius:8px;background:var(--dsw-alias-bg-base)}',
+      '.sc-page-narrow{max-width:860px}',
+      '.sc-notice-card{display:flex;align-items:center;gap:8px;padding:9px 12px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-secondary);font-size:11.5px}',
+      '.sc-side-toggle{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 9px;border:1px solid var(--dsw-alias-border-l1);border-radius:999px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-secondary);font:inherit;font-size:11px;cursor:pointer}',
+      '.sc-side-toggle-on{border-color:color-mix(in srgb,var(--dsw-alias-brand-primary) 45%,var(--dsw-alias-border-l1));background:color-mix(in srgb,var(--dsw-alias-brand-primary) 10%,var(--dsw-alias-bg-layer-1));color:var(--dsw-alias-brand-primary)}',
+
+      // v7 Phase B：注释表 / 小亚群 / 画廊分组 / 进阶折叠 / 移动端单列
+      '.sc-gallery-groups{display:flex;flex-direction:column;gap:10px}',
+      '.sc-gallery-group{display:flex;flex-direction:column;gap:5px}',
+      '.sc-gallery-group-title{font-size:10.5px;font-weight:600;color:var(--dsw-alias-label-tertiary);letter-spacing:.04em}',
+      '.sc-subset-chips{display:flex;flex-wrap:wrap;gap:5px;padding:4px 0}',
+      '.sc-advanced{margin-top:2px;padding:8px 12px;border:1px dashed var(--dsw-alias-border-l2);border-radius:10px;background:var(--dsw-alias-bg-layer-1)}',
+      '.sc-advanced summary{cursor:pointer;font-size:11.5px;font-weight:600;color:var(--dsw-alias-label-secondary)}',
+      '.sc-advanced[open] summary{margin-bottom:6px;color:var(--dsw-alias-label-primary)}',
+      '.sc-app-narrow .sc-shell-top{padding:8px 10px}',
+      '.sc-app-narrow .sc-brand-sub{display:none}',
+      '@media (max-width:900px){',
+      '  .sc-shell-body{flex-direction:column}',
+      '  .sc-rail{flex:0 0 auto;width:100%;flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--dsw-alias-border-l1);padding:6px 8px}',
+      '  .sc-rail-head,.sc-rail-group,.sc-rail-note{display:none}',
+      '  .sc-rail-item{flex:0 0 auto;width:auto;padding:6px 8px}',
+      '  .sc-rail-hint{display:none}',
+      '  .sc-content{min-height:0}',
+      '  .sc-side{flex:0 0 auto;width:100%;max-height:44vh;border-left:none;border-top:1px solid var(--dsw-alias-border-l1)}',
+      '  .sc-page{padding:12px 10px 22px}',
+      '  .sc-welcome{padding:18px 10px 26px}',
+      '  .sc-gallery{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}',
+      '  .sc-gallery-item img{height:110px}',
+      '  .sc-dimred-grid,.sc-card-grid{flex-direction:column;align-items:stretch}',
+      '  .sc-field .sc-input{width:100%}',
+      '  .sc-dimred-slider-row{flex-basis:100%}',
+      '}',
       '@media (max-width:1180px){.sc-left{flex-basis:240px;width:240px}.sc-right{flex-basis:262px;width:262px}}',
       '@media (max-width:980px){.sc-left{flex-basis:216px;width:216px}.sc-right{flex-basis:236px;width:236px}.sc-path-input{width:150px}}',
       '@media (prefers-reduced-motion:reduce){.sc-spinner{animation:none}}',
@@ -4710,75 +5707,6 @@
         h('span', { className: 'sc-badge-dot' }),
         label)
     }
-
-    function TopBar(props) {
-      var busy = props.busy || {}
-
-      var datasetChips = (props.datasets || []).map(function (dataset) {
-        return h('button', {
-          key: dataset.id,
-          type: 'button',
-          className: 'sc-chip' + (dataset.id === props.active ? ' sc-chip-on' : ''),
-          title: (dataset.name || dataset.id) + (dataset.sourceFormat ? ' · ' + dataset.sourceFormat : ''),
-          disabled: Boolean(busy.select),
-          onClick: function () { props.onSelect(dataset.id) },
-        }, (dataset.name || dataset.id), dataset.nObs ? ' · ' + formatNumber(dataset.nObs) : '')
-      })
-
-      var recipeOptions = (props.recipes || []).map(function (recipe) {
-        return h('option', { key: recipe.id, value: recipe.id }, recipe.title || recipe.id)
-      })
-
-      return h('header', { className: 'sc-top' },
-        h('div', { className: 'sc-top-main' },
-          h('div', { className: 'sc-title-block' },
-            h('div', { className: 'sc-title' }, T('title')),
-            h('div', { className: 'sc-subtitle' }, T('subtitle'))),
-          h(EngineBadge, { engine: props.engine }),
-          datasetChips.length
-            ? h('div', { className: 'sc-chips', role: 'group', 'aria-label': T('title') }, datasetChips)
-            : null),
-        h('div', { className: 'sc-top-actions' },
-          (props.recipes || []).length
-            ? h('div', { className: 'sc-recipe' },
-                h('select', {
-                  className: 'sc-input sc-select sc-recipe-select',
-                  value: props.recipeId || '',
-                  disabled: props.recipeRunning,
-                  'aria-label': T('recipes'),
-                  title: T('recipes'),
-                  onChange: function (event) { props.onRecipeChange(event.target.value) },
-                },
-                  h('option', { value: '' }, T('recipePick')),
-                  recipeOptions),
-                h('button', {
-                  type: 'button',
-                  className: 'sc-btn sc-btn-primary',
-                  disabled: props.recipeRunning || !props.recipeId || !props.active,
-                  onClick: props.onRunRecipe,
-                }, props.recipeRunning ? T('recipeRunning') : T('runRecipe')))
-            : null,
-          h('button', {
-            type: 'button',
-            className: 'sc-btn sc-btn-primary',
-            disabled: Boolean(busy.import) || Boolean(busy.upload),
-            title: T('importSubtitle'),
-            onClick: props.onOpenImport,
-          }, busy.import || busy.upload ? T('running') : T('importData')),
-          h('button', {
-            type: 'button',
-            className: 'sc-btn',
-            disabled: Boolean(busy.demo),
-            onClick: props.onDemo,
-          }, busy.demo ? T('running') : T('loadDemo')),
-          h('button', {
-            type: 'button',
-            className: 'sc-btn',
-            disabled: Boolean(busy.refresh),
-            onClick: props.onRefresh,
-          }, busy.refresh ? T('loading') : T('refresh'))))
-    }
-
 
     // ==========================================================================
     // v3：导入数据面板（fixed 浮层；不走 react-dom portal，宿主只允许 require('react')）
@@ -6024,40 +6952,6 @@
       return props.children
     }
 
-    function TabsBar(props) {
-      return h('div', { className: 'sc-tabs', role: 'tablist' }, TAB_DEFS.map(function (tab) {
-        return h('button', {
-          key: tab.id,
-          type: 'button',
-          role: 'tab',
-          'aria-selected': props.tab === tab.id ? 'true' : 'false',
-          className: 'sc-tab' + (props.tab === tab.id ? ' sc-tab-on' : ''),
-          onClick: function () { props.onChange(tab.id) },
-        }, T(tab.labelKey))
-      }))
-    }
-
-    function EmptyState(props) {
-      var busy = props.busy || {}
-      return h('div', { className: 'sc-empty' },
-        h('div', { className: 'sc-empty-card' },
-          h('div', { className: 'sc-empty-title' }, T('emptyTitle')),
-          h('div', { className: 'sc-empty-hint' }, T('emptyHint')),
-          h('div', { className: 'sc-empty-actions' },
-            h('button', {
-              type: 'button',
-              className: 'sc-btn sc-btn-primary',
-              disabled: Boolean(busy.import),
-              onClick: props.onOpenImport,
-            }, T('importData')),
-            h('button', {
-              type: 'button',
-              className: 'sc-btn',
-              disabled: Boolean(busy.demo),
-              onClick: props.onDemo,
-            }, busy.demo ? T('running') : T('loadDemo')))))
-    }
-
     // ==========================================================================
     // 嵌入图：canvas 交互散点（滚轮缩放以鼠标为锚 / 拖拽平移 / 双击复位 / 悬停 tooltip）
     // ==========================================================================
@@ -6448,40 +7342,6 @@
       { id: 'pct_counts_mt', label: 'pct_counts_mt' },
     ]
 
-    function QcTab(props) {
-      if (!props.activeId) return Notice({ text: T('noData') })
-      var metrics = props.metrics || []
-      return h(Fragment, null,
-        h('div', { className: 'sc-toolbar' },
-          h('span', { className: 'sc-muted' }, T('qcMetrics')),
-          QC_METRIC_DEFS.map(function (metric) {
-            return h('label', { key: metric.id, className: 'sc-check' },
-              h('input', {
-                type: 'checkbox',
-                checked: metrics.indexOf(metric.id) >= 0,
-                disabled: props.loading,
-                onChange: function () { props.onToggleMetric(metric.id) },
-              }),
-              metric.label)
-          }),
-          h('button', {
-            type: 'button',
-            className: 'sc-btn sc-btn-primary',
-            disabled: props.loading || !metrics.length,
-            onClick: props.onGenerate,
-          }, props.loading ? T('running') : T('generateQc'))),
-        props.error
-          ? ErrorBanner({ message: props.error, onRetry: props.onGenerate, retryLabel: T('retry') })
-          : null,
-        props.figure
-          ? h('div', { className: 'sc-figure' },
-              h('img', { src: props.figure.url, alt: T('qcFigureAlt'), loading: 'lazy' }),
-              h('div', { className: 'sc-figure-meta' }, (props.figure.width || 0) + '×' + (props.figure.height || 0) + 'px'))
-          : h('div', { className: 'sc-guide' },
-              h('div', { className: 'sc-guide-hint' }, T('qcEmptyHint'))),
-        !props.qcDone ? h('div', { className: 'sc-hint-line' }, T('qcNeedStep')) : null)
-    }
-
     // ==========================================================================
     // 标记基因 tab
     // ==========================================================================
@@ -6866,65 +7726,6 @@
     // ==========================================================================
     // 聚类 tab：cluster_bar + 细胞类型注释
     // ==========================================================================
-
-    function ClustersTab(props) {
-      if (!props.activeId) return Notice({ text: T('noData') })
-      if (!props.clusterDone) {
-        return h('div', { className: 'sc-guide' },
-          h('div', { className: 'sc-guide-hint' }, T('markersNeedCluster')))
-      }
-      var groups = props.groups || []
-      var listNode = null
-      if (props.markersLoading && !groups.length) {
-        listNode = LoadingLine({ text: T('loading') })
-      } else if (props.markersError) {
-        listNode = ErrorBanner({ message: props.markersError, onRetry: props.onReloadMarkers, retryLabel: T('retry') })
-      } else if (!groups.length) {
-        listNode = Notice({ text: T('markersEmpty') })
-      } else {
-        listNode = h('div', { className: 'sc-cluster-list' }, groups.map(function (group) {
-          return h('div', { key: group.id, className: 'sc-cluster-row' },
-            h('span', { className: 'sc-cluster-id' }, group.label),
-            h('span', { className: 'sc-cluster-n' }, formatNumber(group.nCells) + ' ' + T('cellsUnit')),
-            h('input', {
-              className: 'sc-input sc-cluster-input',
-              type: 'text',
-              placeholder: T('cellTypePlaceholder'),
-              value: props.annotation[group.id] || '',
-              onChange: function (event) { props.onChangeAnnotation(group.id, event.target.value) },
-            }))
-        }))
-      }
-      return h(Fragment, null,
-        props.dimredCard ? props.dimredCard : null,
-        h('div', { className: 'sc-toolbar' },
-          h('span', { className: 'sc-muted' }, T('clusterBarTitle')),
-          h('button', {
-            type: 'button',
-            className: 'sc-btn sc-btn-sm',
-            disabled: props.barLoading,
-            onClick: props.onGenerateBar,
-          }, props.barLoading ? T('running') : T('generateClusterBar'))),
-        props.barError
-          ? ErrorBanner({ message: props.barError, onRetry: props.onGenerateBar, retryLabel: T('retry') })
-          : null,
-        props.barFigure
-          ? h('div', { className: 'sc-figure sc-figure-sm' },
-              h('img', { src: props.barFigure.url, alt: T('clusterBarTitle'), loading: 'lazy' }))
-          : null,
-        h('div', { className: 'sc-section-title' }, h('span', null, T('annotationTitle'))),
-        h('div', { className: 'sc-hint-line' }, T('annotationHint')),
-        listNode,
-        h('div', { className: 'sc-toolbar' },
-          h('button', {
-            type: 'button',
-            className: 'sc-btn sc-btn-primary',
-            disabled: props.saving || !props.hasMapping,
-            onClick: props.onSave,
-          }, props.saving ? T('running') : T('saveAnnotation')),
-          props.saved ? h('span', { className: 'sc-ok' }, props.saved) : null,
-          props.saveError ? h('span', { className: 'sc-bad' }, props.saveError) : null))
-    }
 
     // ==========================================================================
     // v4：样本 & 分组面板（记录 tab 顶部）
@@ -7369,25 +8170,588 @@
     // 日志 tab
     // ==========================================================================
 
-    function LogTab(props) {
-      var rows = (props.entries || EMPTY_LIST).map(function (entry, index) {
-        return h('div', { key: 'log-' + index, className: 'sc-log-row' },
-          h('span', { className: 'sc-log-time' }, formatClock(entry.at) || '—'),
-          h('span', { className: 'sc-log-actor', 'aria-hidden': 'true' }, activityIcon(entry.actor)),
-          h('span', { className: 'sc-log-action', title: entry.action }, entry.action || '—'),
-          h('span', { className: 'sc-log-detail', title: entry.detail }, entry.detail || ''),
-          h('span', { className: 'sc-log-ms' },
-            (entry.ok ? '' : '✕ ') + (entry.ms !== null && entry.ms !== undefined ? formatDuration(entry.ms) : '')))
+    // ==========================================================================
+    // v7：新 Shell 组件（欢迎页 / 顶栏 / 步骤导航 / 运行日志 / 画廊 / 4 个步骤页）
+    // ==========================================================================
+
+    function ShellTopBar(props) {
+      var badge = engineBadge(props.engine)
+      var datasets = props.datasets || EMPTY_LIST
+      var engineTone = badge.tone === 'ok' ? ' sc-engine-dot-ok' : (badge.tone === 'bad' ? ' sc-engine-dot-bad' : '')
+      return h('header', { className: 'sc-shell-top' },
+        h('div', { className: 'sc-brand' },
+          h('span', { className: 'sc-brand-mark' }, h(SidebarGlyph, { size: 17 })),
+          h('div', { className: 'sc-brand-text' },
+            h('div', { className: 'sc-brand-title' }, T('appName')),
+            h('div', { className: 'sc-brand-sub' }, T('appTagline')))),
+        h('div', { className: 'sc-shell-top-right' },
+          h('label', { className: 'sc-project' },
+            T('shellProject'),
+            h('select', {
+              className: 'sc-input sc-select sc-project-select',
+              value: props.active || '',
+              disabled: !datasets.length || Boolean(props.busy.select),
+              title: T('shellSelectDataset'),
+              onChange: function (event) { props.onSelect(event.target.value) },
+            },
+              h('option', { value: '' }, datasets.length ? T('shellSelectDataset') : T('noData')),
+              datasets.map(function (dataset) {
+                return h('option', { key: dataset.id, value: dataset.id },
+                  (dataset.name || dataset.id) + (dataset.nObs ? ' · ' + formatNumber(dataset.nObs) + ' ' + T('cellsUnit') : ''))
+              }))),
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-sm sc-btn-primary',
+            disabled: Boolean(props.busy.import),
+            onClick: props.onOpenImport,
+          }, '＋ ' + (props.busy.import ? T('running') : T('shellNewProject'))),
+          h('button', {
+            type: 'button',
+            className: 'sc-btn sc-btn-sm',
+            disabled: Boolean(props.busy.refresh),
+            onClick: props.onRefresh,
+          }, T('shellRefresh')),
+          h('span', { className: 'sc-engine', title: badge.detail || '' },
+            h('span', { className: 'sc-engine-dot' + engineTone }),
+            T(badge.labelKey)),
+          h('button', {
+            type: 'button',
+            className: 'sc-side-toggle' + (props.logOpen ? ' sc-side-toggle-on' : ''),
+            onClick: props.onToggleLog,
+          }, '☰ ' + T('shellLog')),
+          h('button', {
+            type: 'button',
+            className: 'sc-side-toggle' + (props.agentOpen ? ' sc-side-toggle-on' : ''),
+            onClick: props.onToggleAgent,
+          }, '🤖 ' + T('shellAgent'))))
+    }
+
+    function StepRail(props) {
+      var statuses = props.statuses || {}
+      var items = STEP_NAV.map(function (definition) {
+        var status = statuses[definition.id] || { status: 'empty', warn: false, detail: '' }
+        var on = props.current === definition.id
+        var dotClass = 'sc-rail-dot'
+          + (status.status === 'done' ? ' sc-rail-done' : (status.status === 'partial' ? ' sc-rail-partial' : ' sc-rail-empty'))
+          + (status.warn ? ' sc-rail-warn' : '')
+        return h('button', {
+          key: definition.id,
+          type: 'button',
+          className: 'sc-rail-item' + (on ? ' sc-rail-item-on' : ''),
+          title: status.detail || '',
+          onClick: function () { props.onSelect(definition.id) },
+        },
+          h('span', { className: 'sc-rail-num' }, definition.number),
+          h('span', { className: 'sc-rail-text' },
+            h('span', { className: 'sc-rail-name' }, T(definition.titleKey)),
+            h('span', { className: 'sc-rail-hint' }, T(definition.hintKey))),
+          h('span', { className: dotClass }))
       })
+      return h('aside', { className: 'sc-rail', 'aria-label': T('railFlow') },
+        h('div', { className: 'sc-rail-head' },
+          h('span', { className: 'sc-rail-eyebrow' }, 'WORKFLOW'),
+          h('span', { className: 'sc-rail-title' }, T('railFlow'))),
+        h('div', { className: 'sc-rail-group' }, T('railGroupPrepare')),
+        items[0], items[1], items[2],
+        h('div', { className: 'sc-rail-group' }, T('railGroupDeep')),
+        items[3],
+        h('div', { className: 'sc-rail-note' }, T('railFlowSub')))
+    }
+
+    function WelcomePage(props) {
+      var recent = props.recent || EMPTY_LIST
+      var guide = [1, 2, 3]
+      return h('div', { className: 'sc-welcome' },
+        h('div', { className: 'sc-welcome-hero' },
+          h('div', { className: 'sc-welcome-title' }, T('welcomeTitle')),
+          h('div', { className: 'sc-welcome-sub' }, T('welcomeSubtitle')),
+          h('div', { className: 'sc-welcome-actions' },
+            h('button', { type: 'button', className: 'sc-btn sc-btn-primary', onClick: props.onOpenImport }, T('welcomeStart')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn',
+              disabled: Boolean(props.busy && props.busy.demo),
+              onClick: props.onDemo,
+            }, props.busy && props.busy.demo ? T('running') : T('welcomeDemo')))),
+        h('div', { className: 'sc-welcome-grid' },
+          h('div', { className: 'sc-welcome-col' },
+            h('div', { className: 'sc-card-title' }, T('welcomeGuide')),
+            guide.map(function (index) {
+              return h('div', { key: 'guide-' + index, className: 'sc-welcome-item' },
+                h('span', { className: 'sc-welcome-item-num' }, String(index)),
+                h('span', null, T('welcomeGuide' + index)))
+            })),
+          h('div', { className: 'sc-welcome-col' },
+            h('div', { className: 'sc-card-title' }, T('welcomeRecent')),
+            recent.length
+              ? recent.map(function (item) {
+                  return h('div', { key: 'recent-' + item.id, className: 'sc-recent-row' },
+                    h('span', { className: 'sc-recent-name', title: item.path || item.name }, item.name),
+                    h('span', { className: 'sc-recent-meta' },
+                      item.nObs ? formatNumber(item.nObs) + ' ' + T('cellsUnit') : ''),
+                    h('button', {
+                      type: 'button',
+                      className: 'sc-btn sc-btn-sm',
+                      onClick: function () { props.onOpenRecent(item) },
+                    }, T('welcomeReopen')))
+                })
+              : h('div', { className: 'sc-hint-line' }, T('welcomeRecentEmpty')),
+            h('div', { className: 'sc-hint-line' }, T('welcomeRecentNote')))))
+    }
+
+    function RunLogPanel(props) {
+      var entries = props.entries || EMPTY_LIST
       return h(Fragment, null,
-        h('div', { className: 'sc-toolbar' },
-          h('span', { className: 'sc-muted' }, T('activity')),
-          h('button', { type: 'button', className: 'sc-btn sc-btn-sm', disabled: props.loading, onClick: props.onRefresh },
-            T('refresh'))),
-        props.error
-          ? ErrorBanner({ message: props.error, onRetry: props.onRefresh, retryLabel: T('retry') })
+        h('div', { className: 'sc-card-head' },
+          h('div', { className: 'sc-card-title' }, T('logTitle')),
+          h('button', { type: 'button', className: 'sc-btn sc-btn-sm', disabled: Boolean(props.loading), onClick: props.onRefresh }, T('logRefresh'))),
+        entries.length
+          ? entries.map(function (entry, index) {
+              return h('div', { key: 'log-row-' + index, className: 'sc-log-row' },
+                h('span', { className: 'sc-log-time' }, entry.time),
+                h('span', { 'aria-hidden': 'true' }, entry.icon),
+                h('span', { className: 'sc-log-action', title: entry.action }, entry.action),
+                h('span', { className: 'sc-log-ms' }, (entry.ok ? '' : '✕ ') + entry.duration),
+                entry.detail ? h('span', { className: 'sc-log-detail' }, entry.detail) : null)
+            })
+          : h('div', { className: 'sc-hint-line' }, T('logEmpty')))
+    }
+
+    function GalleryPanel(props) {
+      var figures = props.figures || EMPTY_LIST
+      var groups = groupGalleryFigures(figures)
+      return h('div', { className: 'sc-card' },
+        h('div', { className: 'sc-card-head' },
+          h('div', { className: 'sc-card-title' }, T('step4Gallery')),
+          h('span', { className: 'sc-muted' }, figures.length ? String(figures.length) : '')),
+        figures.length
+          ? h('div', { className: 'sc-gallery-groups' }, groups.map(function (group) {
+              return h('div', { key: 'gallery-group-' + (group.source || 'all'), className: 'sc-gallery-group' },
+                group.source ? h('div', { className: 'sc-gallery-group-title' }, group.source) : null,
+                h('div', { className: 'sc-gallery' }, group.figures.map(function (figure, index) {
+                  return h('div', {
+                    key: figure.url || (group.source + '-fig-' + index),
+                    className: 'sc-gallery-item',
+                    title: T('step4GalleryOpen'),
+                    onClick: function () { props.onZoom(figure) },
+                  },
+                    h('img', { src: figure.url, alt: figure.title || 'figure', loading: 'lazy' }),
+                    h('div', { className: 'sc-gallery-cap' }, formatGalleryCaption(figure)))
+                })))
+            }))
+          : h('div', { className: 'sc-notice-card' }, T('step4GalleryEmpty')))
+    }
+
+    function QcCard(props) {
+      var values = props.values || QC_CARD_DEFAULTS
+      var fields = [
+        { key: 'min_genes', labelKey: 'paramMinGenes' },
+        { key: 'max_genes', labelKey: 'paramMaxGenes' },
+        { key: 'min_counts', labelKey: 'paramMinCounts' },
+        { key: 'max_pct_mt', labelKey: 'paramMaxPctMt' },
+        { key: 'min_cells', labelKey: 'paramMinCells' },
+      ]
+      return h('div', { className: 'sc-card' },
+        h('div', { className: 'sc-card-head' },
+          h('div', null,
+            h('div', { className: 'sc-card-title' }, T('step1QcTitle')),
+            h('div', { className: 'sc-card-sub' }, T('step1QcSub'))),
+          h('div', { className: 'sc-card-actions' },
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm sc-btn-primary',
+              disabled: !props.activeId || Boolean(props.runningQc),
+              onClick: props.onRunQc,
+            }, props.runningQc ? T('running') : T('step1RunQc')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: !props.activeId || Boolean(props.runningFilter),
+              onClick: props.onRunFilter,
+            }, props.runningFilter ? T('running') : T('step1RunFilter')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: !props.activeId || Boolean(props.figureBusy),
+              onClick: props.onGenerateQcFigure,
+            }, props.figureBusy ? T('running') : T('step1QcFigure')))),
+        h('div', { className: 'sc-card-grid' }, fields.map(function (field) {
+          var value = values[field.key]
+          return h('label', { key: field.key, className: 'sc-field' },
+            h('span', null, T(field.labelKey)),
+            h('input', {
+              className: 'sc-input',
+              type: 'number',
+              min: 0,
+              step: field.key === 'max_pct_mt' ? 1 : 10,
+              value: value === null || value === undefined ? '' : String(value),
+              disabled: Boolean(props.runningQc || props.runningFilter),
+              onChange: function (event) { props.onChange(field.key, event.target.value) },
+            }))
+        })),
+        props.qcSummary ? h('div', null,
+          h('div', { className: 'sc-card-sub' }, T('step1QcResult')),
+          h('ul', { className: 'sc-summary-list' }, (props.qcSummary.bullets || []).map(function (bullet, index) {
+            return h('li', { key: 'qc-b-' + index }, bullet)
+          }))) : null,
+        props.filterSummary ? h('div', null,
+          h('div', { className: 'sc-card-sub' }, T('step1FilterResult')),
+          h('ul', { className: 'sc-summary-list' }, (props.filterSummary.bullets || []).map(function (bullet, index) {
+            return h('li', { key: 'filter-b-' + index }, bullet)
+          }))) : null,
+        props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null,
+        props.figure
+          ? h('div', { className: 'sc-figure' },
+              h('img', { src: props.figure.url, alt: T('qcFigureAlt'), loading: 'lazy' }))
+          : null)
+    }
+
+    function Step1Page(props) {
+      var dataset = props.dataset
+      return h('div', { className: 'sc-page' },
+        h('div', { className: 'sc-page-head' },
+          h('div', null,
+            h('div', { className: 'sc-page-title' }, T('pageStep1')),
+            h('div', { className: 'sc-page-sub' },
+              dataset
+                ? (dataset.name || dataset.id) + ' · ' + formatNumber(dataset.nObs) + ' ' + T('cellsUnit') + ' × ' + formatNumber(dataset.nVars) + ' ' + T('genesUnit')
+                : T('step1NeedData'))),
+          h('div', { className: 'sc-page-actions' },
+            h('button', { type: 'button', className: 'sc-btn sc-btn-sm sc-btn-primary', onClick: props.onOpenImport }, '＋ ' + T('welcomeStart')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm',
+              disabled: Boolean(props.busy && props.busy.demo),
+              onClick: props.onDemo,
+            }, T('welcomeDemo')))),
+        !dataset ? h('div', { className: 'sc-notice-card' }, T('step1NeedData')) : null,
+        h(QcCard, {
+          activeId: props.activeId,
+          values: props.qcValues,
+          onChange: props.onQcChange,
+          onRunQc: props.onRunQc,
+          onRunFilter: props.onRunFilter,
+          onGenerateQcFigure: props.onGenerateQcFigure,
+          runningQc: props.runningQc,
+          runningFilter: props.runningFilter,
+          figureBusy: props.figureBusy,
+          qcSummary: props.qcSummary,
+          filterSummary: props.filterSummary,
+          error: props.qcError,
+          figure: props.qcFigure,
+        }),
+        props.samplesPanel
+          ? h('div', { className: 'sc-card' },
+              h('div', { className: 'sc-card-title' }, T('samplesTitle')),
+              props.samplesPanel)
           : null,
-        rows.length ? h('div', { className: 'sc-log-list' }, rows) : Notice({ text: T('logEmpty') }))
+        props.advancedNode
+          ? h('details', { className: 'sc-advanced' },
+              h('summary', null, T('advancedSteps')),
+              h('div', { className: 'sc-page-sub' }, T('advancedStepsHint')),
+              props.advancedNode)
+          : null)
+    }
+
+    function Step2Page(props) {
+      var settings = props.settings || STEP2_DEFAULTS
+      var trials = props.trials || EMPTY_LIST
+      var trialRows = buildTrialCompareRows(trials, props.currentTrialColumn || '')
+      return h('div', { className: 'sc-page' },
+        h('div', { className: 'sc-page-head' },
+          h('div', null,
+            h('div', { className: 'sc-page-title' }, T('pageStep2')),
+            h('div', { className: 'sc-page-sub' }, T('step2Sub'))),
+          h('div', { className: 'sc-page-actions' })),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', null,
+              h('div', { className: 'sc-card-title' }, T('step2Title')),
+              h('div', { className: 'sc-card-sub' }, T('step2PresetHint'))),
+            h('div', { className: 'sc-card-actions' },
+              h('button', {
+                type: 'button',
+                className: 'sc-btn sc-btn-sm sc-btn-primary',
+                disabled: !props.activeId || Boolean(props.runningPreset),
+                onClick: props.onRunPreset,
+              }, props.runningPreset ? T('running') : T('step2RunPreset')),
+              h('button', {
+                type: 'button',
+                className: 'sc-btn sc-btn-sm',
+                disabled: !props.activeId || Boolean(props.runningRecluster),
+                onClick: props.onRecluster,
+              }, props.runningRecluster ? T('running') : T('step2Recluster')),
+              h('button', {
+                type: 'button',
+                className: 'sc-btn sc-btn-sm',
+                disabled: !props.activeId || Boolean(props.runningEmbed),
+                onClick: props.onEmbedOnly,
+              }, props.runningEmbed ? T('running') : T('step2EmbedOnly')))),
+          h('div', { className: 'sc-card-grid' },
+            h('label', { className: 'sc-field' },
+              h('span', null, T('step2Preset')),
+              h('select', {
+                className: 'sc-input sc-select',
+                value: props.presetId,
+                disabled: Boolean(props.runningPreset),
+                onChange: function (event) { props.onPresetChange(event.target.value) },
+              }, STEP2_PRESETS.map(function (preset) {
+                return h('option', { key: preset.id, value: preset.id }, T(preset.labelKey))
+              }))),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('step2Engine')),
+              h('select', {
+                className: 'sc-input sc-select',
+                value: settings.engine,
+                disabled: Boolean(props.runningPreset || props.runningRecluster || props.runningEmbed),
+                onChange: function (event) { props.onEngine(event.target.value) },
+              },
+                h('option', { value: 'seurat' }, T('dimredEngineSeurat')),
+                h('option', { value: 'builtin' }, T('dimredEngineBuiltin')))),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('step2Integration')),
+              h('select', {
+                className: 'sc-input sc-select',
+                value: settings.integration,
+                disabled: Boolean(props.runningPreset || settings.engine !== 'seurat'),
+                onChange: function (event) { props.onIntegration(event.target.value) },
+              }, STEP2_INTEGRATIONS.map(function (integration) {
+                return h('option', { key: integration.id, value: integration.id }, T(integration.labelKey))
+              }))),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('dimredBatchKey')),
+              h('select', {
+                className: 'sc-input sc-select',
+                value: settings.batchKey || '',
+                disabled: Boolean(props.runningPreset || settings.engine !== 'seurat'),
+                title: T('dimredBatchHint'),
+                onChange: function (event) { props.onBatchKey(event.target.value) },
+              },
+                h('option', { value: '' }, T('dimredBatchAuto')),
+                (props.batchOptions || EMPTY_LIST).map(function (column) {
+                  return h('option', { key: 'b-' + column, value: column }, column)
+                }))),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('dimredNPcs')),
+              h('input', {
+                className: 'sc-input',
+                type: 'number',
+                min: 2,
+                value: String(settings.nPcs),
+                disabled: Boolean(props.runningPreset || props.runningRecluster || props.runningEmbed),
+                onChange: function (event) { props.onNPcs(event.target.value) },
+              })),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('dimredNeighbors')),
+              h('input', {
+                className: 'sc-input',
+                type: 'number',
+                min: 2,
+                value: String(settings.neighbors),
+                disabled: Boolean(props.runningPreset || props.runningRecluster || props.runningEmbed),
+                onChange: function (event) { props.onNeighbors(event.target.value) },
+              })),
+            h('label', { className: 'sc-field' },
+              h('span', null, T('dimredTopGenes')),
+              h('input', {
+                className: 'sc-input',
+                type: 'number',
+                min: 100,
+                step: 100,
+                value: String(settings.nTopGenes),
+                disabled: Boolean(props.runningRecluster || props.runningEmbed),
+                onChange: function (event) { props.onTopGenes(event.target.value) },
+              })),
+            h('div', { className: 'sc-field sc-dimred-slider-row' },
+              h('span', null, T('step2Resolution')),
+              h('input', {
+                className: 'sc-dimred-slider',
+                type: 'range',
+                min: 0.05,
+                max: 1.5,
+                step: 0.05,
+                value: String(settings.resolution),
+                disabled: Boolean(props.runningPreset || props.runningRecluster || props.runningEmbed),
+                onChange: function (event) { props.onResolution(event.target.value) },
+              }),
+              h('span', { className: 'sc-dimred-value' }, String(settings.resolution)),
+              h('span', { className: 'sc-muted' }, T('dimredHint')))),
+          props.error ? h('div', { className: 'sc-inline-err' }, props.error) : null),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', { className: 'sc-card-title' }, T('umapTitle')),
+            props.embeddingNode ? h('span', { className: 'sc-card-sub' }, T('step2TrialSub')) : null),
+          props.embeddingNode || h('div', { className: 'sc-notice-card' }, T('step2NeedCluster'))),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', { className: 'sc-card-title' }, T('step2Trial')),
+            h('div', { className: 'sc-card-actions' },
+              h('button', { type: 'button', className: 'sc-btn sc-btn-sm', disabled: Boolean(props.runningClusterBar), onClick: props.onClusterBar }, props.runningClusterBar ? T('running') : T('step2ClusterBar')))),
+          h('div', { className: 'sc-card-grid' }, trialRows.map(function (trial) {
+            return h('button', {
+              key: 'trial-' + trial.id,
+              type: 'button',
+              className: 'sc-btn sc-btn-sm' + (trial.current ? ' sc-btn-primary' : ''),
+              disabled: !trial.available,
+              onClick: function () { props.onSelectTrial(trial.id) },
+            }, T(trial.labelKey) + (trial.available ? ' · ' + trial.nClusters + ' ' + T('clustersUnit') : ' · ' + T('trialUnavailable')))
+          })),
+          props.clusterBarFigure
+            ? h('div', { className: 'sc-figure sc-figure-sm' },
+                h('img', { src: props.clusterBarFigure.url, alt: T('step2ClusterTable'), loading: 'lazy' }))
+            : null,
+          (props.clusterRows || EMPTY_LIST).length
+            ? h('div', { className: 'sc-table-wrap' },
+                h('table', { className: 'sc-table' },
+                  h('thead', null, h('tr', null,
+                    h('th', null, T('tableCluster')),
+                    h('th', { className: 'sc-td-num' }, T('samplesColCells')),
+                    h('th', null, T('annotMarkerTable')))),
+                  h('tbody', null, props.clusterRows.map(function (row) {
+                    return h('tr', { key: 'cluster-row-' + row.id },
+                      h('td', { className: 'sc-td-group' }, row.label),
+                      h('td', { className: 'sc-td-num' }, formatNumber(row.nCells)),
+                      h('td', { className: 'sc-muted' }, (row.topGenes || []).join(' · ') || '—'))
+                  }))))
+            : null),
+        (props.warnings || EMPTY_LIST).length
+          ? h('div', { className: 'sc-card' },
+              h('div', { className: 'sc-card-title' }, T('step2Warnings')),
+              h('div', { className: 'sc-dimred-warns' }, (props.warnings || EMPTY_LIST).map(function (warning, index) {
+                return h('div', { key: 'warn-' + index }, warning)
+              })))
+          : null,
+        props.advancedNode
+          ? h('details', { className: 'sc-advanced' },
+              h('summary', null, T('advancedSteps')),
+              h('div', { className: 'sc-page-sub' }, T('advancedStepsHint')),
+              props.advancedNode)
+          : null)
+    }
+
+    function Step3Page(props) {
+      var rows = props.annotationRows || EMPTY_LIST
+      var coverage = annotationCoverage(rows)
+      var annotation = props.annotation || {}
+      var annotationRows = rows.map(function (row) {
+        return h('tr', { key: 'annot-table-' + row.id },
+          h('td', { className: 'sc-td-group' }, 'cluster ' + row.label),
+          h('td', { className: 'sc-td-num' }, formatNumber(row.nCells)),
+          h('td', null, row.cellType || h('span', { className: 'sc-muted' }, T('step3Pending'))),
+          h('td', { className: 'sc-muted' }, (row.topGenes || []).join(' · ') || '—'))
+      })
+      return h('div', { className: 'sc-page' },
+        h('div', { className: 'sc-page-head' },
+          h('div', null,
+            h('div', { className: 'sc-page-title' }, T('pageStep3')),
+            h('div', { className: 'sc-page-sub' }, T('step3Sub'))),
+          h('div', { className: 'sc-page-actions' },
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm' + (props.colorKind === 'cell_type' ? ' sc-btn-primary' : ''),
+              disabled: !props.hasMapping,
+              onClick: function () { props.onColorBy('cell_type') },
+            }, T('step3ColorByAnnotation')),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm' + (props.colorKind === 'clusters' ? ' sc-btn-primary' : ''),
+              onClick: function () { props.onColorBy('clusters') },
+            }, T('step3ColorByCluster')))),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', { className: 'sc-card-title' }, T('step3Umap')),
+            h('span', { className: 'sc-card-sub' }, props.colorLabel || '')),
+          props.embeddingNode || h('div', { className: 'sc-notice-card' }, T('step2NeedCluster'))),
+        h(MarkersTab, props.markersProps),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', null,
+              h('div', { className: 'sc-card-title' }, T('step3AnnotationTable')),
+              h('div', { className: 'sc-card-sub' },
+                tfv(T, 'step3Coverage', { mapped: coverage.mapped, total: coverage.total, percent: coverage.percent }) +
+                (coverage.pending.length ? ' · ' + T('step3Pending') + ' ' + coverage.pending.join(', ') : ''))),
+            h('div', { className: 'sc-card-actions' },
+              h('button', {
+                type: 'button',
+                className: 'sc-btn sc-btn-sm sc-btn-primary',
+                disabled: Boolean(props.savingAnnotation) || !Object.keys(annotation).length,
+                onClick: props.onSaveAnnotation,
+              }, props.savingAnnotation ? T('running') : T('annotSave')))),
+          rows.length
+            ? h('div', { className: 'sc-table-wrap' },
+                h('table', { className: 'sc-table' },
+                  h('thead', null, h('tr', null,
+                    h('th', null, T('tableCluster')),
+                    h('th', { className: 'sc-td-num' }, T('samplesColCells')),
+                    h('th', null, T('cellTypePlaceholder')),
+                    h('th', null, T('annotMarkerTable')))),
+                  h('tbody', null, annotationRows)))
+            : h('div', { className: 'sc-hint-line' }, T('annotNeedMarkers'))),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', null,
+              h('div', { className: 'sc-card-title' }, T('step3SubsetTitle')),
+              h('div', { className: 'sc-card-sub' }, T('step3SubsetHint')))),
+          h('div', { className: 'sc-subset-chips' }, rows.map(function (row) {
+            var selected = (props.subsetClusters || EMPTY_LIST).indexOf(row.id) >= 0
+            return h('button', {
+              key: 'subset-chip-' + row.id,
+              type: 'button',
+              className: 'sc-annot-gene-chip' + (selected ? ' sc-annot-gene-chip-on' : ''),
+              onClick: function () { props.onToggleSubsetCluster(row.id) },
+            }, 'cluster ' + row.label + (row.cellType ? ' · ' + row.cellType : ''))
+          })),
+          h('div', { className: 'sc-annot-actions' },
+            h('input', {
+              className: 'sc-input sc-sample-name',
+              type: 'text',
+              value: props.subsetName || '',
+              placeholder: T('step3SubsetNamePlaceholder'),
+              disabled: Boolean(props.subsetBusy),
+              onChange: function (event) { props.onSubsetName(event.target.value) },
+            }),
+            h('button', {
+              type: 'button',
+              className: 'sc-btn sc-btn-sm sc-btn-primary',
+              disabled: Boolean(props.subsetBusy),
+              onClick: function () { props.onRunSubset() },
+            }, props.subsetBusy ? T('step3SubsetBusy') : T('step3SubsetRun')),
+            props.subsetMessage ? h('span', { className: 'sc-ok' }, props.subsetMessage) : null),
+          props.subsetError ? h('div', { className: 'sc-inline-err' }, props.subsetError) : null))
+    }
+
+    function Step4Page(props) {
+      var exportOptions = buildExportOptions()
+      return h('div', { className: 'sc-page' },
+        h('div', { className: 'sc-page-head' },
+          h('div', null,
+            h('div', { className: 'sc-page-title' }, T('pageStep4')),
+            h('div', { className: 'sc-page-sub' }, T('step4Sub')))),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', { className: 'sc-card-title' }, T('step4Analyses')),
+            h('div', { className: 'sc-card-actions' })),
+          h(AnalysisTab, props.analysisProps)),
+        h(GalleryPanel, { figures: props.gallery, onZoom: props.onZoom }),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-head' },
+            h('div', { className: 'sc-card-title' }, T('exportQuick')),
+            h('div', { className: 'sc-card-actions' }, exportOptions.map(function (option) {
+              return h('button', {
+                key: 'export-' + option.kind,
+                type: 'button',
+                className: 'sc-btn sc-btn-sm',
+                disabled: Boolean(props.exportingKind),
+                onClick: function () { props.onExport(option.kind) },
+              }, props.exportingKind === option.kind ? T('running') : T(option.labelKey))
+            }))),
+          props.exportResult
+            ? h('div', { className: 'sc-hint-line' },
+                T('exportDone') + '：' + (props.exportResult.file || props.exportResult.kind || ''))
+            : null),
+        h('div', { className: 'sc-card' },
+          h('div', { className: 'sc-card-title' }, T('step4Records')),
+          props.recordsNode))
     }
 
     // ==========================================================================
@@ -7413,9 +8777,6 @@
       var pollErrorRes = React.useState('')
       var pollError = pollErrorRes[0]
       var setPollError = pollErrorRes[1]
-      var tabRes = React.useState('embedding')
-      var tab = tabRes[0]
-      var setTab = tabRes[1]
       var busyRes = React.useState({})
       var busy = busyRes[0]
       var setBusy = busyRes[1]
@@ -7804,6 +9165,51 @@
       var agentFallback = agentFallbackRes[0]
       var setAgentFallback = agentFallbackRes[1]
 
+      // ---- v7：新 Shell 状态 ----
+      var currentStepRes = React.useState('read')
+      var currentStep = currentStepRes[0]
+      var setCurrentStep = currentStepRes[1]
+      var agentOpenRes = React.useState(false)
+      var agentOpen = agentOpenRes[0]
+      var setAgentOpen = agentOpenRes[1]
+      var logOpenRes = React.useState(true)
+      var logOpen = logOpenRes[0]
+      var setLogOpen = logOpenRes[1]
+      var galleryFiguresRes = React.useState(EMPTY_LIST)
+      var galleryFigures = galleryFiguresRes[0]
+      var setGalleryFigures = galleryFiguresRes[1]
+      var zoomFigureRes = React.useState(null)
+      var zoomFigure = zoomFigureRes[0]
+      var setZoomFigure = zoomFigureRes[1]
+      var recentDatasetsRes = React.useState(EMPTY_LIST)
+      var recentDatasets = recentDatasetsRes[0]
+      var setRecentDatasets = recentDatasetsRes[1]
+      var qcValuesRes = React.useState(QC_CARD_DEFAULTS)
+      var qcValues = qcValuesRes[0]
+      var setQcValues = qcValuesRes[1]
+      var dimIntegrationRes = React.useState(STEP2_DEFAULTS.integration)
+      var dimIntegration = dimIntegrationRes[0]
+      var setDimIntegration = dimIntegrationRes[1]
+      var dimPresetRes = React.useState('seurat6')
+      var dimPreset = dimPresetRes[0]
+      var setDimPreset = dimPresetRes[1]
+      var trialIdRes = React.useState('')
+      var trialId = trialIdRes[0]
+      var setTrialId = trialIdRes[1]
+
+      var subsetClustersRes = React.useState(EMPTY_LIST)
+      var subsetClusters = subsetClustersRes[0]
+      var setSubsetClusters = subsetClustersRes[1]
+      var subsetNameRes = React.useState('')
+      var subsetName = subsetNameRes[0]
+      var setSubsetName = subsetNameRes[1]
+      var subsetMessageRes = React.useState('')
+      var subsetMessage = subsetMessageRes[0]
+      var setSubsetMessage = subsetMessageRes[1]
+      var layoutModeRes = React.useState('wide')
+      var layoutMode = layoutModeRes[0]
+      var setLayoutMode = layoutModeRes[1]
+
       var normalized = state || normalizeState(null)
       var activeId = normalized.active
       var activeDataset = findDataset(normalized, activeId)
@@ -8030,7 +9436,7 @@
 
       // v4：记录 tab 打开时拉样本/分组表（GET /obs）
       React.useEffect(function () {
-        if (tab !== 'record' || !activeId) return undefined
+        if (!activeId) return undefined
         var cancelled = false
         setObsLoading(true)
         setObsError('')
@@ -8048,7 +9454,7 @@
           setObsLoading(false)
         })
         return function () { cancelled = true }
-      }, [tab, activeId, stepsKey, samplesNonce])
+      }, [activeId, stepsKey, samplesNonce])
 
       // v3：导入面板的格式清单（打开面板时按需拉；失败回落内置清单）
       React.useEffect(function () {
@@ -8071,7 +9477,7 @@
 
       // v3：高级分析目录（tab 打开 / 数据集或 obs 列变化 / 手动刷新时拉）
       React.useEffect(function () {
-        if (tab !== 'analysis' || !activeId) return undefined
+        if (currentStep !== 'results' || !activeId) return undefined
         var key = activeId + '|' + stepsKey + '|' + obsColumnsKey + '|' + analysesNonce
         if (analysesPayload && analysesKeyRef.current === key) return undefined
         var cancelled = false
@@ -8088,11 +9494,11 @@
           setAnalysesLoading(false)
         })
         return function () { cancelled = true }
-      }, [tab, activeId, stepsKey, obsColumnsKey, analysesNonce, analysesPayload])
+      }, [currentStep, activeId, stepsKey, obsColumnsKey, analysesNonce, analysesPayload])
 
       // 嵌入图：tab 可见 + embed 步骤完成时才请求
       React.useEffect(function () {
-        if (tab !== 'embedding' || !activeId) return undefined
+        if ((currentStep !== 'cluster' && currentStep !== 'annotate') || !activeId) return undefined
         if (doneSteps.indexOf('embed') < 0) {
           setEmbedding(null)
           setEmbeddingError('')
@@ -8139,11 +9545,11 @@
             }
           }
         }
-      }, [tab, activeId, stepsKey, colorBy.kind, colorBy.key, embedNonce])
+      }, [currentStep, activeId, stepsKey, colorBy.kind, colorBy.key, embedNonce])
 
       // 标记基因：标记/聚类 tab 打开且 cluster 步骤完成时按需拉（服务端有缓存）
       React.useEffect(function () {
-        if ((tab !== 'markers' && tab !== 'clusters') || !activeId) return undefined
+        if ((currentStep !== 'annotate' && currentStep !== 'cluster') || !activeId) return undefined
         if (doneSteps.indexOf('cluster') < 0) {
           setMarkersLoading(false)
           setMarkersError('')
@@ -8164,11 +9570,11 @@
           setMarkersLoading(false)
         })
         return function () { cancelled = true }
-      }, [tab, activeId, stepsKey, markersTop, markersMethod, markersNonce, markers])
+      }, [currentStep, activeId, stepsKey, markersTop, markersMethod, markersNonce, markers])
 
       // 聚类柱状图：聚类 tab 打开时自动生成一次（同 steps 复用）
       React.useEffect(function () {
-        if (tab !== 'clusters' || !activeId || doneSteps.indexOf('cluster') < 0) return undefined
+        if (currentStep !== 'cluster' || !activeId || doneSteps.indexOf('cluster') < 0) return undefined
         if (clusterBar && clusterBar.key === stepsKey) return undefined
         var cancelled = false
         setClusterBarLoading(true)
@@ -8185,11 +9591,11 @@
           setClusterBarLoading(false)
         })
         return function () { cancelled = true }
-      }, [tab, activeId, stepsKey, clusterBar, clusterBarNonce])
+      }, [currentStep, activeId, stepsKey, clusterBar, clusterBarNonce])
 
       // 日志 tab：打开时拉一次 /activity
       React.useEffect(function () {
-        if (tab !== 'log' || !activeId) return undefined
+        if (!logOpen || agentOpen || !activeId) return undefined
         var cancelled = false
         setLogLoading(true)
         setLogError('')
@@ -8206,7 +9612,55 @@
           setLogLoading(false)
         })
         return function () { cancelled = true }
-      }, [tab, activeId, logNonce])
+      }, [logOpen, agentOpen, activeId, logNonce])
+
+      // v7：切换数据集时落到默认步骤
+      React.useEffect(function () {
+        if (!activeId) {
+          setCurrentStep('read')
+          return
+        }
+        setCurrentStep(defaultStepForDataset(activeDataset))
+      }, [activeId])
+
+      // v7：窄屏单列（纯函数 layoutModeForWidth 判定）
+      React.useEffect(function () {
+        if (typeof window === 'undefined' || !window.addEventListener) return undefined
+        function applyLayout() {
+          setLayoutMode(layoutModeForWidth(window.innerWidth))
+        }
+        applyLayout()
+        window.addEventListener('resize', applyLayout)
+        return function () {
+          window.removeEventListener('resize', applyLayout)
+        }
+      }, [])
+
+      // v7：最近数据集（localStorage）
+      React.useEffect(function () {
+        var storage = null
+        try {
+          storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null
+        } catch (error) {
+          storage = null
+        }
+        setRecentDatasets(readRecentDatasets(storage))
+      }, [])
+
+      React.useEffect(function () {
+        if (!activeDataset || !activeDataset.id) return
+        var storage = null
+        try {
+          storage = typeof window !== 'undefined' && window.localStorage ? window.localStorage : null
+        } catch (error) {
+          storage = null
+        }
+        setRecentDatasets(function (previous) {
+          var next = upsertRecentDataset(previous, activeDataset, Date.now())
+          writeRecentDatasets(storage, next)
+          return next
+        })
+      }, [activeId, stepsKey])
 
       // ---- 通用动作 ----
 
@@ -8418,6 +9872,7 @@
         var figure = normalizeFigure(payload)
         if (!figure) return
         setQcFigure(figure)
+        pushGalleryFigure(figure, { title: T('step1QcFigure'), kind: 'qc_violin', source: T('pageStep1') })
       }
 
       async function handleDotplot() {
@@ -8427,7 +9882,10 @@
         })
         if (!payload) return
         var figure = normalizeFigure(payload)
-        if (figure) setDotplot(figure)
+        if (figure) {
+          setDotplot(figure)
+          pushGalleryFigure(figure, { title: T('generateDotplot'), kind: 'dotplot', source: T('pageStep3') })
+        }
       }
 
       async function handleGenerateClusterBar() {
@@ -8437,7 +9895,10 @@
         })
         if (!payload) return
         var figure = normalizeFigure(payload)
-        if (figure) setClusterBar({ key: stepsKey, figure: figure })
+        if (figure) {
+          setClusterBar({ key: stepsKey, figure: figure })
+          pushGalleryFigure(figure, { title: T('step2ClusterBar'), kind: 'cluster_bar', source: T('pageStep2') })
+        }
       }
 
       function handleReloadMarkers() {
@@ -8658,7 +10119,11 @@
           return clientApi.runAnalysis(activeId, selectedAnalysis.id, built.params)
         })
         if (!payload) return
-        setAnalysisResult(normalizeAnalysisResult(payload))
+        var analysisNormalized = normalizeAnalysisResult(payload)
+        setAnalysisResult(analysisNormalized)
+        for (var figureIndex = 0; figureIndex < analysisNormalized.figures.length; figureIndex++) {
+          pushGalleryFigure(analysisNormalized.figures[figureIndex], { title: selectedAnalysis.title || selectedAnalysis.id, kind: 'analysis', source: T('pageStep4') })
+        }
         setPreviewNonce(function (value) { return value + 1 })
         await refreshState(true)
       }
@@ -8871,9 +10336,9 @@
             count: openedSamples.length,
             name: openedDataset.name || openedDataset.id || '',
           })
-          setTab('record')
+          setCurrentStep('read')
         } else {
-          setTab('embedding')
+          setCurrentStep('read')
         }
         return refreshState(true)
       }
@@ -9129,14 +10594,17 @@
         })
         if (!payload) return
         var figure = normalizeFigure(payload)
-        if (figure) setAnnotPlotFigure(figure)
+        if (figure) {
+          setAnnotPlotFigure(figure)
+          pushGalleryFigure(figure, { title: T('annotMarkerTable'), kind: kind, source: T('pageStep3') })
+        }
       }
 
       function handleFeaturePlot() {
         if (!selectedGene) return
         setColorBy({ kind: 'gene', key: selectedGene })
         setEmbedNonce(function (value) { return value + 1 })
-        setTab('embedding')
+        setCurrentStep('cluster')
       }
 
       function handleApplyAnnotationCsv() {
@@ -9236,7 +10704,7 @@
         if (type === 'markers') {
           var markersPayload = await clientApi.markers(activeId, { top_n: markersTop, method: markersMethod })
           setMarkers({ key: stepsKey + '|' + markersTop + '|' + markersMethod, groups: normalizeMarkersGroups(markersPayload) })
-          setTab('markers')
+          setCurrentStep('annotate')
           return '标记基因已更新'
         }
         if (type === 'plot') {
@@ -9246,8 +10714,11 @@
             top_n: 5,
           })
           var plotFigure = normalizeFigure(plotPayload)
-          if (plotFigure) setDotplot(plotFigure)
-          setTab('markers')
+          if (plotFigure) {
+            setDotplot(plotFigure)
+            pushGalleryFigure(plotFigure, { title: T('generateDotplot'), kind: 'dotplot', source: T('shellAgent') })
+          }
+          setCurrentStep('annotate')
           return '已生成 ' + String(action.kind || 'dotplot')
         }
         if (type === 'featureplot') {
@@ -9255,7 +10726,7 @@
           if (!gene) throw new Error('没有可用基因：先在标记基因 tab 选一个基因')
           setColorBy({ kind: 'gene', key: gene })
           setEmbedNonce(function (value) { return value + 1 })
-          setTab('embedding')
+          if (currentStep !== 'cluster' && currentStep !== 'annotate') setCurrentStep('cluster')
           return '已按 ' + gene + ' 给嵌入图着色'
         }
         if (type === 'annotate') {
@@ -9271,21 +10742,21 @@
           var analysisNormalized = normalizeAnalysisResult(analysisPayload)
           setAnalysisResult(analysisNormalized)
           if (item) setSelectedAnalysis(item)
-          setTab('analysis')
+          setCurrentStep('results')
           return analysisNormalized.summary.bullets[0] || '分析完成'
         }
         if (type === 'audit') {
           var auditPayload = await clientApi.getAudit(activeId)
           var auditData = normalizeAudit(auditPayload)
           setAudit(auditData)
-          setTab('record')
+          setCurrentStep('results')
           return '自检得分 ' + auditData.score
         }
         if (type === 'export') {
           var exportPayload = await clientApi.exportData(activeId, action.what || 'report')
           var exported = normalizeExportResult(exportPayload)
           setExportResult(exported)
-          setTab('record')
+          setCurrentStep('results')
           return '已导出：' + exported.file
         }
         throw new Error('不支持的动作：' + type)
@@ -9321,11 +10792,216 @@
         }
       }
 
+      // ---- v7：新 Shell 动作（QC 参数卡 / Step2 / 三套结果 / 画廊 / 最近数据） ----
+
+      function pushGalleryFigure(figure, meta) {
+        if (!figure || !figure.url) return
+        setGalleryFigures(function (previous) {
+          return appendGalleryFigure(previous, figure, Object.assign({ at: Date.now() }, meta || {}))
+        })
+      }
+
+      function handleQcCardChange(key, value) {
+        setQcValues(function (previous) {
+          var next = Object.assign({}, previous)
+          next[key] = value
+          return next
+        })
+      }
+
+      async function handleRunQcCard() {
+        if (!activeId) return
+        var request = buildQcCardRequest('qc', qcValues)
+        var payload = await runTask('qcCard', function () {
+          return clientApi.runStep(activeId, request.step, request.params)
+        })
+        if (!payload) return
+        recordStepSummary('qc', payload)
+        setPreviewNonce(function (value) { return value + 1 })
+        await refreshState(true)
+      }
+
+      async function handleRunFilterCard() {
+        if (!activeId) return
+        var request = buildQcCardRequest('filter', qcValues)
+        var payload = await runTask('filterCard', function () {
+          return clientApi.runStep(activeId, request.step, request.params)
+        })
+        if (!payload) return
+        recordStepSummary('filter', payload)
+        setPreviewNonce(function (value) { return value + 1 })
+        setMarkersNonce(function (value) { return value + 1 })
+        await refreshState(true)
+      }
+
+      function currentStep2Settings() {
+        return normalizeStep2Settings({
+          engine: dimEngine,
+          integration: dimIntegration,
+          resolution: dimResolution,
+          nPcs: dimNpcs,
+          neighbors: dimNeighbors,
+          nTopGenes: dimTopGenes,
+          batchKey: dimBatchKey,
+        })
+      }
+
+      function handlePresetChange(presetId) {
+        setDimPreset(presetId)
+        var preset = step2PresetById(presetId)
+        setDimIntegration(preset.integration)
+        setDimResolution(preset.resolution)
+      }
+
+      async function handleStep2Preset() {
+        if (!activeId) return
+        var request = buildStep2RecipeRequest(dimPreset)
+        var payload = await runTask('step2Preset', function () {
+          return clientApi.runRecipe(activeId, request.id)
+        })
+        if (!payload) return
+        var bullets = []
+        var steps = Array.isArray(payload.steps) ? payload.steps : []
+        for (var index = 0; index < steps.length; index++) {
+          var item = steps[index]
+          if (!item || typeof item !== 'object') continue
+          if (Array.isArray(item.bullets)) bullets = bullets.concat(item.bullets)
+        }
+        setDimWarnings(pickDimredWarnings(activeDataset ? activeDataset.warnings : EMPTY_LIST, [{ summary: { bullets: bullets } }]))
+        setEmbedNonce(function (value) { return value + 1 })
+        setMarkersNonce(function (value) { return value + 1 })
+        setPreviewNonce(function (value) { return value + 1 })
+        setClusterBarNonce(function (value) { return value + 1 })
+        await refreshState(true)
+      }
+
+      async function handleStep2Recluster() {
+        if (!activeId) return
+        var settings = currentStep2Settings()
+        var batchKey = autoBatchKey()
+        var result = await runTask('step2Recluster', async function () {
+          var first = await clientApi.runStep(activeId, 'cluster', buildStep2ClusterParams(settings, batchKey))
+          var second = await clientApi.runStep(activeId, 'embed', buildStep2EmbedParams(settings, batchKey))
+          return { first: first, second: second }
+        })
+        if (!result) return
+        recordStepSummary('cluster', result.first)
+        recordStepSummary('embed', result.second)
+        var bullets = []
+        ;[result.first, result.second].forEach(function (payload) {
+          var summary = payload && payload.summary
+          if (summary && Array.isArray(summary.bullets)) bullets = bullets.concat(summary.bullets)
+        })
+        setDimWarnings(pickDimredWarnings(activeDataset ? activeDataset.warnings : EMPTY_LIST, [{ summary: { bullets: bullets } }]))
+        setEmbedNonce(function (value) { return value + 1 })
+        setMarkersNonce(function (value) { return value + 1 })
+        setPreviewNonce(function (value) { return value + 1 })
+        await refreshState(true)
+      }
+
+      async function handleStep2Embed() {
+        if (!activeId) return
+        var settings = currentStep2Settings()
+        var batchKey = autoBatchKey()
+        var payload = await runTask('step2Embed', function () {
+          return clientApi.runStep(activeId, 'embed', buildStep2EmbedParams(settings, batchKey))
+        })
+        if (!payload) return
+        recordStepSummary('embed', payload)
+        setEmbedNonce(function (value) { return value + 1 })
+        setPreviewNonce(function (value) { return value + 1 })
+        await refreshState(true)
+      }
+
+      function handleSelectTrial(optionId) {
+        var options = buildTrialOptions(obsColumns)
+        var option = pickTrialOption(options, optionId)
+        if (!option) return
+        setTrialId(option.id)
+        setColorBy(buildTrialColorBy(option))
+        setEmbedNonce(function (value) { return value + 1 })
+      }
+
+      async function handleOpenRecent(item) {
+        if (!item) return
+        if (activeId && item.id === activeId) return
+        var known = false
+        for (var index = 0; index < normalized.datasets.length; index++) {
+          if (normalized.datasets[index].id === item.id) known = true
+        }
+        if (known) {
+          await handleSelect(item.id)
+          return
+        }
+        if (item.path) {
+          await handleOpenPath(item.path)
+          return
+        }
+        setErrors(function (previous) {
+          var next = Object.assign({}, previous)
+          next.top = T('recentMissing')
+          return next
+        })
+      }
+
+      function handleZoomFigure(figure) {
+        setZoomFigure(figure || null)
+      }
+
+      // ---- v7 Phase B：Step3 内联 UMAP / 小亚群 ----
+
+      function handleColorByObs(key) {
+        var column = String(key || 'clusters')
+        setColorBy({ kind: 'obs', key: column })
+        setEmbedNonce(function (value) { return value + 1 })
+      }
+
+      function handleToggleSubsetCluster(clusterId) {
+        var id = String(clusterId)
+        setSubsetClusters(function (previous) {
+          var index = previous.indexOf(id)
+          if (index >= 0) {
+            return previous.filter(function (item) { return item !== id })
+          }
+          return previous.concat([id])
+        })
+        setSubsetMessage('')
+      }
+
+      async function handleRunSubset() {
+        if (!activeId) return
+        var selection = validateSubsetSelection(subsetClusters)
+        if (!selection.ok) {
+          setErrors(function (previous) {
+            var next = Object.assign({}, previous)
+            next.subset = T('step3SubsetEmpty')
+            return next
+          })
+          return
+        }
+        var payload = await runTask('subset', function () {
+          return clientApi.subsetDataset(activeId, selection.clusters, subsetName)
+        })
+        if (!payload) return
+        var result = normalizeSubsetResult(payload)
+        setSubsetMessage(tfv(T, 'step3SubsetSuccess', {
+          name: result.name || result.datasetId || T('unnamedDataset'),
+          kept: formatNumber(result.subsetCells || result.nObs),
+        }))
+        setSubsetClusters(EMPTY_LIST)
+        setSubsetName('')
+        await refreshState(true)
+        if (result.datasetId) {
+          await handleSelect(result.datasetId)
+        }
+        setCurrentStep('cluster')
+      }
+
       // ---- 渲染 ----
 
-      var tabNode = null
-      if (tab === 'embedding') {
-        tabNode = h(EmbeddingTab, {
+      var embeddingNode = null
+      if (activeId && doneSteps.indexOf('embed') >= 0) {
+        embeddingNode = h(EmbeddingTab, {
           colorBy: colorBy,
           geneQuery: geneQuery,
           genes: preview ? preview.genes : EMPTY_LIST,
@@ -9345,154 +11021,209 @@
           onRefresh: function () { setEmbedNonce(function (value) { return value + 1 }) },
           onRunEmbed: function () { handleRunStep('embed', defaultParams('embed')) },
         })
-      } else if (tab === 'qc') {
-        tabNode = h(QcTab, {
+      }
+
+      var markersNode = h(MarkersTab, {
+        activeId: activeId,
+        clusterDone: doneSteps.indexOf('cluster') >= 0,
+        groups: markerGroups,
+        loading: markersLoading,
+        error: markersError,
+        topN: markersTop,
+        method: markersMethod,
+        onTopNChange: setMarkersTop,
+        onMethodChange: setMarkersMethod,
+        onReload: handleReloadMarkers,
+        dotplot: dotplot,
+        dotplotLoading: Boolean(busy.dotplot),
+        dotplotError: errors.dotplot || '',
+        onDotplot: handleDotplot,
+        annotation: annotation,
+        selectedCluster: selectedCluster,
+        selectedGene: selectedGene,
+        onSelectCluster: handleSelectCluster,
+        onSelectGene: handleSelectGene,
+        onChangeAnnotation: handleChangeAnnotation,
+        onSaveAnnotation: function () { handleSaveAnnotation(annotationMapping) },
+        annotationSaved: annotationSaved,
+        annotationError: errors.annotate || '',
+        savingAnnotation: Boolean(busy.annotate),
+        plotBusy: Boolean(busy.annotPlot),
+        plotError: errors.annotPlot || '',
+        plotFigure: annotPlotFigure,
+        onPlotMarker: handlePlotMarker,
+        onFeaturePlot: handleFeaturePlot,
+        csvOpen: annotCsvOpen,
+        csvText: annotCsvText,
+        onToggleCsv: function () { setAnnotCsvOpen(function (value) { return !value }) },
+        onCsvText: setAnnotCsvText,
+        onApplyCsv: handleApplyAnnotationCsv,
+      })
+
+      var analysisNode = h(AnalysisTab, {
+        activeId: activeId,
+        groups: analysesGroups,
+        loading: analysesLoading,
+        listError: analysesError,
+        selected: selectedAnalysis,
+        doneSteps: doneSteps,
+        obsColumns: obsColumns,
+        values: analysisValues,
+        result: analysisResult,
+        error: analysisError || errors.analysis || '',
+        running: Boolean(busy.analysis),
+        onSelect: handleSelectAnalysis,
+        onReload: handleReloadAnalyses,
+        onValueChange: handleAnalysisValueChange,
+        onRun: handleRunAnalysis,
+      })
+
+      var recordsNode = h(RecordTab, {
+        activeId: activeId,
+        samplesPanel: samplesPanelNode,
+        history: history,
+        clusterDone: doneSteps.indexOf('cluster') >= 0,
+        audit: audit,
+        auditLoading: Boolean(busy.audit),
+        auditError: errors.audit || auditError,
+        onAudit: handleAudit,
+        autoann: autoann,
+        autoannLoading: Boolean(busy.autoann),
+        autoannError: errors.autoann || autoannError,
+        onAutoannotate: handleAutoannotate,
+        adopted: adopted,
+        adopting: Boolean(busy.annotate),
+        adoptError: errors.annotate || '',
+        onAdoptCluster: function (suggestion) { handleAdoptSuggestions([suggestion]) },
+        onAdoptAll: function () { handleAdoptSuggestions(autoann ? autoann.suggestions : EMPTY_LIST) },
+        scan: scan,
+        scanLoading: Boolean(busy.scan),
+        scanError: errors.scan || scanError,
+        scanInput: scanInput,
+        onScanInputChange: setScanInput,
+        onScan: handleScan,
+        exportResult: exportResult,
+        exportLoadingKind: busy.export ? exportWhat : '',
+        exportError: errors.export || exportError,
+        onExport: handleExport,
+        copiedKey: copiedKey,
+        onCopyPath: function () { copyText('export-path', exportResult ? exportResult.file : '') },
+      })
+
+      var pipelineNode = h(PipelinePanel, {
+        activeId: activeId,
+        doneSteps: doneSteps,
+        runningStepIds: runningStepIds,
+        summaries: mergedSummaries,
+        errors: errors,
+        annotationMapping: annotationMapping,
+        annotationCount: annotationCount,
+        onRunStep: handleRunStep,
+      })
+      var annotationRows = buildClusterAnnotationRows(markerGroups, annotation)
+      var stepStatuses = computeStepNavStatuses(activeDataset)
+      var trialOptions = buildTrialOptions(obsColumns)
+      var trialIds = []
+      for (var trialIndex = 0; trialIndex < trialOptions.length; trialIndex++) {
+        if (trialOptions[trialIndex].available) trialIds.push(trialOptions[trialIndex].id)
+      }
+      var activeTrial = colorBy.kind === 'obs' ? String(colorBy.key || '') : ''
+      var clusterRows = []
+      for (var groupIndex = 0; groupIndex < markerGroups.length; groupIndex++) {
+        var markerGroup = markerGroups[groupIndex]
+        var topNames = []
+        var markerGenes = Array.isArray(markerGroup.genes) ? markerGroup.genes : []
+        for (var geneIndex = 0; geneIndex < markerGenes.length && topNames.length < 3; geneIndex++) {
+          if (markerGenes[geneIndex] && markerGenes[geneIndex].gene) topNames.push(String(markerGenes[geneIndex].gene))
+        }
+        clusterRows.push({ id: markerGroup.id, label: markerGroup.label, nCells: markerGroup.nCells, topGenes: topNames })
+      }
+
+      var pageNode = null
+      if (activeId && currentStep === 'read') {
+        pageNode = h(Step1Page, {
           activeId: activeId,
-          metrics: qcMetrics,
-          loading: Boolean(busy.qc),
-          error: errors.qc || '',
-          figure: qcFigure,
-          qcDone: doneSteps.indexOf('qc') >= 0,
-          onToggleMetric: function (metricId) {
-            setQcMetrics(function (previous) {
-              var index = previous.indexOf(metricId)
-              if (index >= 0) return previous.filter(function (item) { return item !== metricId })
-              return previous.concat([metricId])
-            })
-          },
-          onGenerate: handleGenerateQc,
-        })
-      } else if (tab === 'markers') {
-        tabNode = h(MarkersTab, {
-          activeId: activeId,
-          clusterDone: doneSteps.indexOf('cluster') >= 0,
-          groups: markerGroups,
-          loading: markersLoading,
-          error: markersError,
-          topN: markersTop,
-          method: markersMethod,
-          onTopNChange: setMarkersTop,
-          onMethodChange: setMarkersMethod,
-          onReload: handleReloadMarkers,
-          dotplot: dotplot,
-          dotplotLoading: Boolean(busy.dotplot),
-          dotplotError: errors.dotplot || '',
-          onDotplot: handleDotplot,
-          annotation: annotation,
-          selectedCluster: selectedCluster,
-          selectedGene: selectedGene,
-          onSelectCluster: handleSelectCluster,
-          onSelectGene: handleSelectGene,
-          onChangeAnnotation: handleChangeAnnotation,
-          onSaveAnnotation: function () { handleSaveAnnotation(annotationMapping) },
-          annotationSaved: annotationSaved,
-          annotationError: errors.annotate || '',
-          savingAnnotation: Boolean(busy.annotate),
-          plotBusy: Boolean(busy.annotPlot),
-          plotError: errors.annotPlot || '',
-          plotFigure: annotPlotFigure,
-          onPlotMarker: handlePlotMarker,
-          onFeaturePlot: handleFeaturePlot,
-          csvOpen: annotCsvOpen,
-          csvText: annotCsvText,
-          onToggleCsv: function () { setAnnotCsvOpen(function (value) { return !value }) },
-          onCsvText: setAnnotCsvText,
-          onApplyCsv: handleApplyAnnotationCsv,
-        })
-      } else if (tab === 'clusters') {
-        tabNode = h(ClustersTab, {
-          activeId: activeId,
-          clusterDone: doneSteps.indexOf('cluster') >= 0,
-          groups: markerGroups,
-          markersLoading: markersLoading,
-          markersError: markersError,
-          annotation: annotation,
-          onChangeAnnotation: handleChangeAnnotation,
-          hasMapping: annotationCount > 0,
-          saving: Boolean(busy.annotate),
-          saved: annotationSaved,
-          saveError: errors.annotate || '',
-          onSave: function () { handleSaveAnnotation(annotationMapping) },
-          onReloadMarkers: handleReloadMarkers,
-          barFigure: clusterBar ? clusterBar.figure : null,
-          barLoading: clusterBarLoading || Boolean(busy.clusterBar),
-          barError: clusterBarError || errors.clusterBar || '',
-          onGenerateBar: handleGenerateClusterBar,
-          dimredCard: h(DimredCard, {
-            activeId: activeId,
-            dim: dimredSettings,
-            batchOptions: batchColumnOptions,
-            onEngine: setDimEngine,
-            onHarmony: setDimHarmony,
-            onBatchKey: setDimBatchKey,
-            onResolution: setDimResolution,
-            onNPcs: setDimNpcs,
-            onNeighbors: setDimNeighbors,
-            onTopGenes: setDimTopGenes,
-            runningRecipe: Boolean(busy.dimredRecipe),
-            runningRecluster: Boolean(busy.dimredRecluster),
-            warnings: dimWarnings,
-            error: errors.dimredRecipe || errors.dimredRecluster || '',
-            onRunRecipe: handleDimredRecipe,
-            onRecluster: handleDimredRecluster,
-          }),
-        })
-      } else if (tab === 'record') {
-        tabNode = h(RecordTab, {
-          activeId: activeId,
+          dataset: activeDataset,
+          busy: busy,
+          onOpenImport: openImportDialog,
+          onDemo: handleDemo,
+          qcValues: qcValues,
+          onQcChange: handleQcCardChange,
+          onRunQc: handleRunQcCard,
+          onRunFilter: handleRunFilterCard,
+          onGenerateQcFigure: handleGenerateQc,
+          runningQc: Boolean(busy.qcCard),
+          runningFilter: Boolean(busy.filterCard),
+          figureBusy: Boolean(busy.qc),
+          qcSummary: mergedSummaries.qc || null,
+          filterSummary: mergedSummaries.filter || null,
+          qcError: errors.qcCard || errors.filterCard || errors.qc || '',
+          qcFigure: qcFigure,
           samplesPanel: samplesPanelNode,
-          history: history,
-          clusterDone: doneSteps.indexOf('cluster') >= 0,
-          audit: audit,
-          auditLoading: Boolean(busy.audit),
-          auditError: errors.audit || auditError,
-          onAudit: handleAudit,
-          autoann: autoann,
-          autoannLoading: Boolean(busy.autoann),
-          autoannError: errors.autoann || autoannError,
-          onAutoannotate: handleAutoannotate,
-          adopted: adopted,
-          adopting: Boolean(busy.annotate),
-          adoptError: errors.annotate || '',
-          onAdoptCluster: function (suggestion) { handleAdoptSuggestions([suggestion]) },
-          onAdoptAll: function () { handleAdoptSuggestions(autoann ? autoann.suggestions : EMPTY_LIST) },
-          scan: scan,
-          scanLoading: Boolean(busy.scan),
-          scanError: errors.scan || scanError,
-          scanInput: scanInput,
-          onScanInputChange: setScanInput,
-          onScan: handleScan,
-          exportResult: exportResult,
-          exportLoadingKind: busy.export ? exportWhat : '',
-          exportError: errors.export || exportError,
-          onExport: handleExport,
-          copiedKey: copiedKey,
-          onCopyPath: function () { copyText('export-path', exportResult ? exportResult.file : '') },
+          advancedNode: pipelineNode,
         })
-      } else if (tab === 'log') {
-        tabNode = h(LogTab, {
-          entries: log || activity,
-          loading: logLoading,
-          error: logError,
-          onRefresh: function () { setLogNonce(function (value) { return value + 1 }) },
-        })
-      } else {
-        tabNode = h(AnalysisTab, {
+      } else if (activeId && currentStep === 'cluster') {
+        pageNode = h(Step2Page, {
           activeId: activeId,
-          groups: analysesGroups,
-          loading: analysesLoading,
-          listError: analysesError,
-          selected: selectedAnalysis,
-          doneSteps: doneSteps,
-          obsColumns: obsColumns,
-          values: analysisValues,
-          result: analysisResult,
-          error: analysisError || errors.analysis || '',
-          running: Boolean(busy.analysis),
-          onSelect: handleSelectAnalysis,
-          onReload: handleReloadAnalyses,
-          onValueChange: handleAnalysisValueChange,
-          onRun: handleRunAnalysis,
+          settings: dimredSettings,
+          presetId: dimPreset,
+          batchOptions: batchColumnOptions,
+          onPresetChange: handlePresetChange,
+          onRunPreset: handleStep2Preset,
+          onRecluster: handleStep2Recluster,
+          onEmbedOnly: handleStep2Embed,
+          onEngine: setDimEngine,
+          onIntegration: setDimIntegration,
+          onBatchKey: setDimBatchKey,
+          onResolution: setDimResolution,
+          onNPcs: setDimNpcs,
+          onNeighbors: setDimNeighbors,
+          onTopGenes: setDimTopGenes,
+          runningPreset: Boolean(busy.step2Preset),
+          runningRecluster: Boolean(busy.step2Recluster),
+          runningEmbed: Boolean(busy.step2Embed),
+          runningClusterBar: Boolean(busy.clusterBar),
+          error: errors.step2Preset || errors.step2Recluster || errors.step2Embed || '',
+          embeddingNode: embeddingNode,
+          trials: trialOptions,
+          currentTrialColumn: activeTrial,
+          onSelectTrial: handleSelectTrial,
+          clusterRows: clusterRows,
+          clusterBarFigure: clusterBar ? clusterBar.figure : null,
+          onClusterBar: handleGenerateClusterBar,
+          warnings: dimWarnings,
+          advancedNode: pipelineNode,
+        })
+      } else if (activeId && currentStep === 'annotate') {
+        pageNode = h(Step3Page, {
+          hasMapping: annotationCount > 0,
+          annotation: annotation,
+          annotationRows: annotationRows,
+          embeddingNode: embeddingNode,
+          colorKind: colorBy.kind === 'obs' ? String(colorBy.key || '') : '',
+          colorLabel: colorBy.kind === 'obs' ? 'obs.' + String(colorBy.key || '') : '',
+          onColorBy: handleColorByObs,
+          onSaveAnnotation: function () { handleSaveAnnotation(annotationMapping) },
+          savingAnnotation: Boolean(busy.annotate),
+          markersProps: markersNode ? markersNode.props : {},
+          subsetClusters: subsetClusters,
+          subsetName: subsetName,
+          subsetMessage: subsetMessage,
+          subsetError: errors.subset || '',
+          subsetBusy: Boolean(busy.subset),
+          onToggleSubsetCluster: handleToggleSubsetCluster,
+          onSubsetName: setSubsetName,
+          onRunSubset: handleRunSubset,
+        })
+      } else if (activeId) {
+        pageNode = h(Step4Page, {
+          analysisProps: analysisNode ? analysisNode.props : {},
+          gallery: galleryFigures,
+          onZoom: handleZoomFigure,
+          recordsNode: recordsNode,
+          exportResult: exportResult,
+          exportingKind: busy.export ? exportWhat : '',
+          onExport: handleExport,
         })
       }
 
@@ -9518,47 +11249,24 @@
       }
 
       var topActionError = errors.top || errors.open || errors.demo || errors.upload || errors.select || errors.recipe || ''
-      var centerNode = null
-      if (booting) {
-        centerNode = LoadingLine({ text: T('loading') })
-      } else if (!activeId) {
-        centerNode = h(EmptyState, { busy: busy, onDemo: handleDemo, onOpenImport: openImportDialog })
-      } else {
-        centerNode = tabNode
-      }
+      var logEntries = formatLogEntries(log || activity, 80)
 
-      return h('div', { className: 'sc-root' },
+      return h('div', { className: 'sc-root sc-app' + (layoutMode === 'narrow' ? ' sc-app-narrow' : '') },
         h('style', { 'data-plugin': 'dsh-singlecell' }, CSS),
         h(PluginErrorBoundary, null,
-          h(TopBar, {
+          h(ShellTopBar, {
             datasets: normalized.datasets,
             active: activeId,
             engine: engine,
-            recipes: recipes,
-            recipeId: recipeId,
-            recipeRunning: Boolean(busy.recipe),
-            onRecipeChange: setRecipeId,
-            onRunRecipe: handleRunRecipe,
             busy: busy,
             onSelect: handleSelect,
             onOpenImport: openImportDialog,
-            onDemo: handleDemo,
             onRefresh: handleRefreshAll,
+            logOpen: logOpen,
+            agentOpen: agentOpen,
+            onToggleLog: function () { setLogOpen(function (value) { return !value }) },
+            onToggleAgent: function () { setAgentOpen(function (value) { return !value }) },
           })),
-        bootError
-          ? h('div', { className: 'sc-top-err' },
-              h(ErrorBanner, {
-                message: bootError,
-                onRetry: function () { refreshState(false) },
-                retryLabel: T('retry'),
-              }))
-          : null,
-        topActionError
-          ? h('div', { className: 'sc-top-err' }, h('div', { className: 'sc-inline-err' }, topActionError))
-          : null,
-        pollError
-          ? h('div', { className: 'sc-top-err' }, h('div', { className: 'sc-warn-text' }, T('pollFailed') + '：' + pollError))
-          : null,
         recipeStrip,
         mergeNotice
           ? h('div', { className: 'sc-merge-notice' },
@@ -9569,7 +11277,7 @@
               h('button', {
                 type: 'button',
                 className: 'sc-btn sc-btn-sm sc-btn-primary',
-                onClick: function () { setMergeNotice(null); setTab('record') },
+                onClick: function () { setMergeNotice(null); setCurrentStep('read') },
               }, T('importGoSamples')),
               h('button', {
                 type: 'button',
@@ -9590,42 +11298,87 @@
                 },
               }, '×'))
           : null,
-        h('div', { className: 'sc-body' },
+        bootError
+          ? h('div', { className: 'sc-top-err' },
+              h(ErrorBanner, {
+                message: bootError,
+                onRetry: function () { refreshState(false) },
+                retryLabel: T('retry'),
+              }))
+          : null,
+        topActionError
+          ? h('div', { className: 'sc-top-err' }, h('div', { className: 'sc-inline-err' }, topActionError))
+          : null,
+        pollError
+          ? h('div', { className: 'sc-top-err' }, h('div', { className: 'sc-warn-text' }, T('pollFailed') + '：' + pollError))
+          : null,
+        h('div', { className: 'sc-shell-body' },
           h(PluginErrorBoundary, null,
-            h(PipelinePanel, {
-              activeId: activeId,
-              doneSteps: doneSteps,
-              runningStepIds: runningStepIds,
-              summaries: mergedSummaries,
-              errors: errors,
-              annotationMapping: annotationMapping,
-              annotationCount: annotationCount,
-              onRunStep: handleRunStep,
+            h(StepRail, {
+              current: currentStep,
+              statuses: stepStatuses,
+              onSelect: function (stepId) { setCurrentStep(stepId) },
             })),
           h(PluginErrorBoundary, null,
-            h('div', { className: 'sc-center' },
-              h(TabsBar, { tab: tab, onChange: setTab }),
-              h('div', { className: 'sc-pane' }, centerNode))),
-          h(PluginErrorBoundary, null,
-            h(AgentPanel, {
-              engine: engine,
-              activeDataset: activeDataset,
-              suggestions: suggestions,
-              activity: activity,
-              doneSteps: doneSteps,
-              copiedKey: copiedKey,
-              copyError: copyError,
-              onCopy: copyText,
-              agentInput: agentInput,
-              onAgentInput: setAgentInput,
-              onAgentSubmit: handleAgentSubmit,
-              agentSuggestions: agentSuggestions,
-              agentResults: agentResults,
-              agentBusyId: agentBusyId,
-              agentFallback: agentFallback,
-              onAgentRun: handleAgentRun,
-              onAgentCopy: handleAgentCopy,
-            }))),
+            h('main', { className: 'sc-content' },
+              booting
+                ? h('div', { className: 'sc-page' }, LoadingLine({ text: T('loading') }))
+                : (!activeId
+                    ? h(WelcomePage, {
+                        recent: recentDatasets,
+                        busy: busy,
+                        onOpenImport: openImportDialog,
+                        onDemo: handleDemo,
+                        onOpenRecent: handleOpenRecent,
+                      })
+                    : (pageNode || h('div', { className: 'sc-page' }, h('div', { className: 'sc-notice-card' }, T('pageNeedData'))))))),
+          (logOpen || agentOpen)
+            ? h(PluginErrorBoundary, null,
+                h('aside', { className: 'sc-side' },
+                  h('div', { className: 'sc-side-tabs' },
+                    h('button', {
+                      type: 'button',
+                      className: 'sc-side-tab' + (logOpen ? ' sc-side-tab-on' : ''),
+                      onClick: function () { setLogOpen(true); setAgentOpen(false) },
+                    }, T('shellLog')),
+                    h('button', {
+                      type: 'button',
+                      className: 'sc-side-tab' + (agentOpen ? ' sc-side-tab-on' : ''),
+                      onClick: function () { setAgentOpen(true); setLogOpen(false) },
+                    }, T('shellAgent'))),
+                  h('div', { className: 'sc-side-body' },
+                    agentOpen
+                      ? h(AgentPanel, {
+                          engine: engine,
+                          activeDataset: activeDataset,
+                          suggestions: suggestions,
+                          activity: activity,
+                          doneSteps: doneSteps,
+                          copiedKey: copiedKey,
+                          copyError: copyError,
+                          onCopy: copyText,
+                          agentInput: agentInput,
+                          onAgentInput: setAgentInput,
+                          onAgentSubmit: handleAgentSubmit,
+                          agentSuggestions: agentSuggestions,
+                          agentResults: agentResults,
+                          agentBusyId: agentBusyId,
+                          agentFallback: agentFallback,
+                          onAgentRun: handleAgentRun,
+                          onAgentCopy: handleAgentCopy,
+                        })
+                      : h(RunLogPanel, {
+                          entries: logEntries,
+                          loading: logLoading,
+                          onRefresh: function () { setLogNonce(function (value) { return value + 1 }) },
+                        }))))
+            : null),
+        zoomFigure
+          ? h('div', {
+              className: 'sc-lightbox',
+              onClick: function () { setZoomFigure(null) },
+            }, h('img', { src: zoomFigure.url, alt: zoomFigure.title || 'figure' }))
+          : null,
         dialogOpen
           ? h(ImportDialog, {
               key: 'import-' + dialogNonce,
@@ -9781,24 +11534,28 @@
         components: {
           WorkbenchPage: WorkbenchPage,
           WorkbenchBody: WorkbenchBody,
-          TopBar: TopBar,
-          EmptyState: EmptyState,
-          TabsBar: TabsBar,
           PipelinePanel: PipelinePanel,
           StepCard: StepCard,
           AgentPanel: AgentPanel,
           EmbeddingTab: EmbeddingTab,
           EmbeddingCanvas: EmbeddingCanvas,
-          QcTab: QcTab,
           MarkersTab: MarkersTab,
-          ClustersTab: ClustersTab,
           RecordTab: RecordTab,
-          LogTab: LogTab,
           ImportDialog: ImportDialog,
           AnalysisTab: AnalysisTab,
           SamplesPanel: SamplesPanel,
           DimredCard: DimredCard,
           AnnotationWorkbench: AnnotationWorkbench,
+          ShellTopBar: ShellTopBar,
+          StepRail: StepRail,
+          WelcomePage: WelcomePage,
+          RunLogPanel: RunLogPanel,
+          GalleryPanel: GalleryPanel,
+          QcCard: QcCard,
+          Step1Page: Step1Page,
+          Step2Page: Step2Page,
+          Step3Page: Step3Page,
+          Step4Page: Step4Page,
           EngineBadge: EngineBadge,
           SidebarIcon: SidebarIcon,
           PluginErrorBoundary: PluginErrorBoundary,

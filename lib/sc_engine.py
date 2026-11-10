@@ -4399,6 +4399,59 @@ def cmd_samples_remove(args):
     return {"dataset": summary, "removed_cells": removed_cells, "removed_samples": names}
 
 
+def cmd_subset(args):
+    """提取小亚群：按簇（或任意 obs 列取值）子集化，生成新数据集用于二次降维/聚类。"""
+    dataset = _resolve_dataset(args)
+    raw = args.get("clusters")
+    if raw is None:
+        raw = args.get("labels")
+    values = [str(item).strip() for item in (raw if isinstance(raw, list) else [raw]) if str(item).strip()]
+    if not values:
+        raise EngineError("bad_request", "clusters 不能为空（要提取的簇号列表，如 [\"3\",\"7\"]）")
+    column = str(args.get("column") or args.get("cluster_column") or "clusters")
+    if column not in dataset.obs.columns:
+        available = [str(item) for item in dataset.obs.columns if dataset.obs[item].nunique() <= 200][:12]
+        raise EngineError("bad_request", "obs 里没有 %s 列，无法提取小亚群（可用列：%s）" % (column, ", ".join(available)))
+    labels = [str(item) for item in dataset.obs[column].tolist()]
+    keep = np.array([label in values for label in labels], dtype=bool)
+    subset_cells = int(keep.sum())
+    if subset_cells == 0:
+        raise EngineError("bad_request", "没有匹配到簇：%s（该列取值示例：%s）" % (
+            ", ".join(values), ", ".join(sorted(set(labels))[:10])))
+    if subset_cells == len(labels):
+        raise EngineError("bad_request", "不能提取全部细胞：请只选部分簇")
+    index = np.flatnonzero(keep)
+    name = str(args.get("name") or "") or ("%s-亚群-%s" % (dataset.name, "-".join(values[:4])))
+    subset = Dataset(
+        _next_dataset_id(), name, dataset.path or dataset.source,
+        dataset.X[index], dataset.counts[index], dataset.var_names,
+        dataset.obs.iloc[index].copy(), var=dataset.var.copy(),
+        warnings=list(dataset.warnings), source="subset",
+    )
+    subset.source_format = "subset"
+    subset.meta = dict(getattr(dataset, "meta", {}) or {})
+    subset.uns.update({
+        "parent_dataset": dataset.id,
+        "subset_clusters": values,
+        "subset_column": column,
+        "samples": list(dataset.uns.get("samples") or []),
+        "group_column": dataset.uns.get("group_column"),
+        "groups": list(dataset.uns.get("groups") or []),
+    })
+    subset.steps = [step for step in ("qc", "filter", "normalize", "hvg") if step in dataset.steps]
+    subset.notes = ["从「%s」提取 %s 列簇 %s：%d 个细胞（父数据集 %s）" % (
+        dataset.name, column, ", ".join(values), subset_cells, dataset.id)]
+    DATASETS[subset.id] = subset
+    return {
+        "dataset": _dataset_summary(subset),
+        "parent": dataset.id,
+        "parent_name": dataset.name,
+        "subset_cells": subset_cells,
+        "kept_clusters": values,
+        "cluster_column": column,
+    }
+
+
 def cmd_plot(args):
     dataset = _resolve_dataset(args)
     kind = str(args.get("kind") or "")
@@ -4625,6 +4678,7 @@ COMMANDS = {
     "scan": cmd_scan,
     "geo_lookup": cmd_geo_lookup,
     "samples_remove": cmd_samples_remove,
+    "subset": cmd_subset,
     "list": cmd_list,
     "close": cmd_close,
     "preview": cmd_preview,
