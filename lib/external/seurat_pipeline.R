@@ -110,9 +110,10 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
 
 .parse_params <- function(raw) {
   defaults <- list(
-    step = "full", n_pcs = 30L, n_neighbors = 30L, resolution = 0.2,
-    n_top_genes = 3000L, dims = 20L, umap = TRUE, seed = 0L,
-    use_harmony = TRUE, batch_key = "",
+    step = "full", n_pcs = 30L, n_neighbors = 30L, resolution = NULL,
+    n_top_genes = 3000L, dims = 30L, umap = TRUE, seed = 0L,
+    integration = "harmony", use_harmony = TRUE, batch_key = "",
+    metric = "euclidean", reduction = "",
     max_cells = 200000L, max_genes = 10000L
   )
   if (is.null(raw) || !nzchar(trimws(raw))) return(defaults)
@@ -439,7 +440,17 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
 # ---------------------------------------------------------------------------
 # 构建 Seurat 对象
 # ---------------------------------------------------------------------------
-.build_seurat <- function(bundle, warnings) {
+.obs_batch_key <- function(obs, key = "") {
+  if (is.null(obs) || !is.data.frame(obs) || ncol(obs) == 0) return("")
+  key <- trimws(as.character(key %||% ""))
+  if (nzchar(key) && key %in% colnames(obs)) return(key)
+  candidates <- c("sample", "orig.ident", "batch", "group", "donor", "patient", "library", "lane")
+  hit <- candidates[candidates %in% colnames(obs)]
+  if (length(hit)) return(hit[1])
+  ""
+}
+
+.build_seurat <- function(bundle, warnings, batch_key = "") {
   # 内部统一用 cells × genes（bundle 契约方向转换后）；Seurat 的 counts 要求 genes × cells
   n_cells <- nrow(bundle$matrix)
   n_genes <- ncol(bundle$matrix)
@@ -454,6 +465,10 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     error = function(error) .bad("CreateSeuratObject 失败：%s", error$message)
   )
   object <- tryCatch(Seurat::RenameCells(object, new.names = bundle$barcodes), error = function(error) object)
+  .finish_seurat_build(object, bundle, n_cells, warnings)
+}
+
+.finish_seurat_build <- function(object, bundle, n_cells, warnings) {
   # 关键：把 bundle 里的细胞元数据（sample/group/batch/...）塞进 Seurat meta.data，
   # 否则 Harmony 找不到批次列（用户软件按样本做 Harmony 整合）。
   obs <- bundle$obs
@@ -470,11 +485,10 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     }
     .log("附加细胞元数据：%s", paste(setdiff(colnames(meta), existing), collapse = ", "))
   }
-  # data.mtx 已经是 log-normalized、又没有 counts.mtx 时：直接放进 data 层并跳过 NormalizeData
   already_normalized <- FALSE
   if (!bundle$from_counts_file && identical(bundle$x_kind, "lognorm")) {
     already_normalized <- TRUE
-    object <- .set_data_layer(object, counts_matrix)
+    object <- .set_data_layer(object, Matrix::t(as(bundle$matrix, "CsparseMatrix")))
     warnings <- .warn_add(warnings,
       "bundle 只有 data.mtx（meta.X_kind=lognorm），直接作为 data 层使用，跳过 NormalizeData 以免二次标准化")
   }
@@ -567,71 +581,151 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   object
 }
 
-.run_harmony <- function(object, batch_key, warnings, seed) {
-  info <- list(used = FALSE, batch_key = NULL)
-  if (!requireNamespace("harmony", quietly = TRUE)) {
-    warnings <- .warn_add(warnings, "harmony 包不可用，已回退 PCA（未做批次整合）")
+.detect_batch_key <- function(object, batch_key) {
+  meta <- tryCatch(object[[]], error = function(e) NULL)
+  if (is.null(meta) || ncol(meta) == 0) return("")
+  key <- trimws(as.character(batch_key %||% ""))
+  if (nzchar(key) && key %in% colnames(meta)) return(key)
+  candidates <- c("sample", "orig.ident", "batch", "group", "donor", "patient", "library", "lane")
+  hit <- candidates[candidates %in% colnames(meta)]
+  if (length(hit)) return(hit[1])
+  ""
+}
+
+# 按用户 pro.R 的官方写法：Seurat v5/v6 IntegrateLayers(method=HarmonyIntegration / RPCAIntegration)
+.run_integration <- function(object, integration, batch_key, warnings, seed) {
+  method <- tolower(as.character(integration %||% "none"))
+  info <- list(used = FALSE, method = method, batch_key = NULL, reduction = "pca")
+  if (!(method %in% c("harmony", "rpca"))) {
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  }
+  key <- .detect_batch_key(object, batch_key)
+  if (!nzchar(key)) {
+    warnings <- .warn_add(warnings,
+      "未找到批次列（sample/orig.ident/group），跳过 %s 整合（可用 params.batch_key 指定）", method)
     return(list(object = object, warnings = warnings, reduction = "pca", info = info))
   }
   meta <- tryCatch(object[[]], error = function(e) NULL)
-  if (is.null(meta) || ncol(meta) == 0) {
-    warnings <- .warn_add(warnings, "对象没有元数据，跳过 Harmony 整合")
+  if (is.null(meta) || length(unique(meta[[key]][!is.na(meta[[key]])])) < 2L) {
+    warnings <- .warn_add(warnings, "批次列 %s 只有 1 个取值，跳过 %s 整合", key, method)
     return(list(object = object, warnings = warnings, reduction = "pca", info = info))
   }
-  key <- trimws(as.character(batch_key %||% ""))
-  if (!nzchar(key) || !(key %in% colnames(meta))) {
-    candidates <- c("sample", "orig.ident", "batch", "group", "donor", "patient", "library", "lane")
-    hit <- candidates[candidates %in% colnames(meta)]
-    key <- if (length(hit)) hit[1] else ""
+  reduction_name <- if (method == "harmony") "harmony" else "integrated.rpca"
+  .log("%s 整合（IntegrateLayers，批次列 %s）…", toupper(method), key)
+  # Seurat v5 需要按样本拆层后 IntegrateLayers 才有 layer 可整合；已拆过的（merge 出来的多层对象）直接用
+  already_split <- tryCatch({
+    assay_name <- SeuratObject::DefaultAssay(object)
+    layer_names <- SeuratObject::Layers(object[[assay_name]])
+    length(layer_names) >= 2L && any(grepl("\\.[^.]+$", layer_names))
+  }, error = function(error) FALSE)
+  split_ok <- TRUE
+  if (!already_split) {
+    split_ok <- tryCatch({
+      object[["RNA"]] <- split(object[["RNA"]], f = factor(meta[[key]]))
+      TRUE
+    }, error = function(error) {
+      .log("WARN: 拆分 RNA 层失败：%s", conditionMessage(error))
+      FALSE
+    })
+  } else {
+    .log("RNA 层已按样本拆分（%s），直接 IntegrateLayers", paste(SeuratObject::Layers(object[[SeuratObject::DefaultAssay(object)]]), collapse = ", "))
   }
-  if (!nzchar(key)) {
-    warnings <- .warn_add(warnings,
-      "未找到批次列（sample/orig.ident/batch/group），跳过 Harmony 整合（用 params.batch_key 指定）")
+  if (!split_ok) {
+    warnings <- .warn_add(warnings, "RNA 层拆分失败（%s），跳过整合", method)
     return(list(object = object, warnings = warnings, reduction = "pca", info = info))
   }
-  values <- meta[[key]]
-  if (length(unique(values[!is.na(values)])) < 2L) {
-    warnings <- .warn_add(warnings, "批次列 %s 只有 1 个取值，跳过 Harmony 整合", key)
-    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  # IntegrateLayers 需要按层分组的 data 层（merge 出来的对象只有 counts.* 层）：
+  # 缺 data.* 时按 counts 层做 LogNormalize + HVG + Scale，补齐后再整合。
+  assay_name <- tryCatch(SeuratObject::DefaultAssay(object), error = function(e) "RNA")
+  data_missing <- tryCatch({
+    layer_names <- SeuratObject::Layers(object[[assay_name]])
+    sum(grepl("^data", layer_names)) < 2L
+  }, error = function(e) TRUE)
+  if (data_missing) {
+    object <- tryCatch({
+      assay_object <- object[[assay_name]]
+      count_layers <- grep("^counts", SeuratObject::Layers(assay_object), value = TRUE)
+      for (layer_name in count_layers) {
+        counts <- SeuratObject::LayerData(assay_object, layer = layer_name)
+        totals <- Matrix::colSums(counts)
+        totals[totals <= 0] <- 1
+        normalized <- log1p(Matrix::t(Matrix::t(counts) / totals * 10000))
+        SeuratObject::LayerData(assay_object, layer = sub("^counts", "data", layer_name)) <- normalized
+      }
+      object[[assay_name]] <- assay_object
+      object <- Seurat::FindVariableFeatures(object, nfeatures = 3000, verbose = FALSE)
+      object <- Seurat::ScaleData(object, verbose = FALSE)
+      .log("补齐 data/scale 层（%d 个批次层）", length(count_layers))
+      object
+    }, error = function(error) {
+      .log("WARN: 补齐 data/scale 层失败：%s", conditionMessage(error))
+      object
+    })
   }
-  .log("Harmony 整合：group.by.vars=%s（%d 个批次）…", key, length(unique(values[!is.na(values)])))
-  harmonized <- tryCatch(
-    harmony::RunHarmony(object, group.by.vars = key, reduction.use = "pca",
-                        reduction.save = "harmony", verbose = FALSE),
-    error = function(error) error
-  )
-  if (inherits(harmonized, "error")) {
-    # 某些 Seurat v5/v6 对象上 RunHarmony 会报 non-conformable arguments：
-    # 退回矩阵版 HarmonyMatrix（官方算法同一实现），再手动挂回 DimReduc。
-    .log("RunHarmony 失败（%s），改用 HarmonyMatrix 矩阵版…", conditionMessage(harmonized))
-    pca_emb <- tryCatch(Seurat::Embeddings(object, reduction = "pca"), error = function(e) NULL)
-    meta <- tryCatch(object[[]], error = function(e) NULL)
-    matrix_harmony <- NULL
-    if (!is.null(pca_emb) && !is.null(meta) && nrow(pca_emb) == nrow(meta)) {
-      matrix_harmony <- tryCatch(
-        harmony::HarmonyMatrix(
-          data_mat = pca_emb, meta_data = meta, vars_use = key,
-          do_pca = FALSE, verbose = FALSE
-        ),
+  integrate_fn <- if (method == "harmony") Seurat::HarmonyIntegration else Seurat::RPCAIntegration
+  integrated <- if (method == "rpca") {
+    # RPCA 的 k.weight 不能超过最小样本的细胞数，否则小样本数据会直接报错
+    layer_sizes <- tryCatch({
+      a <- object[[assay_name]]
+      vapply(SeuratObject::Layers(a), function(ly) ncol(SeuratObject::LayerData(a, layer = ly)), integer(1))
+    }, error = function(e) NULL)
+    min_cells <- if (is.null(layer_sizes) || !length(layer_sizes)) 0L else as.integer(min(layer_sizes))
+    candidates <- unique(as.integer(c(
+      min(100L, max(20L, min_cells - 2L)),
+      min(100L, max(20L, floor(min_cells / 2))),
+      30L, 20L
+    )))
+    candidates <- candidates[candidates >= 2L & candidates < min_cells]
+    result_integrated <- NULL
+    for (k_weight in candidates) {
+      .log("RPCA 尝试 k.weight=%d（最小样本 %d 细胞）", k_weight, min_cells)
+      attempt <- tryCatch(
+        Seurat::IntegrateLayers(object = object, method = integrate_fn,
+                                orig.reduction = "pca", new.reduction = reduction_name,
+                                k.weight = k_weight, verbose = FALSE),
         error = function(error) error
       )
+      if (!inherits(attempt, "error")) {
+        result_integrated <- attempt
+        break
+      }
+      .log("RPCA k.weight=%d 失败：%s", k_weight, conditionMessage(attempt))
     }
-    if (is.null(matrix_harmony) || inherits(matrix_harmony, "error")) {
-      reason <- if (inherits(matrix_harmony, "error")) conditionMessage(matrix_harmony) else conditionMessage(harmonized)
-      warnings <- .warn_add(warnings, "Harmony 整合失败（%s），已回退 PCA", reason)
-      return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+    if (is.null(result_integrated)) {
+      warnings <- .warn_add(warnings, "RPCA 整合失败（小样本/锚点不足），回退 Harmony 整合")
+      .log("RPCA 失败，回退 Harmony…")
+      result_integrated <- tryCatch(
+        Seurat::IntegrateLayers(object = object, method = Seurat::HarmonyIntegration,
+                                orig.reduction = "pca", new.reduction = "harmony",
+                                verbose = FALSE),
+        error = function(error) error
+      )
+      if (!inherits(result_integrated, "error")) {
+        reduction_name <- "harmony"
+        integrate_fn <- Seurat::HarmonyIntegration
+        info$fallback <- TRUE
+      } else {
+        warnings <- .warn_add(warnings, "Harmony 兜底也失败（%s），回退 PCA", conditionMessage(result_integrated))
+        return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+      }
     }
-    colnames(matrix_harmony) <- paste0("harmony_", seq_len(ncol(matrix_harmony)))
-    rownames(matrix_harmony) <- rownames(pca_emb)
-    object[["harmony"]] <- Seurat::CreateDimReducObject(
-      embeddings = matrix_harmony, key = "harmony_",
-      assay = SeuratObject::DefaultAssay(object)
+    result_integrated
+  } else {
+    tryCatch(
+      Seurat::IntegrateLayers(object = object, method = integrate_fn,
+                              orig.reduction = "pca", new.reduction = reduction_name,
+                              verbose = FALSE),
+      error = function(error) error
     )
-    harmonized <- object
+  }
+  if (inherits(integrated, "error")) {
+    warnings <- .warn_add(warnings, "%s 整合失败（%s），回退 PCA", toupper(method), conditionMessage(integrated))
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
   }
   info$used <- TRUE
   info$batch_key <- key
-  list(object = harmonized, warnings = warnings, reduction = "harmony", info = info)
+  info$reduction <- reduction_name
+  list(object = integrated, warnings = warnings, reduction = reduction_name, info = info)
 }
 
 .graph_names <- function(object) {
@@ -691,14 +785,14 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   list(object = object, warnings = warnings, labels = labels, resolution = resolution)
 }
 
-.run_umap <- function(object, dims, n_neighbors, seed, warnings, reduction = "pca") {
+.run_umap <- function(object, dims, n_neighbors, seed, warnings, reduction = "pca", metric = "euclidean") {
   k <- max(2L, .as_int(n_neighbors, 20L))
   k <- min(k, max(2L, ncol(object) - 2L))
   .log("RunUMAP(dims=%d:%d, n.neighbors=%d, seed.use=%d) …", min(dims), max(dims), k, seed)
   object <- tryCatch(
     Seurat::RunUMAP(object = object, reduction = reduction, dims = dims,
                     n.neighbors = as.integer(k), seed.use = as.integer(seed),
-                    umap.method = "uwot", min.dist = 0.3, metric = "cosine",
+                    umap.method = "uwot", min.dist = 0.3, metric = metric,
                     verbose = FALSE),
     error = function(error) .bad("RunUMAP 失败：%s", error$message)
   )
@@ -875,7 +969,13 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   seed <- as.integer(params$seed %||% 0L)
   n_pcs <- max(2L, .as_int(params$n_pcs, 30L))
   n_neighbors <- max(2L, .as_int(params$n_neighbors, 20L))
-  resolution <- max(0.01, .as_num(params$resolution, 0.2))
+  integration <- tolower(trimws(as.character(params$integration %||%
+    (if (.is_true(params$use_harmony, TRUE)) "harmony" else "none"))))
+  if (!(integration %in% c("none", "harmony", "rpca", "pca"))) integration <- "harmony"
+  if (integration == "pca") integration <- "none"
+  resolution_default <- if (integration == "none") 0.5 else 0.8
+  resolution <- if (is.null(params$resolution)) resolution_default else max(0.01, .as_num(params$resolution, resolution_default))
+  metric <- as.character(params$metric %||% "euclidean")
   n_top_genes <- max(50L, .as_int(params$n_top_genes, 3000L))
   do_umap <- .is_true(params$umap, TRUE)
   use_harmony <- .is_true(params$use_harmony, TRUE)
@@ -947,15 +1047,22 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     pca_matrix <- Seurat::Embeddings(object, reduction = "pca")[, seq_len(min(n_pcs, npcs)), drop = FALSE]
     colnames(pca_matrix) <- paste0("PC", seq_len(ncol(pca_matrix)))
   }
-  # ---- Harmony 批次整合（对齐用户软件：Seurat + Harmony 后再构图/聚类/UMAP）
+  # ---- 批次整合（pro.R：IntegrateLayers Harmony/RPCA；none = 未整合 PCA）
   harmony_reduction <- "pca"
-  harmony_info <- list(used = FALSE, batch_key = NULL)
-  if (isTRUE(use_harmony) && step %in% c("neighbors", "cluster", "embed", "full")) {
-    harmony_out <- .run_harmony(object, batch_key, warnings, seed)
-    object <- harmony_out$object
-    warnings <- harmony_out$warnings
-    harmony_reduction <- harmony_out$reduction
-    harmony_info <- harmony_out$info
+  harmony_info <- list(used = FALSE, method = integration, batch_key = NULL, reduction = "pca")
+  requested_reduction <- trimws(as.character(params$reduction %||% ""))
+  if (nzchar(requested_reduction)) {
+    harmony_reduction <- requested_reduction
+  }
+  if (step %in% c("neighbors", "cluster", "embed", "full")) {
+    # 集群/嵌入步骤可能只拿到 bundle pca：若显式要求 harmony/rpca 而没有对应 reduction，就现场整合
+    if (integration %in% c("harmony", "rpca") && (step != "pca")) {
+      integration_out <- .run_integration(object, integration, batch_key, warnings, seed)
+      object <- integration_out$object
+      warnings <- integration_out$warnings
+      harmony_reduction <- integration_out$reduction
+      harmony_info <- integration_out$info
+    }
   }
 
   requested_dims <- .requested_dims(params$dims)
@@ -1040,7 +1147,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
 
   embed_path <- NULL
   if (step == "embed" || (step == "full" && do_umap)) {
-    umap_out <- .run_umap(object, dims, n_neighbors, seed, warnings, reduction = harmony_reduction)
+    umap_out <- .run_umap(object, dims, n_neighbors, seed, warnings, reduction = harmony_reduction, metric = metric)
     object <- umap_out$object
     warnings <- umap_out$warnings
     embedding <- umap_out$embedding
@@ -1102,9 +1209,10 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     seed = seed,
     n_clusters = if (is.null(n_clusters)) NULL else as.integer(n_clusters),
     used_bundle_pca = used_bundle_pca,
-    use_harmony = isTRUE(harmony_info$used),
+    integration = harmony_info$method,
+    integration_used = isTRUE(harmony_info$used),
     harmony_batch_key = if (isTRUE(harmony_info$used)) harmony_info$batch_key else NULL,
-    harmony_reduction = harmony_reduction,
+    reduction = harmony_reduction,
     elapsed_seconds = round(elapsed, 3)
   )
   metrics <- metrics[!vapply(metrics, is.null, logical(1))]
@@ -1133,9 +1241,12 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
                                   as.integer(k_used), length(dims)))
   }
   if (isTRUE(harmony_info$used)) {
-    bullets <- c(bullets, sprintf("Harmony 批次整合：按 %s 分组，使用 harmony 嵌入构图/聚类/UMAP", harmony_info$batch_key))
+    label <- if (identical(harmony_info$method, "rpca")) "RPCA" else "Harmony"
+    if (isTRUE(harmony_info$fallback)) label <- sprintf("%s（失败，已回退 Harmony）", label)
+    bullets <- c(bullets, sprintf("%s 批次整合（Seurat IntegrateLayers）：按 %s 分组，使用 %s 嵌入构图/聚类/UMAP",
+                                  label, harmony_info$batch_key, harmony_info$reduction))
   } else if (step %in% c("neighbors", "cluster", "embed", "full")) {
-    bullets <- c(bullets, "未做 Harmony 整合（无批次列或未启用），使用 PCA 构图")
+    bullets <- c(bullets, "未做批次整合（无批次列或 integration=none），使用未整合 PCA 构图")
   }
   bullets <- c(bullets, sprintf("Seurat 步骤耗时 %.2f 秒", elapsed))
 

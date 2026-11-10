@@ -1201,6 +1201,14 @@ def _seurat_engine(params):
 
 def _run_seurat_step(dataset, step, params):
     """把一个流程步骤交给 Seurat 6.0 官方实现，并把结果写回 dataset。"""
+    params = dict(params or {})
+    # pca 步骤选定的整合方式（harmony/rpca/none）要贯穿后续 neighbors/cluster/embed
+    if step != "pca":
+        uns = getattr(dataset, "uns", {}) or {}
+        if not params.get("integration") and uns.get("seurat_integration"):
+            params["integration"] = uns["seurat_integration"]
+        if not params.get("reduction") and uns.get("seurat_reduction"):
+            params["reduction"] = uns["seurat_reduction"]
     if step == "neighbors":
         # Seurat 路径下 FindNeighbors 在 cluster 内部完成，这里只做状态标记
         dataset.adj = None
@@ -1224,6 +1232,9 @@ def _run_seurat_step(dataset, step, params):
     if step == "pca" and result.get("pca") is not None:
         dataset.obsm["X_pca"] = np.asarray(result["pca"], dtype=np.float32)
         dataset.uns["pca_engine"] = "seurat6"
+        metrics_pca = (payload.get("summary") or {}).get("metrics") or {}
+        dataset.uns["seurat_integration"] = metrics_pca.get("integration") or params.get("integration") or "none"
+        dataset.uns["seurat_reduction"] = metrics_pca.get("reduction") or "pca"
         dataset.uns.pop("pca_variance_ratio", None)
     if step == "cluster":
         labels = result.get("clusters")
@@ -1231,6 +1242,10 @@ def _run_seurat_step(dataset, step, params):
             raise EngineError("internal", "Seurat 6.0 没有返回聚类结果")
         text = [str(item) for item in labels]
         dataset.obs["clusters"] = pd.Series(text, index=dataset.obs.index, dtype=object)
+        metrics_cluster = (payload.get("summary") or {}).get("metrics") or {}
+        method = str(metrics_cluster.get("integration") or "none").lower()
+        if method in ("harmony", "rpca"):
+            dataset.obs["clusters_" + method] = pd.Series(text, index=dataset.obs.index, dtype=object)
         if getattr(dataset, "cell_type_default", True) or "cell_type" not in dataset.obs.columns:
             dataset.obs["cell_type"] = pd.Series(text, index=dataset.obs.index, dtype=object)
             dataset.cell_type_default = True
@@ -2524,25 +2539,52 @@ RECIPES = [
 ]
 
 
+_PRO_QC = {"min_genes": 200, "max_genes": 5000, "min_counts": 500, "max_pct_mt": 20, "min_cells": 3}
+_PRO_BASE = [
+    {"step": "qc", "params": {}},
+    {"step": "filter", "params": dict(_PRO_QC)},
+    {"step": "normalize", "params": {"target_sum": 10000}},
+    {"step": "hvg", "params": {"n_top_genes": 3000, "flavor": "seurat"}},
+]
+
+# 对齐用户 pro.R：未整合(PCA, res 0.5) / Harmony(res 0.8) / RPCA(res 0.8)，dims 1:30
 SEURAT6_RECIPE = {
     "id": "seurat6",
-    "title": "Seurat 6.0 官方流程",
-    "detail": "QC → 过滤 → 标准化 → 高变基因 → Seurat 6.0 官方 PCA → Harmony 批次整合 → 聚类（resolution 0.2）→ UMAP",
-    "steps": [
-        {"step": "qc", "params": {}},
-        {"step": "filter", "params": {"min_genes": 200, "max_pct_mt": 20, "min_cells": 3}},
-        {"step": "normalize", "params": {"target_sum": 10000}},
-        {"step": "hvg", "params": {"n_top_genes": 3000, "flavor": "seurat"}},
-        {"step": "pca", "params": {"n_pcs": 30, "n_top_genes": 3000, "use_harmony": True, "engine": "seurat"}},
-        {"step": "neighbors", "params": {"n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
-        {"step": "cluster", "params": {"resolution": 0.2, "n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
-        {"step": "embed", "params": {"layout": "umap", "n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
+    "title": "Seurat 6.0 + Harmony（对齐 pro.R）",
+    "detail": "QC(nFeature 200-5000, 线粒体<20%, nCount>500) → HVG 3000 → PCA 30 → IntegrateLayers(Harmony) → 聚类 resolution 0.8 → UMAP(30)",
+    "steps": _PRO_BASE + [
+        {"step": "pca", "params": {"n_pcs": 30, "n_top_genes": 3000, "dims": 30, "integration": "harmony", "engine": "seurat"}},
+        {"step": "neighbors", "params": {"n_neighbors": 30, "dims": 30, "integration": "harmony", "engine": "seurat"}},
+        {"step": "cluster", "params": {"resolution": 0.8, "dims": 30, "integration": "harmony", "engine": "seurat"}},
+        {"step": "embed", "params": {"layout": "umap", "n_neighbors": 30, "dims": 30, "integration": "harmony", "engine": "seurat"}},
+    ],
+}
+PRO_RPCA_RECIPE = {
+    "id": "pro-rpca",
+    "title": "Seurat 6.0 + RPCA（对齐 pro.R）",
+    "detail": "QC 同 pro.R → HVG 3000 → PCA 30 → IntegrateLayers(RPCA) → 聚类 resolution 0.8 → UMAP(30)",
+    "steps": _PRO_BASE + [
+        {"step": "pca", "params": {"n_pcs": 30, "n_top_genes": 3000, "dims": 30, "integration": "rpca", "engine": "seurat"}},
+        {"step": "neighbors", "params": {"n_neighbors": 30, "dims": 30, "integration": "rpca", "engine": "seurat"}},
+        {"step": "cluster", "params": {"resolution": 0.8, "dims": 30, "integration": "rpca", "engine": "seurat"}},
+        {"step": "embed", "params": {"layout": "umap", "n_neighbors": 30, "dims": 30, "integration": "rpca", "engine": "seurat"}},
+    ],
+}
+PRO_UNINTEGRATED_RECIPE = {
+    "id": "pro-unintegrated",
+    "title": "Seurat 6.0 未整合（对齐 pro.R）",
+    "detail": "QC 同 pro.R → HVG 3000 → PCA 30 → 未整合 PCA → 聚类 resolution 0.5 → UMAP(30)",
+    "steps": _PRO_BASE + [
+        {"step": "pca", "params": {"n_pcs": 30, "n_top_genes": 3000, "dims": 30, "integration": "none", "engine": "seurat"}},
+        {"step": "neighbors", "params": {"n_neighbors": 30, "dims": 30, "integration": "none", "engine": "seurat"}},
+        {"step": "cluster", "params": {"resolution": 0.5, "dims": 30, "integration": "none", "engine": "seurat"}},
+        {"step": "embed", "params": {"layout": "umap", "n_neighbors": 30, "dims": 30, "integration": "none", "engine": "seurat"}},
     ],
 }
 
 
 def _recipes_payload(recipe_id=None):
-    recipes = list(RECIPES) + [SEURAT6_RECIPE]
+    recipes = list(RECIPES) + [SEURAT6_RECIPE, PRO_RPCA_RECIPE, PRO_UNINTEGRATED_RECIPE]
     if recipe_id is None:
         return {"recipes": [dict(recipe) for recipe in recipes]}
     wanted = str(recipe_id)

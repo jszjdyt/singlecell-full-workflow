@@ -48,17 +48,22 @@ R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`grou
 
 辅助能力：**自动注释**（内置 ≥14 类参考 marker 面板，给 top1/top2 + margin + 证据基因）、**自检**（10 项确定性检查，0–100 分）、**分辨率扫描**（多 resolution 的簇数与 ARI）、**预设流程**（standard/quick/qc 一键跑）。
 
-## 二·五 降维聚类：Seurat 6.0 官方实现 + Harmony 批次整合
+## 二·五 降维聚类：对齐你的 Seurat 5.0 pro.R
 
-「一键降维聚类（Seurat 6）」按你自研软件的参数走 **Seurat 6.0 官方实现**：
+按你 `Suerat5.0降维版本 pro.R` 的官方写法实现（Seurat 6.0 独立库，不改系统）：
 
-- **Harmony 批次整合**（自动识别 sample/orig.ident/group 批次列；无批次列自动跳过并提示）
-- **resolution 默认 0.2**（参考 20–30 个 cluster；偏多/偏少会给提示），`n_top_genes=3000`、`n_pcs=30`、UMAP neighbors=30
-- 复用上游 PCA + Standard Seurat 流程（NormalizeData → FindVariableFeatures(vst) → ScaleData → RunPCA → Harmony → FindNeighbors → FindClusters → RunUMAP）
-- **不再静默下采样**（默认上限 200000 细胞，可在参数里改）
-- 也可选内置引擎（无需 R）逐步跑；无 UMAP 的内置环境会回退 t-SNE 并在结果里写明
+- **QC**：nFeature 200–5000、percent.mt < 20、nCount > 500、min.cells=3（预设 `seurat6` 已带上）
+- **预处理**：LogNormalize → FindVariableFeatures(vst, **3000**) → ScaleData → RunPCA(**30**)
+- **批次整合**：`IntegrateLayers` 官方接口，`HarmonyIntegration` / `RPCAIntegration`（按 sample/orig.ident/batch 自动识别批次列，可手动指定）；RPCA 小样本自动调 `k.weight`、失败时回退 Harmony 并如实标注
+- **三套结果**（对应 pro.R 的三套聚类）：
+  - `seurat6`（Harmony，resolution **0.8**，dims 1:30）
+  - `pro-rpca`（RPCA，resolution **0.8**）
+  - `pro-unintegrated`（未整合 PCA，resolution **0.5**）
+  在「聚类」tab 的降维聚类卡片里选预设/调滑块即可，聚类数 20–30 提示
+- UMAP：dims 1:30、n.neighbors 30、metric euclidean（Seurat 默认）
+- **不再静默下采样**（默认 200000 细胞）
 
-> 依赖：本机 R + Seurat ≥6.0（插件自动使用独立 R 库，不污染系统 Seurat）+ harmony R 包。
+> 修复记录：按样本 merge 构建多层对象会打乱细胞顺序导致簇标签错位（ARI≈0），已改为单对象 + split 分层整合；回归 241/241，demo ARI 0.8962（vs 内置）/ 1.0000（vs 真值）。
 
 ## 二·六 手动注释工作台 / 样本分组维护 / Agent 输入式建议（v0.6）
 

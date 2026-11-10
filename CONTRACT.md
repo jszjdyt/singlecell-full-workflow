@@ -698,3 +698,16 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 | 手动注释工作台（簇列表 / marker 表 / DotPlot / 热图 / FeaturePlot / 保存注释 / 粘贴 CSV） | 标记基因 tab 顶部 |
 | 删除分组 / 清空分组 / 移除样本 | 记录 tab「样本 & 分组」 |
 | Agent 输入框 + 建议卡 + 直接运行 | 右栏 Agent 顶部 |
+
+
+---
+
+## §14 对齐 pro.R 的 IntegrateLayers 整合（v0.7.0）
+
+- `params.integration`：`"harmony" | "rpca" | "none"`（默认 harmony；`use_harmony=false` 等价 none）
+- 使用 Seurat 官方 `IntegrateLayers(method = HarmonyIntegration / RPCAIntegration, orig.reduction="pca", new.reduction=...)`；单层对象在整合前按批次列 `split()` 并补齐 data/scale 层
+- RPCA：`k.weight` 自适应并在失败时回退 Harmony（结果 metrics 标 `integration_used` 与真实 `reduction`）
+- 默认参数：`dims=1:30`、`n_top_genes=3000`、`metric=euclidean`、resolution 默认 none→0.5 / 整合→0.8
+- 预设：`seurat6`（Harmony 0.8）、`pro-rpca`（RPCA 0.8）、`pro-unintegrated`（PCA 0.5），均带 pro.R QC 参数
+- 簇列：当前结果写 `clusters`；整合结果额外保留 `clusters_harmony` / `clusters_rpca`
+- 修复：按样本 merge 构建多层对象会打乱细胞顺序 → 曾导致簇标签错位（ARI≈0）；已改回单对象 + split 路径
