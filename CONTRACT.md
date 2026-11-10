@@ -735,3 +735,15 @@ Step2：`n_top_genes` 移入「进阶/参考参数」折叠区（默认 3000，�
 
 - 三段布局：左侧步骤导航（Step1 数据读取·分组·质控 / Step2 降维聚类 / Step3 细胞标注 / Step4 高级分析·结果）+ 主区步骤页 + 右侧可折叠抽屉（运行日志/Agent）；欢迎页；结果画廊按来源分组/new→old/去重/上限 60/lightbox；≤900px 单列；保留 PipelinePanel 折叠区。
 - 小亚群：`POST /singlecell/dataset/subset {dataset, clusters:["3","7"], column?="clusters", name?}` → 新数据集（steps 重置 qc/filter/normalize/hvg，uns 记录 parent/subset_clusters/subset_column）；Agent `action=subset`；UI 在 Step3「提取为小亚群数据集」。
+
+
+---
+
+## §18 点图样式对齐「点图plus版.r」（v0.9.1）
+
+`POST /singlecell/plot` `kind=dotplot`（尤其配合 `params.gene_groups`）输出对齐用户 R 脚本样式：
+
+- 列 = 基因，按细胞类型分面（`gene_groups` 的 label）：粗体标题、自动换行（width=10）、组间虚线分隔与空隙；
+- 行 = cluster（自然序）；点大小 = 表达比例（pct.exp），图例 `Expressing proportions (%)` 25/50/75/100%；
+- 颜色 = 按基因在 cluster 间 z-score 的 avg.exp.scaled，色带 `#3366CC → #FFFFFF → #DC3912`（clip ±2.5），图例 `average expression level`；
+- 坐标轴无标题，基因名 45° 旋转，无标题/白底。

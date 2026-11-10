@@ -92,6 +92,17 @@ R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`grou
 - 输入一句话（如「加 harmony」「resolution 调到 0.3」「找 marker」「组间差异」「导出报告」）→ 本地规则解析出 2–4 张建议卡，每张带 **[直接运行]** 与 [复制指令]；
 - 直接运行对应 `/recipe /run /markers /plot /embedding /analysis /audit /export`，完成后刷新状态并显示结果摘要。
 
+
+### 点图样式（对齐「点图plus版.r」）
+
+Step3「看表达 → 出 DotPlot」默认就是这套样式：
+
+- **基因按细胞类型分面**（列），粗体类型标题 + 自动换行 + 组间分隔线
+- **行 = cluster**；点大小 = 表达比例（图例 25/50/75/100%）；颜色 = 按基因 z-score 的 **蓝-白-红**（#3366CC → #FFFFFF → #DC3912，图例 average expression level）
+- 坐标轴无标题、基因名 45° 旋转
+
+![dotplot-plus 样式](docs/images/dotplot-plus-style-example.png)
+
 ## 三、高级分析（能力图全量登记）
 
 「高级分析」tab 按 7 大类列出全部条目。**原生分析**（下面标 native）在本机零配置可跑；**外部工具**灰显并给出原因与本插件替代方案，不会伪装成可运行。

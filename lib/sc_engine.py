@@ -2854,55 +2854,115 @@ def _expression_by_cluster(dataset, genes, clusters=None):
     return list(genes), clusters, mean_matrix, pct_matrix
 
 
-def _plot_dotplot(dataset, params):
-    _require_step(dataset, "cluster", "生成 dotplot 需要先完成 cluster 步骤")
-    groups_raw = _parse_gene_groups(params)
-    if groups_raw:
-        ordered, bounds, labels = _flatten_gene_groups(dataset, groups_raw)
-        if ordered:
-            genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, ordered)
-            title = "Marker genes by cell type"
+def _wrap_group_label(label, width=10):
+    text = str(label or "").strip()
+    if not text:
+        return ""
+    words, lines, current = text.replace("/", " / ").split(), [], ""
+    for word in words:
+        candidate = (current + " " + word).strip()
+        if len(candidate) <= width or not current:
+            current = candidate
         else:
-            groups_raw, genes, clusters, mean_matrix, pct_matrix, title = [], None, None, None, None, None
-    else:
-        genes = None
-    selected = _selected_gene_list(dataset, params) if genes is None else []
-    if genes is not None:
-        pass
-    elif selected:
-        genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, selected)
-        title = "Selected marker genes (%d)" % len(genes)
-    else:
-        top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
-        groups = _ensure_cluster_markers(dataset, top_n)
-        genes, clusters, mean_matrix, pct_matrix = _marker_gene_matrix(dataset, groups, top_n)
-        title = "Marker genes (top %d per cluster)" % top_n
-    width = max(4.8, 0.30 * len(genes) + 2.6)
-    height = max(3.0, 0.34 * len(clusters) + 1.8)
-    fig, axis = plt.subplots(figsize=(width, height), dpi=140)
-    x_grid, y_grid = np.meshgrid(np.arange(len(genes)), np.arange(len(clusters)))
+            lines.append(current)
+            current = word
+    if current:
+        lines.append(current)
+    return "\n".join(lines)
+
+
+def _plot_dotplot(dataset, params):
+    """对齐用户「点图plus版.r」：基因按细胞类型分面（列）｜ cluster 为行｜
+    点大小 = 表达比例，颜色 = 蓝-白-红（按基因 z-score）。"""
+    from matplotlib.colors import LinearSegmentedColormap
+    from matplotlib.lines import Line2D
+
+    _require_step(dataset, "cluster", "生成 dotplot 需要先完成 cluster 步骤")
+    gene_groups = _parse_gene_groups(params)
+    bounds, groups = [], []
+    if gene_groups:
+        genes, bounds, labels = _flatten_gene_groups(dataset, gene_groups)
+        if not genes:
+            gene_groups = []
+    if not gene_groups:
+        selected = _selected_gene_list(dataset, params)
+        if selected:
+            genes = selected
+        else:
+            top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
+            marker_groups = _ensure_cluster_markers(dataset, top_n)
+            genes, _clusters, _mean, _pct = _marker_gene_matrix(dataset, marker_groups, top_n)
+        bounds = [(0, len(genes))]
+        labels = [""]
+    genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, genes)
+
+    # 按基因在 cluster 间 z-score（= Seurat DotPlot 的 avg.exp.scaled）
+    centered = mean_matrix - mean_matrix.mean(axis=0, keepdims=True)
+    scale = mean_matrix.std(axis=0, keepdims=True)
+    scale[scale < 1e-9] = 1.0
+    scaled = np.clip(centered / scale, -2.5, 2.5)
+
+    # 基因位置：组内连续、组间留空隙
+    positions = np.zeros(len(genes), dtype=float)
+    cursor = 0.0
+    spans = []
+    for gi, (start, stop) in enumerate(bounds):
+        stop = min(stop, len(genes))
+        if stop <= start:
+            continue
+        width = stop - start
+        positions[start:stop] = np.arange(width, dtype=float) + cursor
+        spans.append((labels[gi], start, stop, cursor, cursor + width - 1))
+        cursor += width + 0.9
+    n_cols = cursor if cursor > 0 else float(len(genes))
+
+    n_rows = len(clusters)
+    width_in = max(6.0, 0.28 * max(1.0, n_cols) + 3.2)
+    height_in = max(3.2, 0.30 * n_rows + 1.6)
+    fig, axis = plt.subplots(figsize=(width_in, height_in), dpi=150)
+    cmap = LinearSegmentedColormap.from_list("dsh_dotplot", ["#3366CC", "#FFFFFF", "#DC3912"])
+    xx, yy = np.meshgrid(positions, np.arange(n_rows))
     scatter = axis.scatter(
-        x_grid.ravel(), y_grid.ravel(),
-        s=(pct_matrix.ravel() * 130.0) + 4.0,
-        c=mean_matrix.ravel(), cmap="viridis", linewidths=0.2, edgecolors="#444444",
+        xx.ravel(), yy.ravel(),
+        s=(pct_matrix.ravel() * 170.0) + 5.0,
+        c=scaled.ravel(), cmap=cmap, vmin=-2.5, vmax=2.5,
+        linewidths=0.25, edgecolors="#666666",
     )
-    colorbar = fig.colorbar(scatter, ax=axis, fraction=0.03, pad=0.02)
-    colorbar.set_label("mean log-expression")
-    axis.set_xticks(np.arange(len(genes)))
-    axis.set_xticklabels(genes, rotation=90, fontsize=7)
-    axis.set_yticks(np.arange(len(clusters)))
-    axis.set_yticklabels(clusters, fontsize=8)
-    axis.set_xlabel("marker gene")
-    axis.set_ylabel("cluster")
-    axis.set_title(title)
-    if groups_raw and 'bounds' in dir():
-        for start, end in bounds:
-            if start > 0:
-                axis.axvline(start - 0.5, color="#888888", linewidth=0.8, linestyle="--", alpha=0.7)
-            axis.text((start + end - 1) / 2.0, len(clusters) - 0.35, labels[bounds.index((start, end))],
-                      ha="center", va="bottom", fontsize=8, rotation=0, clip_on=False)
-    axis.set_xlim(-0.5, len(genes) - 0.5)
-    axis.set_ylim(-0.5, len(clusters) - 0.5)
+    colorbar = fig.colorbar(scatter, ax=axis, fraction=0.025, pad=0.015)
+    colorbar.set_label("average expression level", fontsize=8)
+    colorbar.ax.tick_params(labelsize=7)
+
+    # 细胞类型分面分隔线 + 粗体标题（自动换行）
+    for label, start, stop, _left, _right in spans:
+        if start > 0:
+            axis.axvline(float(positions[start]) - 0.55, color="#999999", linewidth=0.8, linestyle="--", alpha=0.8)
+        if label:
+            center = (float(positions[start]) + float(positions[stop - 1])) / 2.0
+            axis.text(center, n_rows - 0.45, _wrap_group_label(label),
+                      ha="center", va="bottom", fontsize=9, fontweight="bold",
+                      linespacing=1.15, clip_on=False)
+
+    axis.set_xticks(positions)
+    axis.set_xticklabels(genes, rotation=45, ha="right", fontsize=8)
+    axis.set_yticks(np.arange(n_rows))
+    axis.set_yticklabels(clusters, fontsize=9)
+    axis.set_xlabel("")
+    axis.set_ylabel("")
+    axis.set_xlim(float(positions.min()) - 0.8, float(positions.max()) + 0.8)
+    axis.set_ylim(-0.6, n_rows - 0.4)
+    axis.spines["top"].set_visible(False)
+    axis.spines["right"].set_visible(False)
+    axis.tick_params(length=0)
+
+    # 表达比例大小图例
+    handles = [
+        Line2D([0], [0], marker="o", color="none", markerfacecolor="#777777",
+               markeredgecolor="#666666", markeredgewidth=0.25, markersize=(p * 170.0 + 5.0) ** 0.5,
+               label="%d%%" % int(p * 100))
+        for p in (0.25, 0.5, 0.75, 1.0)
+    ]
+    axis.legend(handles=handles, title="Expressing proportions (%)", loc="upper left",
+                bbox_to_anchor=(1.12, 0.55), frameon=False, fontsize=7, title_fontsize=8)
     fig.tight_layout()
     return fig
 
