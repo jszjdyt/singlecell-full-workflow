@@ -48,6 +48,18 @@ R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`grou
 
 辅助能力：**自动注释**（内置 ≥14 类参考 marker 面板，给 top1/top2 + margin + 证据基因）、**自检**（10 项确定性检查，0–100 分）、**分辨率扫描**（多 resolution 的簇数与 ARI）、**预设流程**（standard/quick/qc 一键跑）。
 
+## 二·五 降维聚类：Seurat 6.0 官方实现 + Harmony 批次整合
+
+「一键降维聚类（Seurat 6）」按你自研软件的参数走 **Seurat 6.0 官方实现**：
+
+- **Harmony 批次整合**（自动识别 sample/orig.ident/group 批次列；无批次列自动跳过并提示）
+- **resolution 默认 0.2**（参考 20–30 个 cluster；偏多/偏少会给提示），`n_top_genes=3000`、`n_pcs=30`、UMAP neighbors=30
+- 复用上游 PCA + Standard Seurat 流程（NormalizeData → FindVariableFeatures(vst) → ScaleData → RunPCA → Harmony → FindNeighbors → FindClusters → RunUMAP）
+- **不再静默下采样**（默认上限 200000 细胞，可在参数里改）
+- 也可选内置引擎（无需 R）逐步跑；无 UMAP 的内置环境会回退 t-SNE 并在结果里写明
+
+> 依赖：本机 R + Seurat ≥6.0（插件自动使用独立 R 库，不污染系统 Seurat）+ harmony R 包。
+
 ## 三、高级分析（能力图全量登记）
 
 「高级分析」tab 按 7 大类列出全部条目。**原生分析**（下面标 native）在本机零配置可跑；**外部工具**灰显并给出原因与本插件替代方案，不会伪装成可运行。
@@ -166,7 +178,7 @@ Python worker lib/sc_engine.py（长驻，数据集常驻内存）
 | fgsea 1.32.4 | 2.4s | NES/p + 2 图 |
 | GSVA 2.0.7 | 10.4s | 通路活性写 obs |
 | AUCell 1.28.0 | 4.7s | 基因集 AUC 写 obs |
-| harmony 1.2.4 | 4.6s | 修正分量写 obs |
+| harmony 1.2.4（也用于 Seurat 流程内批次整合） | 4.6s | 修正分量写 obs |
 | CellPhoneDB 5.0.1 | 4.3s | 官方置换检验通讯表 |
 | pySCENIC 0.12.1 | 48.3s | GRNBoost2 21582 边/12 regulon 写 obs |
 | slingshot 2.14.0 | 4.1s | 谱系伪时间写 obs |

@@ -1498,6 +1498,215 @@ test('静态：v5 扫描样本表 UI 与 import_state 提示接线', () => {
 })
 
 // ---------------------------------------------------------------------------
+// 8.8 v6：降维聚类控制卡 / 手动注释 / 分组维护 / Agent 意图解析
+// ---------------------------------------------------------------------------
+
+test('normalizeDimredSettings / clampResolution：默认值与范围', () => {
+  const defaults = SC.normalizeDimredSettings(null)
+  assert.equal(defaults.engine, 'seurat')
+  assert.equal(defaults.harmony, true)
+  assert.equal(defaults.resolution, 0.2)
+  assert.equal(defaults.nPcs, 30)
+  assert.equal(defaults.neighbors, 30)
+  assert.equal(defaults.nTopGenes, 3000)
+
+  assert.equal(SC.clampResolution(2), 1.5)
+  assert.equal(SC.clampResolution(0), 0.05)
+  assert.equal(SC.clampResolution(0.333), 0.33)
+  assert.equal(SC.clampResolution('abc'), 0.2)
+  const custom = SC.normalizeDimredSettings({ engine: 'builtin', harmony: false, resolution: 0.8, nPcs: 50, neighbors: 20, nTopGenes: 2000 })
+  assert.equal(custom.engine, 'builtin')
+  assert.equal(custom.harmony, false)
+  assert.equal(custom.resolution, 0.8)
+  assert.equal(custom.nPcs, 50)
+  assert.equal(custom.neighbors, 20)
+  assert.equal(custom.nTopGenes, 2000)
+})
+
+test('buildReclusterParams / buildReclusterEmbedParams：Seurat+Harmony+batch_key payload', () => {
+  const settings = SC.normalizeDimredSettings({
+    engine: 'seurat', harmony: true, batchKey: '', resolution: 0.3, nPcs: 30, neighbors: 30,
+  })
+  const cluster = SC.buildReclusterParams(settings, 'sample')
+  assert.equal(cluster.engine, 'seurat')
+  assert.equal(cluster.use_harmony, true)
+  assert.equal(cluster.resolution, 0.3)
+  assert.equal(cluster.n_pcs, 30)
+  assert.equal(cluster.n_neighbors, 30)
+  assert.equal(cluster.batch_key, 'sample')
+  assert.equal(cluster.method, 'louvain')
+
+  const explicit = SC.buildReclusterParams(SC.normalizeDimredSettings({ batchKey: 'orig.ident' }), 'sample')
+  assert.equal(explicit.batch_key, 'orig.ident')
+
+  const builtin = SC.buildReclusterParams(SC.normalizeDimredSettings({ engine: 'builtin' }), 'sample')
+  assert.equal(builtin.engine, undefined)
+  assert.equal(builtin.use_harmony, undefined)
+  assert.equal(builtin.batch_key, undefined)
+  assert.equal(builtin.resolution, 0.2)
+
+  const embed = SC.buildReclusterEmbedParams(settings, 'sample')
+  assert.equal(embed.layout, 'umap')
+  assert.equal(embed.engine, 'seurat')
+  assert.equal(embed.use_harmony, true)
+  assert.equal(embed.batch_key, 'sample')
+  const builtinEmbed = SC.buildReclusterEmbedParams(SC.normalizeDimredSettings({ engine: 'builtin' }))
+  assert.equal(builtinEmbed.engine, undefined)
+  assert.equal(builtinEmbed.layout, 'umap')
+  assert.equal(SC.buildDimredRecipeRequest({}).id, 'seurat6')
+  assert.equal(SC.DIMRED_RECIPE_ID, 'seurat6')
+})
+
+test('pickDimredWarnings：从 dataset warnings 与运行 bullets 里挑提示', () => {
+  const warnings = SC.pickDimredWarnings(
+    ['聚类数 35 偏多（参考 20–30）：建议把 resolution 调低（当前 0.80）', '其它无关警告'],
+    [{ summary: { bullets: ['完成 Seurat 6.0 聚类', 'Harmony 整合：3 个批次'] } }],
+  )
+  assert.ok(warnings.some((item) => item.indexOf('聚类数 35 偏多') >= 0))
+  assert.ok(warnings.some((item) => item.indexOf('Harmony') >= 0))
+  assert.ok(!warnings.includes('其它无关警告'))
+})
+
+test('buildClusterAnnotationRows / parseAnnotationCsv：手动注释映射', () => {
+  const rows = SC.buildClusterAnnotationRows([
+    { id: '0', label: '0', nCells: 312, genes: [{ gene: 'CD3D' }, { gene: 'CD3E' }, { gene: 'IL7R' }, { gene: 'X' }] },
+    { id: '1', label: '1', nCells: 200, genes: [] },
+  ], { 0: 'T cell' })
+  assert.equal(rows.length, 2)
+  assert.deepEqual(rows[0].topGenes, ['CD3D', 'CD3E', 'IL7R'])
+  assert.equal(rows[0].cellType, 'T cell')
+  assert.equal(rows[1].cellType, '')
+
+  const parsed = SC.parseAnnotationCsv('cluster,cell_type\n0,T cell\n1,B cell\n2\n')
+  assert.deepEqual(parsed.mapping, { 0: 'T cell', 1: 'B cell' })
+  assert.equal(parsed.rows.length, 2)
+  assert.equal(parsed.skipped, 1)
+  assert.deepEqual(SC.parseAnnotationCsv('').mapping, {})
+})
+
+test('isGroupUsedBySamples / removeGroupFromList / clearSampleGroupValue / clearSampleRowGroup', () => {
+  const rows = [
+    { id: 's1', name: 'a', group: 'young' },
+    { id: 's2', name: 'b', group: 'old' },
+    { id: 's3', name: 'c', group: '' },
+  ]
+  assert.equal(SC.isGroupUsedBySamples(rows, 'young'), true)
+  assert.equal(SC.isGroupUsedBySamples(rows, 'mid'), false)
+  assert.deepEqual(SC.removeGroupFromList(['young', 'old', 'mid'], 'old'), ['young', 'mid'])
+  assert.equal(SC.clearSampleGroupValue('__clear__'), '')
+  assert.equal(SC.clearSampleGroupValue('young'), 'young')
+  const cleared = SC.clearSampleRowGroup(rows, 's1')
+  assert.equal(cleared[0].group, '')
+  assert.equal(cleared[1].group, 'old')
+  assert.equal(rows[0].group, 'young', '原数组不变')
+})
+
+test('extractResolution / extractGene：自然语言里的数值与基因', () => {
+  assert.equal(SC.extractResolution('resolution 调到 0.3'), 0.3)
+  assert.equal(SC.extractResolution('把分辨率改成 0.8'), 0.8)
+  assert.equal(SC.extractResolution('res=1.2'), 1.2)
+  assert.equal(SC.extractResolution('加 harmony'), null)
+  assert.equal(SC.extractGene('画 CD3D 的 featureplot'), 'CD3D')
+  assert.equal(SC.extractGene('看看 IL7R 表达'), 'IL7R')
+  assert.equal(SC.extractGene('画 UMAP 图'), '')
+  assert.equal(SC.extractGene('导出 CSV'), '')
+})
+
+test('parseAgentIntent：harmony/resolution/marker/featureplot/注释/组间/自检/导出', () => {
+  const ctx = { steps: ['qc', 'filter', 'normalize', 'hvg', 'pca', 'neighbors', 'cluster', 'embed'], hasMarkers: true }
+  const harmony = SC.parseAgentIntent('加 harmony 整合一下', ctx)
+  assert.equal(harmony.fallback, false)
+  assert.ok(harmony.suggestions.some((item) => item.action.type === 'recluster' && item.action.params.use_harmony === true))
+
+  const resolution = SC.parseAgentIntent('resolution 调到 0.3', ctx)
+  assert.ok(resolution.suggestions.some((item) => item.action.type === 'recluster' && item.action.params.resolution === 0.3))
+
+  const markers = SC.parseAgentIntent('帮我找 marker', ctx)
+  assert.ok(markers.suggestions.some((item) => item.action.type === 'markers'))
+
+  const feature = SC.parseAgentIntent('把 CD3D 画到 UMAP 上', ctx)
+  assert.ok(feature.suggestions.some((item) => item.action.type === 'featureplot' && item.action.gene === 'CD3D'))
+
+  const annotate = SC.parseAgentIntent('把 cluster 0 标成 T cell', ctx)
+  assert.ok(annotate.suggestions.some((item) => item.action.type === 'annotate'))
+
+  const de = SC.parseAgentIntent('跑一下组间差异基因', ctx)
+  assert.ok(de.suggestions.some((item) => item.action.type === 'analysis' && item.action.id === 'de_group'))
+
+  const audit = SC.parseAgentIntent('做个自检', ctx)
+  assert.ok(audit.suggestions.some((item) => item.action.type === 'audit'))
+
+  const report = SC.parseAgentIntent('导出 report', ctx)
+  assert.ok(report.suggestions.some((item) => item.action.type === 'export' && item.action.what === 'report'))
+
+  const unknown = SC.parseAgentIntent('今天天气怎么样', { steps: [] })
+  assert.equal(unknown.fallback, true)
+  assert.equal(unknown.suggestions.length, 0)
+
+  // 2–4 条：至少补一条上下文建议
+  const single = SC.parseAgentIntent('加 harmony', { steps: [] })
+  assert.ok(single.suggestions.length >= 2)
+  assert.ok(SC.parseAgentIntent('加 harmony', ctx).suggestions.length <= 4)
+})
+
+test('agentActionInstruction：建议动作 → 中文指令', () => {
+  assert.match(SC.agentActionInstruction({ type: 'recipe', id: 'seurat6' }), /一键降维聚类/)
+  const recluster = SC.agentActionInstruction({ type: 'recluster', params: { engine: 'seurat', use_harmony: true, resolution: 0.3 } })
+  assert.match(recluster, /只重跑聚类/)
+  assert.match(recluster, /Seurat 引擎/)
+  assert.match(recluster, /Harmony/)
+  assert.match(recluster, /resolution=0\.3/)
+  assert.match(SC.agentActionInstruction({ type: 'markers' }), /标记基因/)
+  assert.match(SC.agentActionInstruction({ type: 'featureplot', gene: 'CD3D' }), /CD3D/)
+  assert.match(SC.agentActionInstruction({ type: 'analysis', id: 'de_group' }), /de_group/)
+  assert.match(SC.agentActionInstruction({ type: 'export', what: 'methods' }), /methods/)
+  assert.match(SC.agentActionInstruction(null), /继续/)
+})
+
+test('静态：v6 降维卡 / 注释工作台 / 分组删除 / Agent 输入接线', () => {
+  assert.match(CLIENT_SOURCE, /function DimredCard\(props\)/)
+  assert.match(CLIENT_SOURCE, /function AnnotationWorkbench\(props\)/)
+  assert.match(CLIENT_SOURCE, /onRunRecipe: handleDimredRecipe/)
+  assert.match(CLIENT_SOURCE, /onRecluster: handleDimredRecluster/)
+  assert.match(CLIENT_SOURCE, /buildReclusterParams\(settings, batchKey\)/)
+  assert.match(CLIENT_SOURCE, /buildReclusterEmbedParams\(settings, batchKey\)/)
+  assert.match(CLIENT_SOURCE, /onPlotMarker: handlePlotMarker/)
+  assert.match(CLIENT_SOURCE, /onFeaturePlot: handleFeaturePlot/)
+  assert.match(CLIENT_SOURCE, /parseAnnotationCsv\(annotCsvText\)/)
+  assert.match(CLIENT_SOURCE, /onDeleteGroup: handleDeleteSampleGroup/)
+  assert.match(CLIENT_SOURCE, /onRemoveSample: handleRemoveSample/)
+  assert.match(CLIENT_SOURCE, /onAgentRun: handleAgentRun/)
+  assert.match(CLIENT_SOURCE, /agentAskPlaceholder/)
+  assert.match(CLIENT_SOURCE, /parseAgentIntent\(text/)
+  assert.match(CLIENT_SOURCE, /DIMRED_RECIPE_ID/)
+  assert.match(CLIENT_SOURCE, /sc-dimred/)
+})
+
+test('分组清空/删除 与 buildSamplesUpdate 组合：删空组后 update 载荷不含该组', () => {
+  const rows = [
+    { id: 's1', name: 'PT1', group: 'young', nCells: 100 },
+    { id: 's2', name: 'PT2', group: '', nCells: 100 },
+  ]
+  assert.equal(SC.isGroupUsedBySamples(rows, 'old'), false)
+  const nextGroups = SC.removeGroupFromList(['young', 'old'], 'old')
+  const body = SC.buildSamplesUpdate(rows, { groups: nextGroups, sampleColumn: 'sample', groupColumn: 'group' })
+  assert.deepEqual(body.groups, ['young'])
+  assert.equal(body.samples[1].group, '')
+  const cleared = SC.applyGroupToRows(rows, '', true)
+  assert.deepEqual(cleared.map((row) => row.group), ['', ''])
+})
+
+test('parseAgentIntent：比例/通讯 与 未知句子的 fallback', () => {
+  const proportion = SC.parseAgentIntent('看组间细胞比例差异', { steps: ['cluster'] })
+  assert.ok(proportion.suggestions.some((item) => item.action.type === 'analysis' && item.action.id === 'proportion_test'))
+  const lr = SC.parseAgentIntent('做细胞通讯', { steps: ['cluster'] })
+  assert.ok(lr.suggestions.some((item) => item.action.type === 'analysis' && item.action.id === 'lr_communication'))
+  const methods = SC.parseAgentIntent('导出 methods', { steps: ['cluster'] })
+  assert.ok(methods.suggestions.some((item) => item.action.type === 'export' && item.action.what === 'methods'))
+  assert.deepEqual(SC.parseAgentIntent('', {}), { suggestions: [], fallback: true })
+})
+
+// ---------------------------------------------------------------------------
 // 9. 静态合规：模块形态 / 槽注册 / 样式约束
 // ---------------------------------------------------------------------------
 

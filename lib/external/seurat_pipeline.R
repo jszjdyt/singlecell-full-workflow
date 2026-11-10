@@ -110,9 +110,10 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
 
 .parse_params <- function(raw) {
   defaults <- list(
-    step = "full", n_pcs = 30L, n_neighbors = 20L, resolution = 0.8,
-    n_top_genes = 2000L, dims = 20L, umap = TRUE, seed = 0L,
-    max_cells = 30000L, max_genes = 8000L
+    step = "full", n_pcs = 30L, n_neighbors = 30L, resolution = 0.2,
+    n_top_genes = 3000L, dims = 20L, umap = TRUE, seed = 0L,
+    use_harmony = TRUE, batch_key = "",
+    max_cells = 200000L, max_genes = 10000L
   )
   if (is.null(raw) || !nzchar(trimws(raw))) return(defaults)
   text <- trimws(raw)
@@ -392,8 +393,8 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   barcodes <- bundle$barcodes
   genes <- bundle$genes
   seed <- as.integer(params$seed %||% 0L)
-  max_cells <- max(10L, .as_int(params$max_cells, 30000L))
-  max_genes <- max(10L, .as_int(params$max_genes, 8000L))
+  max_cells <- max(10L, .as_int(params$max_cells, 200000L))
+  max_genes <- max(10L, .as_int(params$max_genes, 10000L))
   pca <- bundle$pca
   obs <- bundle$obs
 
@@ -453,6 +454,22 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     error = function(error) .bad("CreateSeuratObject 失败：%s", error$message)
   )
   object <- tryCatch(Seurat::RenameCells(object, new.names = bundle$barcodes), error = function(error) object)
+  # 关键：把 bundle 里的细胞元数据（sample/group/batch/...）塞进 Seurat meta.data，
+  # 否则 Harmony 找不到批次列（用户软件按样本做 Harmony 整合）。
+  obs <- bundle$obs
+  if (!is.null(obs) && nrow(obs) == n_cells && ncol(obs) > 0) {
+    meta <- as.data.frame(obs, stringsAsFactors = FALSE)
+    rownames(meta) <- bundle$barcodes
+    existing <- colnames(object[[]])
+    for (column in setdiff(colnames(meta), existing)) {
+      values <- meta[[column]]
+      if (is.list(values)) {
+        values <- vapply(values, function(item) paste(as.character(item), collapse = ";"), character(1))
+      }
+      object[[column]] <- values
+    }
+    .log("附加细胞元数据：%s", paste(setdiff(colnames(meta), existing), collapse = ", "))
+  }
   # data.mtx 已经是 log-normalized、又没有 counts.mtx 时：直接放进 data 层并跳过 NormalizeData
   already_normalized <- FALSE
   if (!bundle$from_counts_file && identical(bundle$x_kind, "lognorm")) {
@@ -550,11 +567,78 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   object
 }
 
+.run_harmony <- function(object, batch_key, warnings, seed) {
+  info <- list(used = FALSE, batch_key = NULL)
+  if (!requireNamespace("harmony", quietly = TRUE)) {
+    warnings <- .warn_add(warnings, "harmony 包不可用，已回退 PCA（未做批次整合）")
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  }
+  meta <- tryCatch(object[[]], error = function(e) NULL)
+  if (is.null(meta) || ncol(meta) == 0) {
+    warnings <- .warn_add(warnings, "对象没有元数据，跳过 Harmony 整合")
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  }
+  key <- trimws(as.character(batch_key %||% ""))
+  if (!nzchar(key) || !(key %in% colnames(meta))) {
+    candidates <- c("sample", "orig.ident", "batch", "group", "donor", "patient", "library", "lane")
+    hit <- candidates[candidates %in% colnames(meta)]
+    key <- if (length(hit)) hit[1] else ""
+  }
+  if (!nzchar(key)) {
+    warnings <- .warn_add(warnings,
+      "未找到批次列（sample/orig.ident/batch/group），跳过 Harmony 整合（用 params.batch_key 指定）")
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  }
+  values <- meta[[key]]
+  if (length(unique(values[!is.na(values)])) < 2L) {
+    warnings <- .warn_add(warnings, "批次列 %s 只有 1 个取值，跳过 Harmony 整合", key)
+    return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+  }
+  .log("Harmony 整合：group.by.vars=%s（%d 个批次）…", key, length(unique(values[!is.na(values)])))
+  harmonized <- tryCatch(
+    harmony::RunHarmony(object, group.by.vars = key, reduction.use = "pca",
+                        reduction.save = "harmony", verbose = FALSE),
+    error = function(error) error
+  )
+  if (inherits(harmonized, "error")) {
+    # 某些 Seurat v5/v6 对象上 RunHarmony 会报 non-conformable arguments：
+    # 退回矩阵版 HarmonyMatrix（官方算法同一实现），再手动挂回 DimReduc。
+    .log("RunHarmony 失败（%s），改用 HarmonyMatrix 矩阵版…", conditionMessage(harmonized))
+    pca_emb <- tryCatch(Seurat::Embeddings(object, reduction = "pca"), error = function(e) NULL)
+    meta <- tryCatch(object[[]], error = function(e) NULL)
+    matrix_harmony <- NULL
+    if (!is.null(pca_emb) && !is.null(meta) && nrow(pca_emb) == nrow(meta)) {
+      matrix_harmony <- tryCatch(
+        harmony::HarmonyMatrix(
+          data_mat = pca_emb, meta_data = meta, vars_use = key,
+          do_pca = FALSE, verbose = FALSE
+        ),
+        error = function(error) error
+      )
+    }
+    if (is.null(matrix_harmony) || inherits(matrix_harmony, "error")) {
+      reason <- if (inherits(matrix_harmony, "error")) conditionMessage(matrix_harmony) else conditionMessage(harmonized)
+      warnings <- .warn_add(warnings, "Harmony 整合失败（%s），已回退 PCA", reason)
+      return(list(object = object, warnings = warnings, reduction = "pca", info = info))
+    }
+    colnames(matrix_harmony) <- paste0("harmony_", seq_len(ncol(matrix_harmony)))
+    rownames(matrix_harmony) <- rownames(pca_emb)
+    object[["harmony"]] <- Seurat::CreateDimReducObject(
+      embeddings = matrix_harmony, key = "harmony_",
+      assay = SeuratObject::DefaultAssay(object)
+    )
+    harmonized <- object
+  }
+  info$used <- TRUE
+  info$batch_key <- key
+  list(object = harmonized, warnings = warnings, reduction = "harmony", info = info)
+}
+
 .graph_names <- function(object) {
   tryCatch(SeuratObject::Graphs(object), error = function(e) character(0))
 }
 
-.find_neighbors <- function(object, dims, n_neighbors, warnings) {
+.find_neighbors <- function(object, dims, n_neighbors, warnings, reduction = "pca") {
   k <- max(2L, .as_int(n_neighbors, 20L))
   k <- min(k, ncol(object) - 1L)
   if (k < 2L) .prereq("细胞数不足，无法构建 kNN 图")
@@ -563,7 +647,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   # 把 S4 Seurat 对象作为 do.call 的实参会触发 Seurat 内部对巨大对象的 deparse，
   # 2208 细胞时 FindNeighbors 会从 0.1 秒退化到 5 秒、UMAP 退化到 60 秒。
   object <- tryCatch(
-    Seurat::FindNeighbors(object = object, reduction = "pca", dims = dims,
+    Seurat::FindNeighbors(object = object, reduction = reduction, dims = dims,
                           k.param = as.integer(k), annoy.metric = "euclidean",
                           verbose = FALSE),
     error = function(error) .bad("FindNeighbors 失败：%s", error$message)
@@ -607,12 +691,12 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   list(object = object, warnings = warnings, labels = labels, resolution = resolution)
 }
 
-.run_umap <- function(object, dims, n_neighbors, seed, warnings) {
+.run_umap <- function(object, dims, n_neighbors, seed, warnings, reduction = "pca") {
   k <- max(2L, .as_int(n_neighbors, 20L))
   k <- min(k, max(2L, ncol(object) - 2L))
   .log("RunUMAP(dims=%d:%d, n.neighbors=%d, seed.use=%d) …", min(dims), max(dims), k, seed)
   object <- tryCatch(
-    Seurat::RunUMAP(object = object, reduction = "pca", dims = dims,
+    Seurat::RunUMAP(object = object, reduction = reduction, dims = dims,
                     n.neighbors = as.integer(k), seed.use = as.integer(seed),
                     umap.method = "uwot", min.dist = 0.3, metric = "cosine",
                     verbose = FALSE),
@@ -791,9 +875,11 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   seed <- as.integer(params$seed %||% 0L)
   n_pcs <- max(2L, .as_int(params$n_pcs, 30L))
   n_neighbors <- max(2L, .as_int(params$n_neighbors, 20L))
-  resolution <- max(0.01, .as_num(params$resolution, 0.8))
-  n_top_genes <- max(50L, .as_int(params$n_top_genes, 2000L))
+  resolution <- max(0.01, .as_num(params$resolution, 0.2))
+  n_top_genes <- max(50L, .as_int(params$n_top_genes, 3000L))
   do_umap <- .is_true(params$umap, TRUE)
+  use_harmony <- .is_true(params$use_harmony, TRUE)
+  batch_key <- as.character(params$batch_key %||% "")
 
   .log("dsh-singlecell Seurat 适配器：step=%s seed=%d n_pcs=%d resolution=%.2f", step, seed, n_pcs, resolution)
 
@@ -861,6 +947,17 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     pca_matrix <- Seurat::Embeddings(object, reduction = "pca")[, seq_len(min(n_pcs, npcs)), drop = FALSE]
     colnames(pca_matrix) <- paste0("PC", seq_len(ncol(pca_matrix)))
   }
+  # ---- Harmony 批次整合（对齐用户软件：Seurat + Harmony 后再构图/聚类/UMAP）
+  harmony_reduction <- "pca"
+  harmony_info <- list(used = FALSE, batch_key = NULL)
+  if (isTRUE(use_harmony) && step %in% c("neighbors", "cluster", "embed", "full")) {
+    harmony_out <- .run_harmony(object, batch_key, warnings, seed)
+    object <- harmony_out$object
+    warnings <- harmony_out$warnings
+    harmony_reduction <- harmony_out$reduction
+    harmony_info <- harmony_out$info
+  }
+
   requested_dims <- .requested_dims(params$dims)
   dims <- .resolve_dims(params$dims, npcs)
   if (length(requested_dims) && max(requested_dims) > npcs && step %in% c("neighbors", "cluster", "embed", "full")) {
@@ -901,7 +998,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   }
 
   if (step %in% c("neighbors", "cluster", "full")) {
-    neighbor_out <- .find_neighbors(object, dims, n_neighbors, warnings)
+    neighbor_out <- .find_neighbors(object, dims, n_neighbors, warnings, reduction = harmony_reduction)
     object <- neighbor_out$object
     warnings <- neighbor_out$warnings
     k_used <- neighbor_out$k
@@ -924,6 +1021,14 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
       ),
       rows = rows
     )))
+    n_cluster_now <- length(unique(final_labels))
+    if (n_cluster_now > 30L) {
+      warnings <- .warn_add(warnings,
+        "聚类数 %d 偏多（参考 20–30）：建议把 resolution 调低（当前 %.2f）", n_cluster_now, resolution)
+    } else if (n_cluster_now < 10L) {
+      warnings <- .warn_add(warnings,
+        "聚类数 %d 偏少（参考 20–30）：建议把 resolution 调高（当前 %.2f）", n_cluster_now, resolution)
+    }
     if (step == "cluster") {
       sizes_path <- file.path(out_dir, "seurat_cluster_sizes.png")
       sizes_ok <- .plot_cluster_sizes(final_labels, sizes_path)
@@ -935,7 +1040,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
 
   embed_path <- NULL
   if (step == "embed" || (step == "full" && do_umap)) {
-    umap_out <- .run_umap(object, dims, n_neighbors, seed, warnings)
+    umap_out <- .run_umap(object, dims, n_neighbors, seed, warnings, reduction = harmony_reduction)
     object <- umap_out$object
     warnings <- umap_out$warnings
     embedding <- umap_out$embedding
@@ -977,7 +1082,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     neighbors = "Seurat 6.0 官方 R 包：RunPCA（或复用上游 PCA）→ FindNeighbors",
     cluster = "Seurat 6.0 官方 R 包：FindNeighbors → FindClusters（Louvain）",
     embed = "Seurat 6.0 官方 R 包：RunPCA（或复用上游 PCA）→ RunUMAP（uwot）",
-    full = "Seurat 6.0 官方 R 包：NormalizeData(LogNormalize) → FindVariableFeatures(vst) → ScaleData → RunPCA → FindNeighbors → FindClusters → RunUMAP"
+    full = "Seurat 6.0 官方 R 包：NormalizeData(LogNormalize) → FindVariableFeatures(vst) → ScaleData → RunPCA → Harmony 整合（harmony 包）→ FindNeighbors → FindClusters（Louvain）→ RunUMAP"
   )
 
   metrics <- list(
@@ -997,6 +1102,9 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
     seed = seed,
     n_clusters = if (is.null(n_clusters)) NULL else as.integer(n_clusters),
     used_bundle_pca = used_bundle_pca,
+    use_harmony = isTRUE(harmony_info$used),
+    harmony_batch_key = if (isTRUE(harmony_info$used)) harmony_info$batch_key else NULL,
+    harmony_reduction = harmony_reduction,
     elapsed_seconds = round(elapsed, 3)
   )
   metrics <- metrics[!vapply(metrics, is.null, logical(1))]
@@ -1023,6 +1131,11 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   if (!is.null(embedding)) {
     bullets <- c(bullets, sprintf("RunUMAP（uwot，n.neighbors=%d，前 %d 个 PC）输出 2 维坐标",
                                   as.integer(k_used), length(dims)))
+  }
+  if (isTRUE(harmony_info$used)) {
+    bullets <- c(bullets, sprintf("Harmony 批次整合：按 %s 分组，使用 harmony 嵌入构图/聚类/UMAP", harmony_info$batch_key))
+  } else if (step %in% c("neighbors", "cluster", "embed", "full")) {
+    bullets <- c(bullets, "未做 Harmony 整合（无批次列或未启用），使用 PCA 构图")
   }
   bullets <- c(bullets, sprintf("Seurat 步骤耗时 %.2f 秒", elapsed))
 

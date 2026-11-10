@@ -886,8 +886,8 @@ STEP_DEFAULTS = {
     "hvg": {"n_top_genes": 2000, "flavor": "seurat"},
     "pca": {"n_pcs": 30},
     "neighbors": {"n_neighbors": 15, "metric": "cosine"},
-    "cluster": {"resolution": 1.0, "method": "louvain"},
-    "embed": {"layout": "tsne", "perplexity": 30.0, "n_iter": 1000},
+    "cluster": {"resolution": 0.2, "method": "louvain"},
+    "embed": {"layout": "umap", "perplexity": 30.0, "n_iter": 1000},
     "markers": {"groupby": "clusters", "top_n": 10, "method": "t-test"},
     "annotate": {"mapping": {}},
 }
@@ -949,7 +949,7 @@ def _merge_params(step, user_params):
             raise EngineError("bad_request", "n_neighbors 必须 ≥ 1")
         merged["metric"] = str(merged.get("metric") or "cosine")
     elif step == "cluster":
-        merged["resolution"] = _limited_float(merged.get("resolution", 1.0), "resolution", 1e-4, 100.0)
+        merged["resolution"] = _limited_float(merged.get("resolution", 0.2), "resolution", 1e-4, 100.0)
         merged["method"] = str(merged.get("method") or "louvain").lower()
     elif step == "embed":
         merged["layout"] = str(merged.get("layout") or "tsne").lower()
@@ -1405,6 +1405,10 @@ def _step_cluster(dataset, params):
         dataset.cell_type_default = True
     dataset.markers = None
     dataset.resolution_scan = None
+    if n_clusters > 30:
+        dataset.warnings.append("聚类数 %d 偏多（参考 20–30）：建议把 resolution 调低（当前 %.2f）" % (n_clusters, resolution))
+    elif n_clusters < 10:
+        dataset.warnings.append("聚类数 %d 偏少（参考 20–30）：建议把 resolution 调高（当前 %.2f）" % (n_clusters, resolution))
     sizes = np.bincount(labels, minlength=n_clusters).astype(int).tolist() if labels.size else []
     dataset.uns["cluster"] = {
         "method": method_effective,
@@ -2523,16 +2527,16 @@ RECIPES = [
 SEURAT6_RECIPE = {
     "id": "seurat6",
     "title": "Seurat 6.0 官方流程",
-    "detail": "QC → 过滤 → 标准化 → 高变基因 → Seurat 6.0 官方 PCA/邻接/聚类/UMAP",
+    "detail": "QC → 过滤 → 标准化 → 高变基因 → Seurat 6.0 官方 PCA → Harmony 批次整合 → 聚类（resolution 0.2）→ UMAP",
     "steps": [
         {"step": "qc", "params": {}},
         {"step": "filter", "params": {"min_genes": 200, "max_pct_mt": 20, "min_cells": 3}},
         {"step": "normalize", "params": {"target_sum": 10000}},
-        {"step": "hvg", "params": {"n_top_genes": 2000, "flavor": "seurat"}},
-        {"step": "pca", "params": {"n_pcs": 30, "engine": "seurat"}},
-        {"step": "neighbors", "params": {"n_neighbors": 20, "engine": "seurat"}},
-        {"step": "cluster", "params": {"resolution": 0.8, "engine": "seurat"}},
-        {"step": "embed", "params": {"layout": "umap", "engine": "seurat"}},
+        {"step": "hvg", "params": {"n_top_genes": 3000, "flavor": "seurat"}},
+        {"step": "pca", "params": {"n_pcs": 30, "n_top_genes": 3000, "use_harmony": True, "engine": "seurat"}},
+        {"step": "neighbors", "params": {"n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
+        {"step": "cluster", "params": {"resolution": 0.2, "n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
+        {"step": "embed", "params": {"layout": "umap", "n_neighbors": 30, "use_harmony": True, "engine": "seurat"}},
     ],
 }
 

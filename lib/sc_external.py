@@ -119,6 +119,7 @@ def _nichenet_priors():
     if cfg.get("nichenetPriors"):
         return os.path.expanduser(str(cfg["nichenetPriors"]))
     return _first_existing([
+        "/Users/dingyuntao/Desktop/祖传R语言单细胞代码/crosstalk",
         os.path.expanduser("~/nichenet_priors"),
     ])
 
@@ -128,7 +129,8 @@ def _scenic_db():
     if cfg.get("scenicMotifDb"):
         return os.path.expanduser(str(cfg["scenicMotifDb"]))
     return _first_existing([
-        os.path.expanduser("~/scenic_databases"),
+        "/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/human/python用",
+        "/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/human",
         os.path.expanduser("~/cisTarget_databases"),
     ])
 
@@ -830,7 +832,12 @@ def seurat_step(dataset, step, params, workdir, progress=None):
     interpreter = probe().get("rscript")
     if not script.exists() or not interpreter:
         raise ExternalError("unsupported", "Seurat 6.0 适配器不可用（%s）" % script)
-    bundle = export_bundle(dataset, workdir, "seurat6-%s" % step, {"max_cells": 25000, "max_genes": 8000})
+    export_cells = params.get("max_cells") if isinstance(params, dict) else None
+    export_genes = params.get("max_genes") if isinstance(params, dict) else None
+    bundle = export_bundle(dataset, workdir, "seurat6-%s" % step, {
+        "max_cells": int(export_cells or 200000),
+        "max_genes": int(export_genes or 10000),
+    })
     outdir = Path(bundle["bundle"]) / "out"
     outdir.mkdir(parents=True, exist_ok=True)
     step_params = dict(params or {})
