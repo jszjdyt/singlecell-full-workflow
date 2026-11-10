@@ -664,3 +664,37 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 - **不静默降采样**：`max_cells` 默认 200000（原 25000），导出 bundle 的细胞上限由参数控制
 - **预设流程 `seurat6`** 已改为：QC→filter→normalize→hvg(3000)→Seurat PCA→Harmony→FindClusters(resolution=0.2)→UMAP(n.neighbors=30)
 - 工具 schema 参数 `group_regex`（原 `regex`/`pattern` 均为 JSON Schema 保留字雷区，`TOOL_SCHEMA_VERSION=4`）
+
+
+---
+
+## §13 UI v6 与配套后端（v0.6.0）
+
+### 13.1 按选中基因出图
+
+`POST /plot`，`kind=dotplot|heatmap`，`params` 支持：
+- `genes: ["CD3D","NKG7",...]`（也接受逗号/空格分隔字符串）→ 按选中基因 × 簇出图；不在表达矩阵中的基因忽略并写 warning；最多 120 个；
+- 未传 `genes` 时保持原行为：每簇 top-N marker（`params.top_n`，默认 5）。
+
+引擎实现：`_selected_gene_list` / `_expression_by_cluster`（均值 + 表达比例矩阵）。
+
+### 13.2 按样本移除细胞
+
+`POST /samples/remove {dataset, samples:[样本名或id]}` →
+`{ok, dataset: 摘要, removed_cells, removed_samples}`。
+
+- 真正从 `X/counts/obs/obsm/layers` 中剔除这些样本的细胞；
+- 重置下游结果：清空 clusters/cell_type/_emb_*/obsm、markers/adj/knn/layout/邻接图等；
+- `steps` 保留数据级前缀 `qc/filter/normalize/hvg`；`samples/groups` 同步更新；
+- 全部样本都移除时返回 `bad_request`；
+- Agent 工具同样可用：`action=samples, op=remove, samples=[...]`。
+
+### 13.3 UI v6 入口
+
+| 功能 | 位置 |
+|---|---|
+| 降维聚类控制卡（Seurat6/Harmony/resolution 0.2/UMAP 30） | 聚类 tab 顶部 |
+| 一键降维聚类 / 只重聚类 | 同上 |
+| 手动注释工作台（簇列表 / marker 表 / DotPlot / 热图 / FeaturePlot / 保存注释 / 粘贴 CSV） | 标记基因 tab 顶部 |
+| 删除分组 / 清空分组 / 移除样本 | 记录 tab「样本 & 分组」 |
+| Agent 输入框 + 建议卡 + 直接运行 | 右栏 Agent 顶部 |

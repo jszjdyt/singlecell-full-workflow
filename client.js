@@ -670,7 +670,8 @@
     annotCsvEmpty: '没有解析到注释行（每行：cluster,细胞类型）',
     cancel: '取消',
     annotCsvApplied: '已应用 {v} 条注释',
-    samplesRemoveHint: '已清空该样本的分组；后端暂不支持排除细胞，如需真正移除请重新导入数据。',
+    samplesRemoveHint: '按样本从数据集中移除细胞（会重置聚类/嵌入结果）。',
+    samplesRemoved: '已移除 {v} 个细胞；聚类/嵌入已重置，请重新一键降维聚类。',
     // v6：Agent 输入
     agentAskPlaceholder: '想做什么？如：加 harmony、resolution 调到 0.3、找 marker、组间差异、导出报告',
     agentSend: '发送',
@@ -1107,7 +1108,8 @@
     annotCsvEmpty: 'No annotation lines parsed (one per line: cluster,cell type)',
     cancel: 'Cancel',
     annotCsvApplied: 'Applied {v} annotations',
-    samplesRemoveHint: 'Group cleared for this sample; removing cells is not supported by the backend yet, re-import to drop them.',
+    samplesRemoveHint: 'Remove this sample\u2019s cells from the dataset (resets clustering/embedding).',
+    samplesRemoved: 'Removed {v} cells; clustering/embedding were reset, re-run dimensionality reduction.',
     agentAskPlaceholder: 'What do you want? e.g. add harmony, set resolution 0.3, find markers, between-group DE, export report',
     agentSend: 'Send',
     agentParsed: '{v} actionable suggestions',
@@ -3820,6 +3822,13 @@
       samplesUpdate: function (datasetId, payload, extra) {
         var body = Object.assign({ dataset: String(datasetId || ''), actor: 'user' }, payload && typeof payload === 'object' ? payload : {})
         return jsonPost('/samples/update', body, extra)
+      },
+      samplesRemove: function (datasetId, samples, extra) {
+        return jsonPost('/samples/remove', {
+          dataset: String(datasetId || ''),
+          samples: (Array.isArray(samples) ? samples : [samples]).map(function (item) { return String(item == null ? '' : item) }).filter(Boolean),
+          actor: 'user',
+        }, Object.assign({ timeoutMs: HEAVY_API_TIMEOUT_MS * 2 }, extra || {}))
       },
       samplesAutoGroup: function (datasetId, pattern, extra) {
         return jsonPost('/samples/auto-group', {
@@ -9160,11 +9169,13 @@
       }
 
       async function handleRemoveSample(sampleId) {
-        var nextRows = clearSampleRowGroup(sampleRowsState, sampleId)
-        setSampleRows(nextRows)
-        setSampleDirty(true)
-        var payload = await saveSamples(nextRows, sampleGroups)
-        if (payload) setSamplesMessage(T('samplesRemoveHint'))
+        if (!activeId) return
+        var payload = await runTask('samplesRemove', function () {
+          return clientApi.samplesRemove(activeId, [sampleId])
+        })
+        if (!payload) return
+        setSamplesMessage(tf(T, 'samplesRemoved', payload.removed_cells || 0))
+        await refreshState(true)
       }
 
       // ---- v6：Agent 意图动作 ----

@@ -1692,7 +1692,7 @@ test('分组清空/删除 与 buildSamplesUpdate 组合：删空组后 update �
   const body = SC.buildSamplesUpdate(rows, { groups: nextGroups, sampleColumn: 'sample', groupColumn: 'group' })
   assert.deepEqual(body.groups, ['young'])
   assert.equal(body.samples[1].group, '')
-  const cleared = SC.applyGroupToRows(rows, '', true)
+  const cleared = SC.applyGroupToRows(rows, '', false)
   assert.deepEqual(cleared.map((row) => row.group), ['', ''])
 })
 

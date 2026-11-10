@@ -2723,11 +2723,63 @@ def _marker_gene_matrix(dataset, groups, top_n):
     return genes, clusters, mean_matrix, pct_matrix
 
 
+def _selected_gene_list(dataset, params):
+    """params.genes 指定的基因列表（支持数组 / 逗号/空格分隔字符串），校验并去重。"""
+    raw = params.get("genes") if isinstance(params, dict) else None
+    if isinstance(raw, str):
+        raw = [item for item in raw.replace(",", " ").replace(";", " ").replace("\n", " ").split() if item]
+    if not isinstance(raw, (list, tuple)) or not raw:
+        return []
+    index = dataset.var_index()
+    genes, missing = [], []
+    for item in raw:
+        gene = str(item).strip()
+        if not gene:
+            continue
+        if gene in index:
+            if gene not in genes:
+                genes.append(gene)
+        elif gene not in missing:
+            missing.append(gene)
+    if missing:
+        dataset.warnings.append("出图忽略不在表达矩阵中的基因：%s" % ", ".join(missing[:10]))
+    return genes[:120]
+
+
+def _expression_by_cluster(dataset, genes, clusters=None):
+    """选中基因 × 簇 的平均表达 / 表达比例矩阵（用户手动选 marker 出图用）。"""
+    index = dataset.var_index()
+    positions = np.array([int(index[gene]) for gene in genes], dtype=np.int64)
+    matrix = dataset.X.tocsr()[:, positions]
+    values = [str(value) for value in dataset.obs["clusters"].tolist()]
+    if clusters is None:
+        clusters = sorted(set(values), key=lambda item: (len(item), item))
+    else:
+        clusters = [str(item) for item in clusters]
+    mean_matrix = np.zeros((len(clusters), len(genes)), dtype=np.float64)
+    pct_matrix = np.zeros_like(mean_matrix)
+    for row, label in enumerate(clusters):
+        mask = np.array([value == label for value in values], dtype=bool)
+        n_cells = int(mask.sum())
+        if n_cells == 0:
+            continue
+        subset = matrix[mask]
+        mean_matrix[row] = np.asarray(subset.mean(axis=0)).ravel()
+        pct_matrix[row] = np.asarray(subset.getnnz(axis=0)).ravel() / float(n_cells)
+    return list(genes), clusters, mean_matrix, pct_matrix
+
+
 def _plot_dotplot(dataset, params):
     _require_step(dataset, "cluster", "生成 dotplot 需要先完成 cluster 步骤")
-    top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
-    groups = _ensure_cluster_markers(dataset, top_n)
-    genes, clusters, mean_matrix, pct_matrix = _marker_gene_matrix(dataset, groups, top_n)
+    selected = _selected_gene_list(dataset, params)
+    if selected:
+        genes, clusters, mean_matrix, pct_matrix = _expression_by_cluster(dataset, selected)
+        title = "Selected marker genes (%d)" % len(genes)
+    else:
+        top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
+        groups = _ensure_cluster_markers(dataset, top_n)
+        genes, clusters, mean_matrix, pct_matrix = _marker_gene_matrix(dataset, groups, top_n)
+        title = "Marker genes (top %d per cluster)" % top_n
     width = max(4.8, 0.30 * len(genes) + 2.6)
     height = max(3.0, 0.34 * len(clusters) + 1.8)
     fig, axis = plt.subplots(figsize=(width, height), dpi=140)
@@ -2745,7 +2797,7 @@ def _plot_dotplot(dataset, params):
     axis.set_yticklabels(clusters, fontsize=8)
     axis.set_xlabel("marker gene")
     axis.set_ylabel("cluster")
-    axis.set_title("Marker genes (top %d per cluster)" % top_n)
+    axis.set_title(title)
     axis.set_xlim(-0.5, len(genes) - 0.5)
     axis.set_ylim(-0.5, len(clusters) - 0.5)
     fig.tight_layout()
@@ -2754,9 +2806,15 @@ def _plot_dotplot(dataset, params):
 
 def _plot_heatmap(dataset, params):
     _require_step(dataset, "cluster", "生成 heatmap 需要先完成 cluster 步骤")
-    top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
-    groups = _ensure_cluster_markers(dataset, top_n)
-    genes, clusters, mean_matrix, _pct = _marker_gene_matrix(dataset, groups, top_n)
+    selected = _selected_gene_list(dataset, params)
+    if selected:
+        genes, clusters, mean_matrix, _pct = _expression_by_cluster(dataset, selected)
+        title = "Selected marker genes heatmap (%d)" % len(genes)
+    else:
+        top_n = max(1, min(20, _as_int(params.get("top_n", 5), "top_n")))
+        groups = _ensure_cluster_markers(dataset, top_n)
+        genes, clusters, mean_matrix, _pct = _marker_gene_matrix(dataset, groups, top_n)
+        title = "Marker gene heatmap (top %d per cluster)" % top_n
     centered = mean_matrix - mean_matrix.mean(axis=0, keepdims=True)
     scale = mean_matrix.std(axis=0, keepdims=True)
     scale[scale < 1e-9] = 1.0
@@ -2774,7 +2832,7 @@ def _plot_heatmap(dataset, params):
     axis.set_yticklabels(genes, fontsize=7)
     axis.set_xlabel("cluster")
     axis.set_ylabel("marker gene")
-    axis.set_title("Marker gene heatmap (top %d per cluster)" % top_n)
+    axis.set_title(title)
     fig.tight_layout()
     return fig
 
@@ -4243,6 +4301,62 @@ def cmd_markers(args):
     return {"groups": groups, "groupby": groupby, "top_n": top_n, "method": "t-test(builtin)"}
 
 
+def cmd_samples_remove(args):
+    """按样本移除细胞（真正从数据集里剔除，重置聚类/嵌入等下游结果）。"""
+    dataset = _resolve_dataset(args)
+    raw = args.get("samples")
+    names = [str(item).strip() for item in (raw if isinstance(raw, list) else [raw]) if str(item).strip()]
+    if not names:
+        raise EngineError("bad_request", "samples 不能为空")
+    if "sample" not in dataset.obs.columns:
+        raise EngineError("bad_request", "该数据集没有 sample 列，无法按样本移除")
+    labels = [str(value) for value in dataset.obs["sample"].tolist()]
+    keep = np.array([label not in names for label in labels], dtype=bool)
+    removed_cells = int((~keep).sum())
+    if removed_cells == 0:
+        raise EngineError("bad_request", "没有匹配到要移除的样本：%s" % ", ".join(names))
+    if not keep.any():
+        raise EngineError("bad_request", "不能移除全部样本")
+    index = np.flatnonzero(keep)
+    dataset.X = dataset.X[index]
+    if getattr(dataset, "counts", None) is not None:
+        dataset.counts = dataset.counts[index]
+    dataset.obs = dataset.obs.iloc[index].copy()
+    layers = getattr(dataset, "layers", None) or {}
+    if isinstance(layers, dict):
+        dataset.layers = {key: value[index] for key, value in layers.items() if hasattr(value, "shape") and value.shape[0] == len(keep)}
+    dataset.obsm = {}
+    for column in ("clusters", "cell_type", "_emb_x", "_emb_y", "leiden", "louvain", "seurat_clusters"):
+        if column in dataset.obs.columns:
+            dataset.obs = dataset.obs.drop(columns=[column])
+    for key in ("cluster", "neighbors", "pca_engine", "pca_variance_ratio", "embedding", "import_state"):
+        dataset.uns.pop(key, None)
+    dataset.markers = None
+    dataset.adj = None
+    dataset.knn = None
+    dataset.layout = None
+    dataset.resolution_scan = None
+    dataset.cell_type_default = True
+    dataset.steps = [step for step in ("qc", "filter", "normalize", "hvg") if step in dataset.steps]
+    samples = list(dataset.uns.get("samples") or [])
+    if samples:
+        dataset.uns["samples"] = [
+            item for item in samples
+            if str(item.get("id") or item.get("name")) not in names
+        ]
+    if "group" in dataset.obs.columns:
+        try:
+            groups = sorted({str(value) for value in dataset.obs["group"].dropna().tolist()})
+            dataset.uns["groups"] = groups
+        except Exception:
+            pass
+    dataset.warnings.append("已移除样本 %s（%d 个细胞）；聚类/嵌入等下游结果已重置，请重新运行降维聚类" % (
+        ", ".join(names), removed_cells))
+    dataset.history.append("samples_remove: %s (%d cells)" % (", ".join(names), removed_cells))
+    summary = _dataset_summary(dataset)
+    return {"dataset": summary, "removed_cells": removed_cells, "removed_samples": names}
+
+
 def cmd_plot(args):
     dataset = _resolve_dataset(args)
     kind = str(args.get("kind") or "")
@@ -4468,6 +4582,7 @@ COMMANDS = {
     "samples_import_map": cmd_samples_import_map,
     "scan": cmd_scan,
     "geo_lookup": cmd_geo_lookup,
+    "samples_remove": cmd_samples_remove,
     "list": cmd_list,
     "close": cmd_close,
     "preview": cmd_preview,

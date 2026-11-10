@@ -60,6 +60,21 @@ R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`grou
 
 > 依赖：本机 R + Seurat ≥6.0（插件自动使用独立 R 库，不污染系统 Seurat）+ harmony R 包。
 
+## 二·六 手动注释工作台 / 样本分组维护 / Agent 输入式建议（v0.6）
+
+**手动注释工作台**（「标记基因」tab 顶部）：
+- 左列每簇一行（top3 基因），点簇 → marker 表（gene/logFC/padj/pct_in），点基因选中；
+- 出图：**DotPlot / 热图 / FeaturePlot**——dotplot/heatmap 支持按**你选中的基因**出图（`params.genes`，不再只按每簇 top-N），FeaturePlot 自动切到嵌入图并按该基因着色；
+- 每簇填细胞类型 → [保存注释]（`run annotate mapping`），也可**粘贴注释表 CSV**批量应用。
+
+**样本 & 分组维护**（「记录」tab）：
+- 分组 chip 可删除（仍被样本使用时禁用并提示）、分组下拉含「— 清空分组 —」；
+- **[移除样本]** 现在会**真正剔除该样本细胞**（`POST /samples/remove`），并自动重置聚类/嵌入等下游结果，提示重新一键降维聚类。
+
+**Agent 面板输入式建议**（右栏顶部）：
+- 输入一句话（如「加 harmony」「resolution 调到 0.3」「找 marker」「组间差异」「导出报告」）→ 本地规则解析出 2–4 张建议卡，每张带 **[直接运行]** 与 [复制指令]；
+- 直接运行对应 `/recipe /run /markers /plot /embedding /analysis /audit /export`，完成后刷新状态并显示结果摘要。
+
 ## 三、高级分析（能力图全量登记）
 
 「高级分析」tab 按 7 大类列出全部条目。**原生分析**（下面标 native）在本机零配置可跑；**外部工具**灰显并给出原因与本插件替代方案，不会伪装成可运行。
