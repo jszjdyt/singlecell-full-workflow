@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 样本 / 分组 / 元数据（CONTRACT §11）
+"""dsh-singlecell-workbench — 样本 / 分组 / 元数据（CONTRACT §11）
 
 用户诉求（GEO 工作流）：
   每个 GSM 一个 CSV → 多文件合并成一个数据集 → 每个文件=一个样本 →

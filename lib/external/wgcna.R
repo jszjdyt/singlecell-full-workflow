@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — WGCNA 官方共表达模块（CONTRACT §10.3）
+# dsh-singlecell-workbench — WGCNA 官方共表达模块（CONTRACT §10.3）
 #
 # 工具：WGCNA 1.74（官方 pickSoftThreshold + blockwiseModules + moduleEigengenes）
 # 输入：bundle（data.mtx=log-normalized）+ params：

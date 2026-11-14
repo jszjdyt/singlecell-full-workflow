@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell 官方 Python 工具适配器测试（CONTRACT §10）。
+"""dsh-singlecell-workbench 官方 Python 工具适配器测试（CONTRACT §10）。
 
 覆盖：pySCENIC / CellPhoneDB / scVelo / Palantir / CellOracle / RegVelo。
 
@@ -595,7 +595,7 @@ def run_scvelo_synthetic(bundle_source, timeout_scale=1.0):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="dsh-singlecell 官方 Python 工具适配器测试（CONTRACT §10）")
+    parser = argparse.ArgumentParser(description="dsh-singlecell-workbench 官方 Python 工具适配器测试（CONTRACT §10）")
     parser.add_argument("--tools", default="", help="逗号分隔的工具 id；默认全部")
     parser.add_argument("--bundle", default="", help="复用外部 bundle 目录（默认自动生成 demo bundle）")
     parser.add_argument("--force-bundle", action="store_true", help="强制重建 demo bundle")

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — AUCell 官方基因集活性打分（CONTRACT §10.3）
+# dsh-singlecell-workbench — AUCell 官方基因集活性打分（CONTRACT §10.3）
 #
 # 工具：AUCell 1.28.0（官方 AUCell_buildRankings + AUCell_calcAUC）
 # 输入：bundle（data.mtx 为 log-normalized）+ params：

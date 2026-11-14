@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — CONTRACT §8.5 导入格式 fixture 生成器（sc-io 所有）
+"""dsh-singlecell-workbench — CONTRACT §8.5 导入格式 fixture 生成器（sc-io 所有）
 
 在临时目录生成全格式导入层测试所需的全部 fixture，并在每个 fixture 目录里写一份
 truth.json（n_obs / n_vars / 前几个基因 / 首细胞某基因值 / obs 期望列）。
@@ -298,7 +298,7 @@ def write_geo_series(path: Path):
         '!Series_status\t"Public on Nov 06, 2026"',
         '!Series_submission_date\t"Nov 01, 2026"',
         '!Series_organism_ch1\t"Homo sapiens"',
-        '!Series_summary\t"synthetic fixture for dsh-singlecell import tests"',
+        '!Series_summary\t"synthetic fixture for dsh-singlecell-workbench import tests"',
         "!Sample_title\t" + quoted(titles),
         "!Sample_geo_accession\t" + quoted(samples),
         "!Sample_organism_ch1\t" + quoted(["Homo sapiens"] * len(samples)),
@@ -874,7 +874,7 @@ def serve(root, port=0):
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="生成 dsh-singlecell 全格式导入 fixture（CONTRACT §8.5）")
+    parser = argparse.ArgumentParser(description="生成 dsh-singlecell-workbench 全格式导入 fixture（CONTRACT §8.5）")
     parser.add_argument("--out", default=None, help="fixture 根目录（默认临时目录）")
     parser.add_argument("--no-r", action="store_true", help="跳过需要 Rscript 的 rds/RData fixture")
     parser.add_argument("--serve", action="store_true", help="生成后起本地 http.server 并打印 URL（Ctrl-C 退出）")

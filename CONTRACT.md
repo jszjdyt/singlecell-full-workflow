@@ -1,4 +1,4 @@
-# dsh-singlecell 内部契约（Single-cell workbench）
+# dsh-singlecell-workbench 内部契约（Single-cell workbench）
 
 > 本文件是三个并行开发者的**唯一事实来源**。任何实现与本契约冲突，以本契约为准；确需改协议，先在 `/singlecell` 群聊里说明并同步更新本文件。
 
@@ -17,7 +17,7 @@
 ## 1. 目录与归属（写权限严格隔离）
 
 ```
-plugins/dsh-singlecell/
+plugins/dsh-singlecell-workbench/
   CONTRACT.md                    # 本文件（Lead 维护）
   README.md                      # Lead（用户文档）
   package.json / cordis.patch.yml / icon.svg / locale/*.json   # Lead
@@ -223,9 +223,9 @@ plugins/dsh-singlecell/
 ### 4.1 形态（照抄 `plugins/dsh-paper-reader/client.js` 的结构）
 
 - 整文件 `;(function(){'use strict' ...})()`；顶部是**纯函数层**（不碰 DOM、不 require react），在 `typeof window==='undefined'` 时挂到 `globalThis.__SC_TEST__`，供 node 测试 import。
-- 浏览器层用 `window.__ModuleLoader__.load({id:'dsh-singlecell', factory(require){...}})`，**只 `require('react')`**，绝不 require 任何 `@deepseek-ai/*` 包。
+- 浏览器层用 `window.__ModuleLoader__.load({id:'dsh-singlecell-workbench', factory(require){...}})`，**只 `require('react')`**，绝不 require 任何 `@deepseek-ai/*` 包。
 - `inject: ['slots','locale']`；`apply(ctx)` 里：
-  - `locale.register('dsh-singlecell', {zh:DICT_ZH, en:DICT_EN})`（用 `ctx.effect` 包起来，照抄 paper-reader）
+  - `locale.register('dsh-singlecell-workbench', {zh:DICT_ZH, en:DICT_EN})`（用 `ctx.effect` 包起来，照抄 paper-reader）
   - `slots.inject('main', () => slots.register({name:'main', key:'singlecell', locale:NS}, WorkbenchPage))`
   - `slots.inject('sidebar.panellist', () => slots.register({name:'sidebar.panellist', id:'singlecell', order:3, label:()=>T('nav'), locale:NS}, SidebarIcon))`
 - 所有数据走**同源相对路径** `/singlecell/*`（`fetch`），不 import Host 模块。
@@ -270,7 +270,7 @@ plugins/dsh-singlecell/
 
 ## 5. 环境事实（所有人必读）
 
-- macOS，工作目录 `/Users/dingyuntao/Desktop/deepseek harness`，插件目录 `plugins/dsh-singlecell`。
+- macOS，工作目录 `/Users/dingyuntao/Desktop/deepseek harness`，插件目录 `plugins/dsh-singlecell-workbench`。
 - Python：`python3` → `/Library/Frameworks/Python.framework/Versions/3.14/bin/python3`（3.14.2），有 numpy 2.5 / pandas 2.3 / scipy 1.17 / sklearn 1.9 / anndata 0.12 / matplotlib 3.11 / h5py；**无 scanpy、无 igraph/leidenalg、无 umap-learn**。
 - `~/.matplotlib` 不可写：Python 侧必须 `os.environ["MPLBACKEND"]="Agg"` 且把 `MPLCONFIGDIR` 指到 `--workdir` 下（Host 已设，引擎里再兜底一次）。
 - 宿主 Electron 进程的 PATH 可能很窄：Host 探测 Python 时按候选列表逐个 `-c "import numpy,anndata,sklearn"` 试。

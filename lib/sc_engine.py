@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell Python compute worker.
+"""dsh-singlecell-workbench Python compute worker.
 
 JSON-lines over stdin/stdout（一行一个请求 / 响应），长驻进程。
-┌ 协议契约：plugins/dsh-singlecell/CONTRACT.md §2（v1）与 §6（v2 追加）
+┌ 协议契约：plugins/dsh-singlecell-workbench/CONTRACT.md §2（v1）与 §6（v2 追加）
 ├ stdout 只允许协议行；日志一律 stderr
 ├ 单条命令异常只影响该条响应，进程不退出（只有 shutdown / stdin EOF 退出）
 └ builtin 引擎只依赖 numpy / scipy / scikit-learn / anndata / matplotlib；
@@ -3362,7 +3362,7 @@ def _export_summary_json(dataset, path):
 def _build_protocol(dataset):
     return {
         "protocol_version": 2,
-        "plugin": {"name": "dsh-singlecell", "version": PLUGIN_VERSION},
+        "plugin": {"name": "dsh-singlecell-workbench", "version": PLUGIN_VERSION},
         "generated_at": _now_iso(),
         "dataset": {
             "id": dataset.id,
@@ -3429,7 +3429,7 @@ def _build_methods(dataset):
     lines.append("## Methods")
     lines.append("")
     lines.append(
-        "Single-cell RNA-seq data were analysed with **dsh-singlecell** v%s (%s; Python %s; "
+        "Single-cell RNA-seq data were analysed with **dsh-singlecell-workbench** v%s (%s; Python %s; "
         "NumPy %s; SciPy %s; scikit-learn %s; AnnData %s; matplotlib %s)."
         % (
             PLUGIN_VERSION,
@@ -3573,7 +3573,7 @@ def _build_report(dataset, report_path):
         lines.append("- **来源**：内置 demo 生成器（test/make_sample.py）")
     lines.append("- **规模**：%d 个细胞 × %d 个基因" % (dataset.n_obs, dataset.n_vars))
     lines.append(
-        "- **引擎**：%s（Python %s；dsh-singlecell v%s）"
+        "- **引擎**：%s（Python %s；dsh-singlecell-workbench v%s）"
         % ("scanpy" if ENGINE_MODE == "scanpy" else "builtin", PY_VERSION, PLUGIN_VERSION)
     )
     lines.append("- **生成时间**：%s" % _now_iso())
@@ -3731,7 +3731,7 @@ def _build_script(dataset):
     versions = PACKAGE_VERSIONS
     lines = []
     lines.append("#!/usr/bin/env python3")
-    lines.append('"""Reproducible analysis script exported by dsh-singlecell.')
+    lines.append('"""Reproducible analysis script exported by dsh-singlecell-workbench.')
     lines.append("")
     lines.append("Dataset : %s (%s)" % (dataset.name, dataset.id))
     lines.append(

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — 外部 R 适配器公共库（CONTRACT §10）
+# dsh-singlecell-workbench — 外部 R 适配器公共库（CONTRACT §10）
 #
 # 所有 lib/external/*.R 适配器共用本文件：
 #   1. CLI 解析：--bundle DIR --out DIR --params '<json>'
@@ -526,7 +526,7 @@ sc_read_gmt <- function(path) {
 # 选基因集：params.gmt_file 优先，否则内置精选集
 sc_gene_sets <- function(ctx, genes, max_sets = NULL, min_size = 5L, max_size = 500L) {
   gmt <- as.character(ctx$params$gmt_file %||% "")
-  source_label <- "dsh-singlecell 内置精选基因集（非 MSigDB 全量）"
+  source_label <- "dsh-singlecell-workbench 内置精选基因集（非 MSigDB 全量）"
   sets <- NULL
   if (nzchar(gmt)) {
     gmt_path <- path.expand(gmt)

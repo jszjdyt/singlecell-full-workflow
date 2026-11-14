@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 内置生物学先验（sc-analysis-b 模块专用）
+"""dsh-singlecell-workbench — 内置生物学先验（sc-analysis-b 模块专用）
 
 内容
 ----

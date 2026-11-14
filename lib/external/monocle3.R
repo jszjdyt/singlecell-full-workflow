@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — monocle3 官方轨迹（CONTRACT §10.3）
+# dsh-singlecell-workbench — monocle3 官方轨迹（CONTRACT §10.3）
 #
 # 工具：monocle3 1.3.7（官方 new_cell_data_set → preprocess_cds → reduce_dimension(UMAP)
 #       → cluster_cells → learn_graph → order_cells）

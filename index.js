@@ -1,5 +1,5 @@
 /**
- * dsh-singlecell — Host 半边入口（薄且稳定）
+ * dsh-singlecell-workbench — Host 半边入口（薄且稳定）
  *
  * 只做四件事：
  *   1. 把 `/singlecell/*` 的 exact 路由挂到 webServer，全部转给 lib/impl.mjs；
@@ -20,7 +20,7 @@ async function loadImpl() {
   return import(url.href)
 }
 
-export const name = 'dsh-singlecell'
+export const name = 'dsh-singlecell-workbench'
 
 export function apply(ctx, config) {
   const runtime = {
@@ -42,7 +42,7 @@ export function apply(ctx, config) {
     })
     scoped.effect(() => () => {
       try { dispose() } catch { /* ignore */ }
-    }, 'dsh-singlecell: routes')
+    }, 'dsh-singlecell-workbench: routes')
   })
 
   // ---- agent 工具 ----
@@ -50,7 +50,7 @@ export function apply(ctx, config) {
     loadImpl()
       .then((impl) => impl.ensureToolRegistered(runtime))
       .catch((error) => {
-        try { console.warn('[dsh-singlecell] agent tool unavailable:', error && error.message ? error.message : error) } catch { /* ignore */ }
+        try { console.warn('[dsh-singlecell-workbench] agent tool unavailable:', error && error.message ? error.message : error) } catch { /* ignore */ }
       })
   })
 
@@ -59,7 +59,7 @@ export function apply(ctx, config) {
     loadImpl()
       .then((impl) => impl.ensurePromptSection(runtime))
       .catch((error) => {
-        try { console.warn('[dsh-singlecell] prompt section unavailable:', error && error.message ? error.message : error) } catch { /* ignore */ }
+        try { console.warn('[dsh-singlecell-workbench] prompt section unavailable:', error && error.message ? error.message : error) } catch { /* ignore */ }
       })
   })
 
@@ -69,7 +69,7 @@ export function apply(ctx, config) {
     if (engine && typeof engine.dispose === 'function') {
       try { engine.dispose() } catch { /* ignore */ }
     }
-  }, 'dsh-singlecell: engine teardown')
+  }, 'dsh-singlecell-workbench: engine teardown')
 }
 
 async function dispatch(runtime, req, res) {
@@ -87,6 +87,6 @@ async function dispatch(runtime, req, res) {
         res.end()
       }
     } catch { /* ignore */ }
-    try { console.error('[dsh-singlecell] dispatch failed:', error) } catch { /* ignore */ }
+    try { console.error('[dsh-singlecell-workbench] dispatch failed:', error) } catch { /* ignore */ }
   }
 }

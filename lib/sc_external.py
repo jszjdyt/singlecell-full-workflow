@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 官方工具桥（CONTRACT §10）
+"""dsh-singlecell-workbench — 官方工具桥（CONTRACT §10）
 
 把用户机器上已安装 / 本插件代装的官方工具接进工作台：
   - R 侧：Seurat 6.0 降维、CellChat、monocle3、NicheNet、SCENIC、clusterProfiler、

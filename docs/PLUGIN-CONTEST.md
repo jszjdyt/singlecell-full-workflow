@@ -1,6 +1,6 @@
-# dsh-singlecell 参赛介绍
+# dsh-singlecell-workbench 参赛介绍
 
-> **仓库**：https://github.com/jszjdyt/singlecell-full-workflow · **插件包名**：dsh-singlecell
+> **仓库**：https://github.com/jszjdyt/singlecell-full-workflow · **插件包名**：dsh-singlecell-workbench
 >
 > **一句话**：面向生物信息学小白和代码苦手的单细胞分析工作台 —— 在 DeepSeek Harness 里，GEO 数据一键读、流程点着跑、官方工具零配置调用，还能直接对 Agent 说人话；同时通过四个带契约的扩展点，让会写代码的人不断把它变大。
 
@@ -16,7 +16,7 @@
 4. **工具墙**：CellChat、monocle3、SCENIC、NicheNet、inferCNV……每个一套 API、一篇教程、一堆依赖。
 5. **Agent 墙**：大模型能写代码，但它不知道你本机装了什么、工作台里有什么数据，结果就是一遍遍「重新写脚本」。
 
-**dsh-singlecell 把五道墙都拆进 DeepSeek Harness Web GUI**：给不写代码的人一个可视化工作台，给想偷懒的人一套 Agent 工具，两者共用同一套实现。
+**dsh-singlecell-workbench 把五道墙都拆进 DeepSeek Harness Web GUI**：给不写代码的人一个可视化工作台，给想偷懒的人一套 Agent 工具，两者共用同一套实现。
 
 ## 二、目标用户
 
@@ -149,7 +149,7 @@ Agent 会调 `singlecell` 工具完成，页面同步显示状态与图。**这�
 
 ## 附：短版介绍（表单可直接粘贴，约 300 字）
 
-> **dsh-singlecell** 是 DeepSeek Harness 上的单细胞分析工作台，面向**生物信息学小白和代码苦手**：GEO 数据不用转格式（10x/h5ad/loom/rds/RData/压缩包/URL 全支持，多文件自动合并成多样本），样本名与大组在界面表格里点选、组间分析自动可用；10 步流程可视化点击运行，交互嵌入图与出版级图即时生成；27 项分析内置，本机装了的 CellChat/monocle3/SCENIC/WGCNA/CellOracle 等 17 个官方工具会被自动探测并调用官方实现，官方与 lite 明确标注、不冒充。页面按钮与 Agent 工具共用同一套实现，对话里说一句「合并导入这些 GSM、设 young/old 分组、跑 Seurat 6.0 流程、做组间差异基因」即可完成，并导出可审计的 protocol/methods/report/script。插件提供四个带契约的扩展点（分析模块、官方工具适配器、导入格式、预设流程），便于社区持续扩展。
+> **dsh-singlecell-workbench** 是 DeepSeek Harness 上的单细胞分析工作台，面向**生物信息学小白和代码苦手**：GEO 数据不用转格式（10x/h5ad/loom/rds/RData/压缩包/URL 全支持，多文件自动合并成多样本），样本名与大组在界面表格里点选、组间分析自动可用；10 步流程可视化点击运行，交互嵌入图与出版级图即时生成；27 项分析内置，本机装了的 CellChat/monocle3/SCENIC/WGCNA/CellOracle 等 17 个官方工具会被自动探测并调用官方实现，官方与 lite 明确标注、不冒充。页面按钮与 Agent 工具共用同一套实现，对话里说一句「合并导入这些 GSM、设 young/old 分组、跑 Seurat 6.0 流程、做组间差异基因」即可完成，并导出可审计的 protocol/methods/report/script。插件提供四个带契约的扩展点（分析模块、官方工具适配器、导入格式、预设流程），便于社区持续扩展。
 
 ## 附：宣传语候选
 

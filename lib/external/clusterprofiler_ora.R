@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — clusterProfiler 官方 GO/KEGG 富集（CONTRACT §10.3）
+# dsh-singlecell-workbench — clusterProfiler 官方 GO/KEGG 富集（CONTRACT §10.3）
 #
 # 工具：clusterProfiler 4.14.6 + org.Hs.eg.db / org.Mm.eg.db（官方实现）
 # 输入：bundle（基因表达 + obs 分群），params：

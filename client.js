@@ -1,7 +1,7 @@
 /**
- * dsh-singlecell — 浏览器端 UI（Client 半边）
+ * dsh-singlecell-workbench — 浏览器端 UI（Client 半边）
  *
- * 形态：window.__ModuleLoader__.load({ id:'dsh-singlecell', factory(require){...} })，
+ * 形态：window.__ModuleLoader__.load({ id:'dsh-singlecell-workbench', factory(require){...} })，
  * 只 require('react')，不碰任何 @deepseek-ai Client 包（宿主版本一变就会炸）。
  *
  * 数据面：全部走同源相对路径 /singlecell/*（见 CONTRACT.md §3 / §6）。
@@ -20,7 +20,7 @@
 ;(function () {
   'use strict'
 
-  var NS = 'dsh-singlecell'
+  var NS = 'dsh-singlecell-workbench'
   var API = '/singlecell'
   var POLL_MS = 2500
   var DEFAULT_API_TIMEOUT_MS = 60000
@@ -4422,7 +4422,7 @@
   // 欢迎页：最近数据集（localStorage）
   // --------------------------------------------------------------------------
 
-  var RECENT_STORAGE_KEY = 'dsh-singlecell:recent'
+  var RECENT_STORAGE_KEY = 'dsh-singlecell-workbench:recent'
 
   function normalizeRecentDatasets(list) {
     var output = []
@@ -5411,7 +5411,7 @@
 
     function warnPlugin(message, error) {
       try {
-        console.warn('[dsh-singlecell] ' + message, error || '')
+        console.warn('[dsh-singlecell-workbench] ' + message, error || '')
       } catch (ignored) {
         /* console 不可用就算了 */
       }
@@ -12158,7 +12158,7 @@
       var logEntries = formatLogEntries(log || activity, 80)
 
       return h('div', { className: 'sc-root sc-app' + (layoutMode === 'narrow' ? ' sc-app-narrow' : '') },
-        h('style', { 'data-plugin': 'dsh-singlecell' }, CSS),
+        h('style', { 'data-plugin': 'dsh-singlecell-workbench' }, CSS),
         h(PluginErrorBoundary, null,
           h(ShellTopBar, {
             datasets: normalized.datasets,
@@ -12361,7 +12361,7 @@
           }
         }
         try {
-          if (typeof ctx.effect === 'function') ctx.effect(registerDictionaries, 'dsh-singlecell: locale')
+          if (typeof ctx.effect === 'function') ctx.effect(registerDictionaries, 'dsh-singlecell-workbench: locale')
           else registerDictionaries()
         } catch (error) {
           warnPlugin('failed to install locale effect', error)
@@ -12402,7 +12402,7 @@
                 }
               }
             }
-          }, 'dsh-singlecell: slot disposers')
+          }, 'dsh-singlecell-workbench: slot disposers')
         }
       } catch (error) {
         warnPlugin('failed to install slot cleanup', error)

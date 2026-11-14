@@ -1,5 +1,5 @@
 {
-  "name": "dsh-singlecell",
+  "name": "dsh-singlecell-workbench",
   "version": "0.9.1",
   "description": "单细胞分析工作台：在 Harness 里可视化地跑 QC→聚类→标记基因流程，Agent 可用同一套工具驱动分析。",
   "icon": "icon.svg",

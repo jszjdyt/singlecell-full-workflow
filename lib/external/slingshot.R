@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — slingshot 官方谱系轨迹（CONTRACT §10.3）
+# dsh-singlecell-workbench — slingshot 官方谱系轨迹（CONTRACT §10.3）
 #
 # 工具：slingshot 2.14.0（官方 slingshot 谱系推断 + 平滑伪时间）
 # 输入：bundle（embed.csv 优先；缺失则用 pca.csv 前两维或现场 UMAP）+ params：

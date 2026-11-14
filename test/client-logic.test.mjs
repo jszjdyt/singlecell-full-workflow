@@ -1,5 +1,5 @@
 /**
- * dsh-singlecell 客户端纯函数单测（不依赖浏览器）。
+ * dsh-singlecell-workbench 客户端纯函数单测（不依赖浏览器）。
  *
  * 运行：node test/client-logic.test.mjs
  *
@@ -25,7 +25,7 @@ const CLIENT_SOURCE = await readFile(CLIENT_URL, 'utf8')
 
 test('import：无 window 时不炸，且暴露 NS/API/STEPS', () => {
   assert.equal(typeof globalThis.window, 'undefined')
-  assert.equal(SC.NS, 'dsh-singlecell')
+  assert.equal(SC.NS, 'dsh-singlecell-workbench')
   assert.equal(SC.API, '/singlecell')
   assert.equal(SC.POLL_MS, 2500)
   assert.ok(Array.isArray(SC.STEPS) && SC.STEPS.length === 10)
@@ -2218,7 +2218,7 @@ test('静态：Step3 三段式顺序（方案卡 → 看表达 → cluster 分�
 
 test('静态：ModuleLoader 形态、只 require react、无 JSX、无 @deepseek-ai 依赖', () => {
   assert.match(CLIENT_SOURCE, /window\.__ModuleLoader__\.load\(\{ id: NS, factory: factory \}\)/)
-  assert.match(CLIENT_SOURCE, /var NS = 'dsh-singlecell'/)
+  assert.match(CLIENT_SOURCE, /var NS = 'dsh-singlecell-workbench'/)
   assert.match(CLIENT_SOURCE, /var API = '\/singlecell'/)
   assert.match(CLIENT_SOURCE, /factory\(require\)/)
   assert.match(CLIENT_SOURCE, /var React = require\('react'\)/)
@@ -2237,7 +2237,7 @@ test('静态：槽注册 main(key=singlecell) + sidebar.panellist(id=singlecell,
   assert.match(CLIENT_SOURCE, /slots\.inject\('sidebar\.panellist'/)
   assert.match(CLIENT_SOURCE, /name: 'sidebar\.panellist',\s*\n\s*id: 'singlecell',\s*\n\s*order: 3,/)
   assert.match(CLIENT_SOURCE, /locale\.register\(NS, \{ zh: DICT_ZH, en: DICT_EN \}\)/)
-  assert.match(CLIENT_SOURCE, /ctx\.effect\(registerDictionaries, 'dsh-singlecell: locale'\)/)
+  assert.match(CLIENT_SOURCE, /ctx\.effect\(registerDictionaries, 'dsh-singlecell-workbench: locale'\)/)
   assert.match(CLIENT_SOURCE, /ctx\.effect\(function \(\) \{/)
   assert.match(CLIENT_SOURCE, /PluginErrorBoundary/)
   assert.match(CLIENT_SOURCE, /getDerivedStateFromError/)

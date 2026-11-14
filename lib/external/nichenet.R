@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — NicheNet 官方配体-靶基因（CONTRACT §10.3）
+# dsh-singlecell-workbench — NicheNet 官方配体-靶基因（CONTRACT §10.3）
 #
 # 工具：nichenetr 2.2.1（官方 predict_ligand_activities + 官方先验模型）
 # 先验：<nichenetPriors>/ligand_target_matrix_nsga2r_final.rds

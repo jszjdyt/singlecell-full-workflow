@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# dsh-singlecell — SoupX 官方污染校正适配器（CONTRACT §10.3）
+# dsh-singlecell-workbench — SoupX 官方污染校正适配器（CONTRACT §10.3）
 # 注意：只有过滤后矩阵时 SoupX 无法自动估计空液滴污染；默认用手动 rho（params.contamination）。
 suppressPackageStartupMessages(library(SoupX))
 suppressPackageStartupMessages(library(Matrix))

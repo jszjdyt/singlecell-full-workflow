@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 基因集 / 通路 / 表达矩阵类高级分析模块（sc-analysis-a）。
+"""dsh-singlecell-workbench — 基因集 / 通路 / 表达矩阵类高级分析模块（sc-analysis-a）。
 
-契约：plugins/dsh-singlecell/CONTRACT.md §9.2（模块 API / ctx / 结果结构）、§9.3 表格。
+契约：plugins/dsh-singlecell-workbench/CONTRACT.md §9.2（模块 API / ctx / 结果结构）、§9.3 表格。
 本文件只依赖 numpy / pandas / scipy / scikit-learn / matplotlib（本机无 scanpy、
 gseapy、decoupler），所有算法均在本文件内实现，不 import 引擎（EngineError 本地定义，
 引擎按 ``.code`` / ``.message`` 属性识别）。
@@ -40,7 +40,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 os.environ.setdefault("MPLBACKEND", "Agg")
 if not os.environ.get("MPLCONFIGDIR"):
-    _MPL_FALLBACK = Path(tempfile.gettempdir()) / "dsh-singlecell-mpl"
+    _MPL_FALLBACK = Path(tempfile.gettempdir()) / "dsh-singlecell-workbench-mpl"
     try:
         _MPL_FALLBACK.mkdir(parents=True, exist_ok=True)
         os.environ["MPLCONFIGDIR"] = str(_MPL_FALLBACK)
@@ -648,12 +648,12 @@ def _enrichr_ora(genes, library):
     try:
         payload = urllib.parse.urlencode({
             "list": "\n".join(genes),
-            "description": "dsh-singlecell ORA",
+            "description": "dsh-singlecell-workbench ORA",
         }).encode("utf-8")
         request = urllib.request.Request(
             "https://maayanlab.cloud/Enrichr/addList",
             data=payload,
-            headers={"User-Agent": "dsh-singlecell/0.1", "Content-Type": "application/x-www-form-urlencoded"},
+            headers={"User-Agent": "dsh-singlecell-workbench/0.1", "Content-Type": "application/x-www-form-urlencoded"},
         )
         with urllib.request.urlopen(request, timeout=20) as response:
             added = json.loads(response.read().decode("utf-8"))

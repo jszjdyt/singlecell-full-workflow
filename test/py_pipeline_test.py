@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell Python 计算引擎测试（不依赖 node）。
+"""dsh-singlecell-workbench Python 计算引擎测试（不依赖 node）。
 
 直接运行：
     python3 test/py_pipeline_test.py

@@ -1,11 +1,11 @@
-# dsh-singlecell 安装说明
+# dsh-singlecell-workbench 安装说明
 
 单细胞分析工作台：DeepSeek Harness 插件。导入 GEO 常见单细胞数据（h5ad / 10x h5 / 10x mtx / loom / 表达矩阵 / GEO series matrix / `.rds` / `.RData` / 压缩包 / URL），
 可视化跑 QC→聚类→嵌入→标记基因，并内置一整套高级分析（通路/基因集/轨迹/异质性/通讯/调控/虚拟敲除）；Agent 与页面共用同一套操作。
 
 ## 0. 你会收到什么
 
-一个压缩包 `dsh-singlecell-0.3.0.zip`。解压后是一个 `dsh-singlecell/` 目录，**这个目录就是插件本体**。
+一个压缩包 `dsh-singlecell-workbench-0.3.0.zip`。解压后是一个 `dsh-singlecell-workbench/` 目录，**这个目录就是插件本体**。
 
 ## 1. 环境要求
 
@@ -18,24 +18,24 @@
 
 ## 2. 放好插件目录
 
-把解压出来的 `dsh-singlecell/` 放到一个**不会被自动清理**的固定位置，例如：
+把解压出来的 `dsh-singlecell-workbench/` 放到一个**不会被自动清理**的固定位置，例如：
 
-- macOS / Linux：`~/dsh-plugins/dsh-singlecell`
-- Windows：`C:\Users\你\dsh-plugins\dsh-singlecell`
+- macOS / Linux：`~/dsh-plugins/dsh-singlecell-workbench`
+- Windows：`C:\Users\你\dsh-plugins\dsh-singlecell-workbench`
 
 > 注意：安装是「链接目录」方式，**这个目录以后不能删/不能挪**，否则插件失效。
 
 ## 3. 安装 Python 依赖
 
 ```bash
-cd ~/dsh-plugins/dsh-singlecell
+cd ~/dsh-plugins/dsh-singlecell-workbench
 python3 -m pip install -r requirements.txt
 ```
 
 Windows（如果 `python3` 不在 PATH）：
 
 ```bat
-cd C:\Users\你\dsh-plugins\dsh-singlecell
+cd C:\Users\你\dsh-plugins\dsh-singlecell-workbench
 python -m pip install -r requirements.txt
 ```
 
@@ -52,9 +52,9 @@ python3 -c "import numpy,pandas,scipy,sklearn,anndata,h5py,matplotlib;print('dep
 
 打开 DeepSeek Harness，在任意会话里对 Agent 说：
 
-> 帮我安装本地插件：plugin_manager install_bundle target=/你的绝对路径/dsh-singlecell
+> 帮我安装本地插件：plugin_manager install_bundle target=/你的绝对路径/dsh-singlecell-workbench
 
-（Windows 路径示例：`C:\Users\你\dsh-plugins\dsh-singlecell`）
+（Windows 路径示例：`C:\Users\你\dsh-plugins\dsh-singlecell-workbench`）
 
 Agent 会调用 `plugin_manager` 并请求你批准；看到 `application: applied` 即安装成功。
 命令行也可以（在 DSH 已启动的环境里由 Agent 代跑，不建议手改 profile 文件）。
@@ -85,8 +85,8 @@ install.packages(c("Seurat", "SeuratObject", "SingleCellExperiment", "Summarized
 在 profile 的 `cordis.patch.yml` 里（或请 Agent 帮你改）：
 
 ```yaml
-- id: dsh-singlecell
-  name: dsh-singlecell
+- id: dsh-singlecell-workbench
+  name: dsh-singlecell-workbench
   config:
     python: /绝对路径/python3      # 指定解释器
     workdir: /tmp/sc-workdir       # 导入解包/图/导出目录（默认系统临时目录）
@@ -113,8 +113,8 @@ install.packages(c("Seurat", "SeuratObject", "SingleCellExperiment", "Summarized
 
 ## 10. 更新与卸载
 
-- **更新**：用新压缩包覆盖 `dsh-singlecell/` 目录 → 重启 DSH（或让 Agent 先 `remove_bundle dsh-singlecell` 再 `install_bundle`）。
-- **卸载**：让 Agent 执行 `plugin_manager remove_bundle target=dsh-singlecell`，然后删除目录即可。卸载不会删除你导出的分析结果文件。
+- **更新**：用新压缩包覆盖 `dsh-singlecell-workbench/` 目录 → 重启 DSH（或让 Agent 先 `remove_bundle dsh-singlecell-workbench` 再 `install_bundle`）。
+- **卸载**：让 Agent 执行 `plugin_manager remove_bundle target=dsh-singlecell-workbench`，然后删除目录即可。卸载不会删除你导出的分析结果文件。
 
 ## 11. 限制（先说清楚）
 

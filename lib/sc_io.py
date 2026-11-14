@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 全格式导入层（CONTRACT §8）
+"""dsh-singlecell-workbench — 全格式导入层（CONTRACT §8）
 
 把 GEO 上实际能下到的单细胞数据格式统一读成
   X: scipy.sparse.csr_matrix (cells × genes, float32)
@@ -246,7 +246,7 @@ def _gse_suppl_dir(gse):
 
 
 def _http_get(url, timeout=60):
-    request = urllib.request.Request(url, headers={"User-Agent": "dsh-singlecell/0.3"})
+    request = urllib.request.Request(url, headers={"User-Agent": "dsh-singlecell-workbench/0.3"})
     return urllib.request.urlopen(request, timeout=timeout)
 
 
@@ -1607,7 +1607,7 @@ def load_source(source, *, workdir, options=None, progress=None):
 if __name__ == "__main__":  # 手动调试用：python3 lib/sc_io.py <path|url>
     import argparse
 
-    parser = argparse.ArgumentParser(description="dsh-singlecell import layer debug CLI")
+    parser = argparse.ArgumentParser(description="dsh-singlecell-workbench import layer debug CLI")
     parser.add_argument("source")
     parser.add_argument("--workdir", default=tempfile.mkdtemp(prefix="sc-io-"))
     parser.add_argument("--format", default=None)

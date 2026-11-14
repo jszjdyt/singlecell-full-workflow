@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — CellChat 官方细胞通讯（CONTRACT §10.3）
+# dsh-singlecell-workbench — CellChat 官方细胞通讯（CONTRACT §10.3）
 #
 # 工具：CellChat 1.6.1（官方 createCellChat → setDB(CellChatDB.human) →
 #       identifyOverExpressedGenes/LigandReceptor → computeCommunProb →

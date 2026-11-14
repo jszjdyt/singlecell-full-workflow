@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — GSVA 官方通路活性（CONTRACT §10.3）
+# dsh-singlecell-workbench — GSVA 官方通路活性（CONTRACT §10.3）
 #
 # 工具：GSVA 2.0.7（官方 gsva(gsvaParam/ssgseaParam)）
 # 输入：bundle（data.mtx = log-normalized）+ params：

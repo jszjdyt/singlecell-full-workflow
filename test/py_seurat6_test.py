@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell：Seurat 6.0 官方降维适配器测试（lib/external/seurat_pipeline.R）。
+"""dsh-singlecell-workbench：Seurat 6.0 官方降维适配器测试（lib/external/seurat_pipeline.R）。
 
 直接运行：
     python3 test/py_seurat6_test.py
@@ -744,7 +744,7 @@ def test_demo(bundle, dataset, engine):
 # ---------------------------------------------------------------------------
 def main():
     started = time.time()
-    print("dsh-singlecell Seurat 6.0 适配器测试")
+    print("dsh-singlecell-workbench Seurat 6.0 适配器测试")
     print("适配器：%s" % ADAPTER)
     print("独立库：%s" % SEURAT_LIB)
     print("临时目录：%s" % TMP_ROOT)

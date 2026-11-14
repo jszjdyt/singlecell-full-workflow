@@ -1,4 +1,4 @@
-# dsh-singlecell — 单细胞分析工作台（DeepSeek Harness 插件）
+# dsh-singlecell-workbench — 单细胞分析工作台（DeepSeek Harness 插件）
 
 在 Harness Web GUI 里提供一个**可视化、可点、可被 Agent 驱动**的单细胞分析工作台：
 导入数据（GEO 上能下到的格式 + R 的 `.rds`/`.RData`）→ 跑标准流程（QC/过滤/标准化/HVG/PCA/聚类/嵌入/标记基因）→
@@ -151,7 +151,7 @@ resolution_scan / recipe / analyses / analysis / plot / export / close / reset`�
 
 ## 六、安装与环境
 
-插件已安装在本机 desktop profile（`dsh-singlecell` bundle，linked 安装，改代码即生效）。
+插件已安装在本机 desktop profile（`dsh-singlecell-workbench` bundle，linked 安装，改代码即生效）。
 重装：让 Agent 执行 `plugin_manager install_bundle target=<绝对路径>`；替换版本需先 `remove_bundle`。
 
 - **Python**：3.10+，需要 `numpy pandas scipy scikit-learn anndata matplotlib h5py`。检测到 scanpy 会自动切 scanpy 模式（Leiden/UMAP），否则用内置引擎（纯 Python Louvain + t-SNE）。
@@ -162,8 +162,8 @@ resolution_scan / recipe / analyses / analysis / plot / export / close / reset`�
 配置（`cordis.patch.yml`）：
 
 ```yaml
-- id: dsh-singlecell
-  name: dsh-singlecell
+- id: dsh-singlecell-workbench
+  name: dsh-singlecell-workbench
   config:
     python: /opt/homebrew/bin/python3   # 可选
     workdir: /tmp/my-sc-workdir         # 可选（导入解包/图/导出都在这里）

@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell 官方工具适配器：Seurat 6.0 官方降维 / 聚类 / UMAP
+# dsh-singlecell-workbench 官方工具适配器：Seurat 6.0 官方降维 / 聚类 / UMAP
 # -----------------------------------------------------------------------------
 # CONTRACT.md §10.3 / §10.5
 #
@@ -981,7 +981,7 @@ options(warn = 1)  # warnings 立即输出到 stderr，便于排查
   use_harmony <- .is_true(params$use_harmony, TRUE)
   batch_key <- as.character(params$batch_key %||% "")
 
-  .log("dsh-singlecell Seurat 适配器：step=%s seed=%d n_pcs=%d resolution=%.2f", step, seed, n_pcs, resolution)
+  .log("dsh-singlecell-workbench Seurat 适配器：step=%s seed=%d n_pcs=%d resolution=%.2f", step, seed, n_pcs, resolution)
 
   seurat_info <- .setup_seurat()
   .log("使用 Seurat %s（独立库 %s）", seurat_info$version, seurat_info$lib)

@@ -1,5 +1,5 @@
 """
-dsh-singlecell — 高级分析注册表（Host 侧，Lead 维护）
+dsh-singlecell-workbench — 高级分析注册表（Host 侧，Lead 维护）
 
 职责：
   1. 把 sc_analyses_sets.py / sc_analyses_dynamics.py 两个模块的 ANALYSES 合并成一份目录；

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — sc-analysis-b 高级分析模块（整合 / 轨迹 / 异质性 / 通讯 / 调控 / 虚拟敲除）
+"""dsh-singlecell-workbench — sc-analysis-b 高级分析模块（整合 / 轨迹 / 异质性 / 通讯 / 调控 / 虚拟敲除）
 
 契约
 ----
@@ -46,7 +46,7 @@ import scipy.sparse as sp
 # matplotlib 必须在任何 pyplot 导入前设定后端（引擎也会设，这里兜底以便独立测试）
 os.environ.setdefault("MPLBACKEND", "Agg")
 os.environ.setdefault(
-    "MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "dsh-singlecell-mpl")
+    "MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "dsh-singlecell-workbench-mpl")
 )
 
 import matplotlib  # noqa: E402

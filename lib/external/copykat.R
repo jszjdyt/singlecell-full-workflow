@@ -1,5 +1,5 @@
 #!/usr/bin/env Rscript
-# dsh-singlecell — CopyKAT 官方 CNV/亚克隆推断适配器（CONTRACT §10.3）
+# dsh-singlecell-workbench — CopyKAT 官方 CNV/亚克隆推断适配器（CONTRACT §10.3）
 suppressPackageStartupMessages(library(copykat))
 suppressPackageStartupMessages(library(Matrix))
 

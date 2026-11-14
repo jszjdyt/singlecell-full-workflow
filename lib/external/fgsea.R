@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — fgsea 官方预排序 GSEA（CONTRACT §10.3）
+# dsh-singlecell-workbench — fgsea 官方预排序 GSEA（CONTRACT §10.3）
 #
 # 工具：fgsea 1.32.4（官方 fgseaMultilevel）
 # 输入：bundle + params：

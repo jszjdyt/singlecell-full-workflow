@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell 合成 demo 数据生成器（既是脚本也是可 import 的模块）。
+"""dsh-singlecell-workbench 合成 demo 数据生成器（既是脚本也是可 import 的模块）。
 
 用途
 ----
@@ -254,7 +254,7 @@ def demo_adata(**kwargs):
     var = pd.DataFrame(index=pd.Index(data["var_names"], name="gene"))
     adata = ad.AnnData(X=data["counts"], obs=obs, var=var)
     adata.layers["counts"] = data["counts"].copy()
-    adata.uns["source"] = "dsh-singlecell demo generator (test/make_sample.py)"
+    adata.uns["source"] = "dsh-singlecell-workbench demo generator (test/make_sample.py)"
     return adata
 
 
@@ -273,7 +273,7 @@ def _summarize(data, seconds):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description="生成 dsh-singlecell 的合成 demo 单细胞数据")
+    parser = argparse.ArgumentParser(description="生成 dsh-singlecell-workbench 的合成 demo 单细胞数据")
     parser.add_argument("--out", default=None, help="输出 .h5ad 路径（省略则只在内存生成并打印摘要）")
     parser.add_argument("--cells", type=int, default=2400)
     parser.add_argument("--genes", type=int, default=1200)

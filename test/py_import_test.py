@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — 全格式导入层测试（CONTRACT §8.5，sc-io 所有）
+"""dsh-singlecell-workbench — 全格式导入层测试（CONTRACT §8.5，sc-io 所有）
 
 对 `lib/sc_io.py` 的 `inspect_source` / `load_source` 跑全套格式回归：
   1. §8.2 每个格式 load 后与 truth.json 校验（n_obs/n_vars/前几个基因/首细胞某基因值/obs 列）；
@@ -664,7 +664,7 @@ def test_real_rds(io, manifest, work, report):
 
 def main(argv=None) -> int:
     started = time.time()
-    print("dsh-singlecell 全格式导入层测试（CONTRACT §8.5）")
+    print("dsh-singlecell-workbench 全格式导入层测试（CONTRACT §8.5）")
     print("  python        : %s" % sys.version.split()[0])
     print("  sc_io         : %s" % (LIB_DIR / "sc_io.py"))
     if not (LIB_DIR / "sc_io.py").exists():

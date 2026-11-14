@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — SCENIC 官方 R 转录调控（CONTRACT §10.3）
+# dsh-singlecell-workbench — SCENIC 官方 R 转录调控（CONTRACT §10.3）
 #
 # 工具链（全部官方 R 包）：
 #   GENIE3 1.28.0  共表达网络（TF → target 权重）

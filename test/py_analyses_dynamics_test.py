@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell — sc-analysis-b（高级分析模块）测试
+"""dsh-singlecell-workbench — sc-analysis-b（高级分析模块）测试
 
 不依赖 node / 宿主，直接 import ``lib/sc_analyses_dynamics.py``，用**自造的
 synthetic ctx**（≥800 细胞 × ≥1500 基因、csr 矩阵、obs 含 clusters/cell_type/batch、

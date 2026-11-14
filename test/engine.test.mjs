@@ -1,5 +1,5 @@
 /**
- * dsh-singlecell — 端到端联调测试（不装插件、不启 Cordis）
+ * dsh-singlecell-workbench — 端到端联调测试（不装插件、不启 Cordis）
  *
  *   node test/engine.test.mjs
  *
@@ -15,7 +15,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 const here = new URL('.', import.meta.url)
-const workdir = mkdtempSync(path.join(tmpdir(), 'dsh-singlecell-test-'))
+const workdir = mkdtempSync(path.join(tmpdir(), 'dsh-singlecell-workbench-test-'))
 const results = []
 const t0 = Date.now()
 

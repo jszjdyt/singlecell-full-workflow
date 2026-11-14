@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell 官方 Python 工具适配器公共库（CONTRACT §10.2 / §10.3）。
+"""dsh-singlecell-workbench 官方 Python 工具适配器公共库（CONTRACT §10.2 / §10.3）。
 
 所有 ``lib/external/*.py`` 适配器共用本模块，负责：
 
@@ -81,7 +81,7 @@ def version_of(module, fallback="?"):
 def parse_args(argv=None):
     import argparse
 
-    parser = argparse.ArgumentParser(description="dsh-singlecell external adapter (CONTRACT §10.3)")
+    parser = argparse.ArgumentParser(description="dsh-singlecell-workbench external adapter (CONTRACT §10.3)")
     parser.add_argument("--bundle", required=True, help="bundle 目录（§10.2）")
     parser.add_argument("--out", required=True, help="输出目录（result.json/图/obs_extra.csv）")
     parser.add_argument("--params", default="{}", help="JSON 参数")

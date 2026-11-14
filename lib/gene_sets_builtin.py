@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell 内置基因集（sc-analysis-a 专用，无第三方依赖）。
+"""dsh-singlecell-workbench 内置基因集（sc-analysis-a 专用，无第三方依赖）。
 
 内容：
   - ``CELL_CYCLE_S`` / ``CELL_CYCLE_G2M``：Tirosh/Regev 人细胞周期 S 与 G2M 基因集

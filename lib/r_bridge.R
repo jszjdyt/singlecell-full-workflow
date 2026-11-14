@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — R bridge (CONTRACT §8.3)
+# dsh-singlecell-workbench — R bridge (CONTRACT §8.3)
 #
 # 把 R 的单细胞对象（.rds / .RData / .rda）导出成 Python 侧能直接读的中立文件：
 #   <out>/matrix.mtx     MatrixMarket，cells × genes（orientation 见 meta.json）

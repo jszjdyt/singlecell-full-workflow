@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell — harmony 官方批次校正（CONTRACT §10.3）
+# dsh-singlecell-workbench — harmony 官方批次校正（CONTRACT §10.3）
 #
 # 工具：harmony 1.2.4（官方 RunHarmony）
 # 输入：bundle（优先 pca.csv；缺失则现场 PCA）+ params：
