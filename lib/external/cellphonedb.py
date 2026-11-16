@@ -91,7 +91,7 @@ def _find_database(params):
     raise C.PrerequisiteError(
         "未找到 CellPhoneDB 官方数据库（cellphonedb.zip）。安装命令：\n"
         "  /opt/miniconda3/bin/python3 -c \"from cellphonedb.utils import db_utils; "
-        "db_utils.download_database(os.path.expanduser('~/.dsh/sc-plugin-pydata/cellphonedb'), 'v5.0.0')\"\n"
+        "db_utils.download_database('/Users/dingyuntao/.dsh/sc-plugin-pydata/cellphonedb', 'v5.0.0')\"\n"
         "或用 params.db_path 指定 zip 路径 / 设置环境变量 DS_SC_CELLPHONEDB_DB。"
     )
 

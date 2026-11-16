@@ -1,6 +1,6 @@
 {
   "name": "dsh-singlecell-workbench",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "单细胞分析工作台：在 Harness 里可视化地跑 QC→聚类→标记基因流程，Agent 可用同一套工具驱动分析。",
   "icon": "icon.svg",
   "type": "module",
@@ -19,11 +19,17 @@
     "icon.svg",
     "lib/*.mjs",
     "lib/*.py",
+    "lib/*.R",
+    "lib/external/**",
     "test/make_sample.py",
     "README.md",
     "CONTRACT.md",
     "requirements.txt",
-    "INSTALL.md"
+    "INSTALL.md",
+    "!lib/external/__pycache__/**",
+    "!lib/__pycache__/**",
+    "!lib/*.bak-*",
+    "!lib/impl.mjs.bak-*"
   ],
   "dsh": {
     "bundle": {

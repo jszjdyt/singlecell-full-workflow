@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell-workbench Python compute worker.
+"""dsh-singlecell Python compute worker.
 
 JSON-lines over stdin/stdout（一行一个请求 / 响应），长驻进程。
-┌ 协议契约：plugins/dsh-singlecell-workbench/CONTRACT.md §2（v1）与 §6（v2 追加）
+┌ 协议契约：plugins/dsh-singlecell/CONTRACT.md §2（v1）与 §6（v2 追加）
 ├ stdout 只允许协议行；日志一律 stderr
 ├ 单条命令异常只影响该条响应，进程不退出（只有 shutdown / stdin EOF 退出）
 └ builtin 引擎只依赖 numpy / scipy / scikit-learn / anndata / matplotlib；
@@ -521,6 +521,29 @@ def _as_csr_float32(matrix):
     return sp.csr_matrix(np.asarray(matrix, dtype=np.float32))
 
 
+def _integer_like(matrix) -> bool:
+    """矩阵是否像原始计数（非负整数）。"""
+    try:
+        if sp.issparse(matrix):
+            if not matrix.nnz:
+                return True
+            sample = matrix.data[: min(2000, matrix.nnz)]
+        else:
+            flat = np.asarray(matrix, dtype=np.float64).ravel()
+            if not flat.size:
+                return True
+            sample = flat[: min(2000, flat.size)]
+        sample = np.asarray(sample, dtype=np.float64)
+        sample = sample[np.isfinite(sample)]
+        if sample.size == 0:
+            return True
+        if np.any(sample < -1e-6):
+            return False
+        return bool(np.all(np.abs(sample - np.round(sample)) < 1e-6))
+    except Exception:  # noqa: BLE001
+        return False
+
+
 class Dataset:
     """一个常驻内存的数据集（含原始矩阵、当前矩阵、obs/var/obsm/uns、历史）。"""
 
@@ -560,9 +583,15 @@ class Dataset:
         self.layout = None
         self.steps = []
         self.params = {}
+        # EXPORT-01：结构化执行记录 —— Methods / 导出脚本 / 复现清单的唯一事实来源
+        # 每条记录包含 requested_method / actual_method / 软件版本 / 实际生效参数 /
+        # 输入输出矩阵尺度 / 聚类 resolution / 种子 / 回退原因 / 数据版本。
+        self.execution_record = []
         self.qc_metrics = None
         self.filter_info = None
         self.version = 0
+        # SC-04：任何数据/注释变更都要让结果缓存失效，所以单独维护 revision
+        self.revision = 0
         self.history = []
         self.figures = []
         self.resolution_scan = None
@@ -570,10 +599,24 @@ class Dataset:
         # 导入数据若自带 cell_type（真实注释），聚类步骤不应把它覆盖成簇号
         self.cell_type_default = "cell_type" not in self.full_obs.columns
         self.source_format = None
+        # SC-02：counts 的语义必须显式记录，不能再靠「矩阵名字」或「有就当作原始计数」
+        self.counts_source = "counts"
+        self.counts_verified = True
+        self.matrix_kind = "unknown"
         self.notes = []
         self.meta = {}
         self.analyses_run = []
         self.created_at = _now_iso()
+
+    def touch(self, reason=""):
+        """标记数据已变更（分组/注释/过滤/子集…），用于结果缓存失效（SC-04）。"""
+        self.revision = int(getattr(self, "revision", 0)) + 1
+        if reason:
+            try:
+                self.uns.setdefault("revisions", []).append({"at": _now_iso(), "reason": str(reason)})
+            except Exception:  # noqa: BLE001
+                pass
+        return self.revision
 
     # -- 便捷状态 ---------------------------------------------------------
     @property
@@ -1103,6 +1146,14 @@ def _step_filter(dataset, params):
 
 
 def _step_normalize(dataset, params):
+    # SC-02：没有经过验证的原始 counts 时，不允许把已标准化的表达再当计数做 log-normalize
+    if not getattr(dataset, "counts_verified", True):
+        raise EngineError(
+            "prerequisite",
+            "当前数据没有可验证的原始 counts（来源：%s）。log-normalize 需要真实计数矩阵，"
+            "请改用带 counts 层的文件重新导入，或先确认导入的不是已标准化的表达矩阵。"
+            % (getattr(dataset, "counts_source", "unknown")),
+        )
     counts = dataset.counts
     row_sums = np.asarray(counts.sum(axis=1)).ravel().astype(np.float64)
     factor = np.zeros_like(row_sums)
@@ -1174,6 +1225,12 @@ def _step_hvg(dataset, params):
     dataset.uns["hvg"] = {
         "n_top_genes": int(params["n_top_genes"]),
         "flavor": params["flavor"],
+        "requested_flavor": params["flavor"],
+        "actual_method": "seurat_binned_dispersion(builtin)",
+        "fallback_reason": (
+            "builtin engine always uses the Seurat-style mean-binned normalised dispersion; "
+            "requested flavor %r was not applied" % params["flavor"]
+        ) if params["flavor"] != "seurat" else None,
         "n_selected": take,
     }
     bullets = ["筛选出 %d 个高变基因（n_top_genes=%d，flavor=%s）"
@@ -1216,7 +1273,11 @@ def _run_seurat_step(dataset, step, params):
         return {
             "title": STEP_TITLES.get(step, step),
             "bullets": ["Seurat 6.0 模式：邻接图由 cluster 步骤内部的 FindNeighbors 完成"],
-            "metrics": {"engine": "seurat6"},
+            "metrics": {
+                "engine": "seurat6",
+                "actual_method": "Seurat::FindNeighbors",
+                "method_provenance": "Seurat 6.0 官方实现（FindNeighbors/FindClusters 内部完成）",
+            },
         }
     external = _load_lib_module("sc_external")
     try:
@@ -1263,6 +1324,25 @@ def _run_seurat_step(dataset, step, params):
     bullets += [str(item) for item in (summary.get("bullets") or [])]
     metrics = dict(summary.get("metrics") or {})
     metrics["engine"] = "seurat6"
+    # EXPORT-01：外部实现要留下 actual_method + provenance（Methods 不得再写内置 Louvain）
+    seurat_methods = {
+        "pca": "Seurat::RunPCA",
+        "cluster": "Seurat::FindClusters",
+        "embed": "Seurat::RunUMAP",
+    }
+    actual_method = seurat_methods.get(step, "Seurat 6.0 官方实现")
+    if step == "pca":
+        integration = str(metrics.get("integration") or "none")
+        actual_method += " (integration=%s)" % integration
+    elif step == "cluster":
+        integration = str(metrics.get("integration") or "none")
+        actual_method += " (Louvain algorithm, integration=%s, resolution=%s)" % (
+            integration, _fmt_num(metrics.get("resolution")),
+        )
+    metrics["actual_method"] = actual_method
+    metrics["method_provenance"] = payload.get("method") or "Seurat 6.0 官方实现"
+    if not metrics.get("method_provenance"):
+        metrics["method_provenance"] = "Seurat 6.0 官方实现（版本未记录）"
     return {"title": STEP_TITLES.get(step, step), "bullets": bullets, "metrics": metrics}
 
 
@@ -1399,15 +1479,20 @@ def _step_cluster(dataset, params):
     requested_method = str(params["method"]).lower()
     method_effective = "louvain"
     note = None
+    fallback_reason = None
     labels = None
     if requested_method == "leiden":
         try:
             labels = _leiden_via_scanpy(dataset, resolution)
-            method_effective = "leiden"
+            method_effective = "leiden(scanpy)"
         except Exception:
             labels = None
             method_effective = "louvain(builtin)"
             note = "leidenalg/scanpy 不可用，已回退内置纯 Python Louvain（resolution 语义一致）"
+            fallback_reason = (
+                "scanpy/leidenalg unavailable; requested method Leiden fell back to builtin Louvain "
+                "(same resolution semantics, but a different algorithm -> results are not interchangeable)"
+            )
     if labels is None:
         labels = louvain_clusters(dataset.adj, resolution)
         method_effective = "louvain(builtin)" if requested_method == "louvain" else method_effective
@@ -1427,7 +1512,11 @@ def _step_cluster(dataset, params):
     sizes = np.bincount(labels, minlength=n_clusters).astype(int).tolist() if labels.size else []
     dataset.uns["cluster"] = {
         "method": method_effective,
+        "requested_method": requested_method,
+        "fallback_reason": fallback_reason,
         "resolution": resolution,
+        "seed": SEED,
+        "input_scale": _matrix_scale(dataset),
         "n_clusters": n_clusters,
     }
     size_text = "，".join("%d:%d" % (index, size) for index, size in enumerate(sizes[:10]))
@@ -1518,9 +1607,15 @@ def _step_embed(dataset, params):
     dataset.obs["_emb_x"] = embedding[:, 0]
     dataset.obs["_emb_y"] = embedding[:, 1]
     dataset.layout = layout
+    fallback_reason = None
+    if layout != requested:
+        fallback_reason = "; ".join(str(item) for item in notes) or (
+            "requested layout %r unavailable; fell back to %r" % (requested, layout)
+        )
     dataset.uns["embed"] = {
         "layout": layout,
         "requested_layout": requested,
+        "fallback_reason": fallback_reason,
         "perplexity": effective_perplexity,
         "n_iter": n_iter,
     }
@@ -1690,12 +1785,22 @@ def total_expm1_matrix(dataset):
 def _step_markers(dataset, params):
     if "clusters" not in dataset.obs.columns:
         raise EngineError("prerequisite", "markers 需要先完成 cluster")
+    requested_method = str(params.get("method") or "t-test")
     groups = _compute_markers(dataset, params["groupby"], params["top_n"], params["method"])
     n_markers = int(sum(len(group["genes"]) for group in groups))
     n_significant = int(sum(group.get("n_significant", 0) for group in groups))
+    fallback_reason = None
+    if requested_method.lower() not in ("t-test", "t_test", "welch", "welch-t"):
+        fallback_reason = (
+            "requested marker test %r is not implemented by the builtin engine; "
+            "fell back to Welch t-test" % requested_method
+        )
     dataset.uns["markers"] = {
         "groupby": params["groupby"],
         "top_n": int(params["top_n"]),
+        "requested_method": requested_method,
+        "actual_method": "Welch t-test(builtin, one-vs-rest)+Benjamini-Hochberg",
+        "fallback_reason": fallback_reason,
         "n_groups": len(groups),
     }
     return {
@@ -1849,6 +1954,8 @@ def _reset_from_step(dataset, step):
     ]
     for candidate in sorted(removed, key=lambda item: STEP_ORDER.index(item), reverse=True):
         _clear_step_state(dataset, candidate)
+    # EXPORT-01：旧步骤的执行记录必须随状态一起失效，Methods/导出不得描述旧版本
+    _prune_execution_records(dataset)
 
 
 def _summary_line(summary):
@@ -1869,6 +1976,422 @@ def _engine_info():
     }
 
 
+# ===========================================================================
+# 6b. EXPORT-01 / EXPORT-02：结构化执行记录 + 可重放清单
+# ---------------------------------------------------------------------------
+# Methods、报告、protocol 与导出脚本都只从 dataset.execution_record 生成；记录
+# 在每一步真实成功执行后写入。取不到来源时明确写「未记录」，不凭 UI 名称补写。
+# ===========================================================================
+
+_OPTIONAL_VERSIONS = {
+    "umap": PACKAGE_VERSIONS.get("umap") if HAS_UMAP else None,
+    "leidenalg": _pkg_version("leidenalg") if HAS_LEIDENALG else None,
+    "scanpy": PACKAGE_VERSIONS.get("scanpy"),
+}
+
+_SHA256_CACHE = {}
+
+REPLAY_MANIFEST_VERSION = 1
+
+# 重放时可以安全重新调用的命令（只覆盖数据/元数据操作，不含外部工具）
+REPLAYABLE_COMMANDS = (
+    "samples_update",
+    "samples_auto_group",
+    "obs_set_group",
+    "obs_derive",
+    "obs_join",
+    "samples_remove",
+    "markers",
+    "analysis",
+)
+
+REPLAY_OPEN_ARG_KEYS = (
+    "path", "url", "demo", "paths", "merge_dir", "samples",
+    "format", "member", "object", "transpose", "name", "delimiter", "gse",
+)
+
+TRACKED_OBS_COLUMNS = (
+    "sample", "sample_name", "group", "cell_type", "clusters", "batch",
+    "donor", "donor_id", "sample_id", "orig.ident", "seurat_clusters", "leiden",
+)
+
+
+def _sha256_file(path):
+    """文件校验值（带 (path,size,mtime) 缓存，避免同一导出重复读大文件）。"""
+    target = Path(str(path))
+    try:
+        stat = target.stat()
+    except Exception:  # noqa: BLE001
+        return None
+    key = (str(target), int(stat.st_size), int(stat.st_mtime_ns))
+    cached = _SHA256_CACHE.get(key)
+    if cached:
+        return cached
+    digest = hashlib.sha256()
+    try:
+        with open(target, "rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+    except Exception:  # noqa: BLE001
+        return None
+    value = digest.hexdigest()
+    if len(_SHA256_CACHE) > 64:
+        _SHA256_CACHE.clear()
+    _SHA256_CACHE[key] = value
+    return value
+
+
+def _sha256_json(value):
+    text = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _matrix_fingerprint(matrix):
+    """确定性矩阵指纹：形状 + 稀疏结构 + float32 值，另附容差比较用的统计量。"""
+    if matrix is None:
+        return None
+    m = matrix if sp.issparse(matrix) else sp.csr_matrix(np.asarray(matrix, dtype=np.float32))
+    m = m.tocsr(copy=True)
+    m.sum_duplicates()
+    m.sort_indices()
+    data = np.ascontiguousarray(m.data, dtype="<f4")
+    digest = hashlib.sha256()
+    digest.update(("%d,%d,%d" % (m.shape[0], m.shape[1], int(m.indptr.size))).encode("utf-8"))
+    digest.update(np.ascontiguousarray(m.indptr, dtype="<i8").tobytes())
+    digest.update(np.ascontiguousarray(m.indices, dtype="<i8").tobytes())
+    digest.update(data.tobytes())
+    return {
+        "shape": [int(m.shape[0]), int(m.shape[1])],
+        "nnz": int(m.nnz),
+        "sha256": digest.hexdigest(),
+        "sum": float(np.sum(data, dtype=np.float64)) if data.size else 0.0,
+        "min": float(np.min(data)) if data.size else 0.0,
+        "max": float(np.max(data)) if data.size else 0.0,
+    }
+
+
+def _obs_digest(series):
+    return _sha256_json([str(value) for value in series.tolist()])
+
+
+def _record_software():
+    """执行记录里的软件/依赖版本（取不到的值保留 None，Methods 写「未记录」）。"""
+    return {
+        "dsh-singlecell": PLUGIN_VERSION,
+        "python": PY_VERSION,
+        "engine_mode": ENGINE_MODE,
+        "numpy": PACKAGE_VERSIONS.get("numpy"),
+        "scipy": PACKAGE_VERSIONS.get("scipy"),
+        "pandas": PACKAGE_VERSIONS.get("pandas"),
+        "sklearn": PACKAGE_VERSIONS.get("sklearn"),
+        "anndata": PACKAGE_VERSIONS.get("anndata"),
+        "matplotlib": PACKAGE_VERSIONS.get("matplotlib"),
+        "scanpy": PACKAGE_VERSIONS.get("scanpy"),
+        "umap": _OPTIONAL_VERSIONS.get("umap"),
+        "leidenalg": _OPTIONAL_VERSIONS.get("leidenalg"),
+        "seurat6": None,
+    }
+
+
+def _software_fingerprint():
+    """决定「逐值比较」还是「容差比较」的环境指纹。"""
+    return {
+        "plugin_version": PLUGIN_VERSION,
+        "engine_mode": ENGINE_MODE,
+        "python": "%d.%d" % (sys.version_info[0], sys.version_info[1]),
+        "numpy": PACKAGE_VERSIONS.get("numpy"),
+        "scipy": PACKAGE_VERSIONS.get("scipy"),
+        "pandas": PACKAGE_VERSIONS.get("pandas"),
+        "sklearn": PACKAGE_VERSIONS.get("sklearn"),
+        "anndata": PACKAGE_VERSIONS.get("anndata"),
+        "scanpy": PACKAGE_VERSIONS.get("scanpy"),
+        "umap": _OPTIONAL_VERSIONS.get("umap"),
+        "leidenalg": _OPTIONAL_VERSIONS.get("leidenalg"),
+        "seed": SEED,
+    }
+
+
+def _matrix_scale(dataset):
+    """当前 X 的实际尺度（只认已执行的转换记录，不靠步骤名前缀猜测）。"""
+    normalize = (getattr(dataset, "uns", {}) or {}).get("normalize") or {}
+    if "normalize" in getattr(dataset, "steps", []) and normalize.get("log1p"):
+        return "lognorm(log1p, target_sum=%s)" % _fmt_num(normalize.get("target_sum"))
+    import_state = (getattr(dataset, "uns", {}) or {}).get("import_state") or {}
+    if (import_state.get("details") or {}).get("x_lognormalized"):
+        return "imported_lognorm"
+    kind = str(getattr(dataset, "matrix_kind", None) or "unknown")
+    if kind in ("counts", "integer"):
+        return "counts"
+    return kind
+
+
+def _tracked_obs_columns(dataset):
+    ordered = [column for column in TRACKED_OBS_COLUMNS if column in dataset.obs.columns]
+    extra = set()
+    for entry in getattr(dataset, "execution_record", []) or []:
+        for column in entry.get("obs_columns") or []:
+            extra.add(str(column))
+    for column in sorted(extra):
+        if column in dataset.obs.columns and column not in ordered:
+            ordered.append(column)
+    return ordered
+
+
+def _record_step_execution(dataset, step, user_params, params, summary, before_scale):
+    """写入一条结构化执行记录（只在步骤真正成功后调用）。"""
+    details = _step_method_details(dataset, step, params, summary)
+    record = {
+        "seq": len(dataset.execution_record) + 1,
+        "at": _now_iso(),
+        "kind": "step",
+        "step": str(step),
+        "requested_method": details.get("requested_method"),
+        "actual_method": details.get("actual_method"),
+        "method_provenance": details.get("method_provenance"),
+        "fallback_reason": details.get("fallback_reason"),
+        "params_requested": _jsonable(user_params or {}),
+        "params_effective": _jsonable(params or {}),
+        # 重放用参数：显式锁定「实际生效」的算法分支（环境差异导致回退时仍然复现实际方法）
+        "replay_params": _jsonable(_replay_params_for_step(dataset, step, params)),
+        "input_scale": before_scale,
+        "output_scale": _matrix_scale(dataset),
+        "seed": SEED,
+        "software": _record_software(),
+        "dataset_version": int(dataset.version),
+        "dataset_revision": int(dataset.revision),
+        "n_obs": int(dataset.n_obs),
+        "n_vars": int(dataset.n_vars),
+        "n_obs_after": int(dataset.n_obs),
+        "n_vars_after": int(dataset.n_vars),
+        "obs_columns": [],
+    }
+    dataset.execution_record.append(record)
+    return record
+
+
+def _replay_params_for_step(dataset, step, params):
+    """把实际生效的算法分支写进重放参数：Leiden 回退就是 Louvain，UMAP 回退就是 t-SNE。"""
+    replay = dict(params or {})
+    replay.pop("engine", None)  # 外部 Seurat 步骤标为不可重放，重放只走内置实现
+    if step == "cluster":
+        replay["method"] = "leiden" if str((dataset.uns.get("cluster") or {}).get("method") or "").lower().startswith("leiden") else "louvain"
+    elif step == "hvg":
+        # builtin 实现始终是 Seurat 风格均值分箱离散度
+        replay["flavor"] = "seurat"
+    elif step == "embed":
+        layout = str((dataset.uns.get("embed") or {}).get("layout") or dataset.layout or replay.get("layout") or "tsne")
+        replay["layout"] = layout.split("(")[0]
+    elif step == "markers":
+        replay["method"] = "t-test"
+    return replay
+
+
+def _step_method_details(dataset, step, params, summary):
+    """从真实执行结果里取出 requested / actual / provenance / fallback。"""
+    params = params or {}
+    metrics = (summary or {}).get("metrics") or {}
+    engine_param = str(params.get("engine") or "").lower()
+    seurat = engine_param in ("seurat", "seurat6", "r")
+    requested = None
+    actual = None
+    provenance = metrics.get("method_provenance")
+    fallback = None
+    if step == "qc":
+        requested = "builtin"
+        actual = "qc_metrics(builtin)"
+    elif step == "filter":
+        requested = "threshold_filter"
+        actual = "threshold_filter(builtin)"
+    elif step == "normalize":
+        requested = "log1p"
+        actual = "library_size_scaling+log1p(builtin, target_sum=%s)" % _fmt_num(params.get("target_sum"))
+    elif step == "hvg":
+        requested = str(params.get("flavor") or "seurat")
+        hvg_meta = dataset.uns.get("hvg") or {}
+        actual = "seurat_binned_dispersion(builtin)"
+        fallback = hvg_meta.get("fallback_reason")
+    elif step == "pca":
+        if seurat or str(dataset.uns.get("pca_engine") or "") == "seurat6":
+            requested = "seurat6"
+            actual = metrics.get("actual_method") or "Seurat::RunPCA"
+        else:
+            requested = "builtin"
+            solver = dataset.uns.get("pca_solver") or metrics.get("solver") or "randomized"
+            actual = "PCA(scikit-learn, svd_solver=%s)" % solver
+    elif step == "neighbors":
+        if seurat:
+            requested = "seurat6"
+            actual = metrics.get("actual_method") or "Seurat::FindNeighbors"
+        else:
+            requested = "builtin"
+            neighbor_meta = dataset.uns.get("neighbors") or {}
+            actual = "knn_graph(scikit-learn NearestNeighbors, metric=%s)" % neighbor_meta.get("metric", params.get("metric"))
+    elif step == "cluster":
+        cluster_meta = dataset.uns.get("cluster") or {}
+        if seurat:
+            requested = "seurat6"
+            actual = metrics.get("actual_method") or "Seurat::FindClusters"
+        else:
+            requested = str(params.get("method") or "louvain").lower()
+            actual = str(cluster_meta.get("method") or "louvain(builtin)")
+            if not actual.startswith("louvain") and not actual.startswith("leiden"):
+                actual = "louvain(builtin)"
+        fallback = cluster_meta.get("fallback_reason")
+    elif step == "embed":
+        embed_meta = dataset.uns.get("embed") or {}
+        if seurat:
+            requested = "seurat6"
+            actual = metrics.get("actual_method") or "Seurat::RunUMAP"
+        else:
+            requested = str(params.get("layout") or "tsne").lower()
+            layout = str(embed_meta.get("layout") or dataset.layout or requested)
+            if layout == "tsne":
+                actual = "t-SNE(scikit-learn, random_state=%d)" % SEED
+            elif layout == "umap":
+                actual = "UMAP(umap-learn, random_state=%d)" % SEED
+            elif layout.startswith("umap"):
+                actual = "Seurat::RunUMAP"
+            else:
+                actual = "PCA(first two components)"
+        fallback = embed_meta.get("fallback_reason")
+    elif step == "markers":
+        method = str(params.get("method") or "t-test")
+        requested = method
+        actual = "Welch t-test(builtin, one-vs-rest)+Benjamini-Hochberg"
+        if method.lower() not in ("t-test", "t_test", "welch", "welch-t"):
+            fallback = "requested marker test %r is not implemented by the builtin engine; fell back to Welch t-test" % method
+    elif step == "annotate":
+        requested = "manual"
+        actual = "manual_annotation"
+    return {
+        "requested_method": requested,
+        "actual_method": actual,
+        "method_provenance": provenance if provenance else None,
+        "fallback_reason": fallback if fallback else metrics.get("fallback_reason"),
+    }
+
+
+def execution_records(dataset):
+    """当前数据版本仍有效的执行记录（按时间顺序；已失效步骤的记录被剪掉）。"""
+    current_steps = set(getattr(dataset, "steps", []) or [])
+    return [
+        entry for entry in (getattr(dataset, "execution_record", []) or [])
+        if entry.get("kind") != "step" or entry.get("step") in current_steps
+    ]
+
+
+def _record_operation(dataset, kind, command, args, actual_method, *,
+                      method_provenance=None, fallback_reason=None, replayable=True,
+                      not_replayable_reason=None, obs_columns=None, extra=None):
+    """记录一次手动/外部操作（分组、注释、样本移除、外部分析等）。"""
+    entry = {
+        "seq": len(dataset.execution_record) + 1,
+        "at": _now_iso(),
+        "kind": str(kind),
+        "command": str(command),
+        "args": _jsonable(args or {}),
+        "requested_method": None,
+        "actual_method": actual_method,
+        "method_provenance": method_provenance,
+        "fallback_reason": fallback_reason,
+        "replayable": bool(replayable),
+        "not_replayable_reason": not_replayable_reason,
+        "obs_columns": [str(column) for column in (obs_columns or [])],
+        "seed": SEED,
+        "software": _record_software(),
+        "dataset_version": int(dataset.version),
+        "dataset_revision": int(dataset.revision),
+        "n_obs": int(dataset.n_obs),
+        "n_vars": int(dataset.n_vars),
+        "n_obs_after": int(dataset.n_obs),
+        "n_vars_after": int(dataset.n_vars),
+    }
+    if extra:
+        entry.update(_jsonable(extra))
+    dataset.execution_record.append(entry)
+    return entry
+
+
+def _prune_execution_records(dataset):
+    """数据版本变化后清掉已失效步骤的记录（Methods 不得描述旧版本步骤）。"""
+    current_steps = set(getattr(dataset, "steps", []) or [])
+    dataset.execution_record = [
+        entry for entry in (getattr(dataset, "execution_record", []) or [])
+        if entry.get("kind") != "step" or entry.get("step") in current_steps
+    ]
+    for index, entry in enumerate(dataset.execution_record):
+        entry["seq"] = index + 1
+
+
+def _new_obs_columns(dataset, before_columns):
+    return [str(column) for column in dataset.obs.columns if column not in before_columns]
+
+
+def _input_files(dataset, args=None):
+    """记录/校验输入文件清单（本地路径去重后返回绝对路径）。"""
+    args = args or {}
+    candidates = []
+    for key in ("path", "paths"):
+        value = args.get(key)
+        if isinstance(value, str):
+            candidates.append(value)
+        elif isinstance(value, (list, tuple)):
+            candidates.extend(str(item) for item in value if item)
+    samples = args.get("samples")
+    if isinstance(samples, list):
+        for item in samples:
+            if isinstance(item, dict) and item.get("path"):
+                candidates.append(str(item["path"]))
+    if not candidates and getattr(dataset, "path", None):
+        candidates.append(str(dataset.path))
+    files = []
+    seen = set()
+    for candidate in candidates:
+        path = Path(os.path.expanduser(str(candidate))).resolve()
+        if path.is_dir():
+            continue
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
+        files.append(key)
+    return files
+
+
+def _open_replayable(dataset, args):
+    args = args or {}
+    if str(getattr(dataset, "source", "")) == "subset":
+        return False, "子集数据集需要先重放父数据集，当前导出物只能作为记录"
+    if args.get("url") or str(getattr(dataset, "path", "") or "").startswith(("http://", "https://", "ftp://")):
+        return False, "URL 输入依赖网络与远端文件，当前导出物只能作为记录"
+    files = _input_files(dataset, args)
+    missing = [path for path in files if not Path(path).exists()]
+    if missing:
+        return False, "输入文件不存在，当前导出物只能作为记录：%s" % ", ".join(missing[:3])
+    return True, None
+
+
+def _record_import(dataset, args, source_format=None):
+    replay_args = {key: args[key] for key in REPLAY_OPEN_ARG_KEYS if args.get(key) is not None}
+    replayable, reason = _open_replayable(dataset, args)
+    entry = _record_operation(
+        dataset, "open", "open", replay_args,
+        "import(%s)" % (source_format or getattr(dataset, "source_format", None) or dataset.source or "auto"),
+        replayable=replayable,
+        not_replayable_reason=reason,
+        extra={
+            "source_format": source_format or getattr(dataset, "source_format", None),
+            "input_n_obs": int(getattr(dataset, "full_obs", dataset.obs).shape[0]),
+            "input_n_vars": int(len(getattr(dataset, "full_var_names", dataset.var_names))),
+            "matrix_kind": getattr(dataset, "matrix_kind", None),
+            "counts_source": getattr(dataset, "counts_source", None),
+            "counts_verified": bool(getattr(dataset, "counts_verified", True)),
+        },
+    )
+    dataset.uns["import"] = dict(entry)
+    return entry
+
+
 def _history_entry(dataset, step, params, ok, ms, summary=None, error=None):
     return {
         "at": _now_iso(),
@@ -1884,7 +2407,7 @@ def _history_entry(dataset, step, params, ok, ms, summary=None, error=None):
 
 
 def _execute_step(dataset, step, user_params):
-    """执行一个步骤：校验依赖 → 清空下游 → 计算 → 更新 steps/params。"""
+    """执行一个步骤：校验依赖 → 清空下游 → 计算 → 更新 steps/params → 写执行记录。"""
     if step not in STEP_ORDER:
         raise EngineError("bad_request", "未知步骤：%s（可用：%s）" % (step, ", ".join(STEP_ORDER)))
     missing = [dependency for dependency in STEP_DEPS[step] if dependency not in dataset.steps]
@@ -1895,10 +2418,14 @@ def _execute_step(dataset, step, user_params):
         )
     params = _merge_params(step, user_params)
     _reset_from_step(dataset, step)
+    before_scale = _matrix_scale(dataset)
     summary = STEP_HANDLERS[step](dataset, params)
     dataset.steps = _ordered_steps(set(dataset.steps) | {step})
     dataset.params[step] = params
     dataset.version += 1
+    dataset.touch("step:%s" % step)
+    # EXPORT-01：只有真正成功执行的步骤才进入结构化记录
+    _record_step_execution(dataset, step, user_params, params, summary, before_scale)
     return params, summary
 
 
@@ -3360,9 +3887,10 @@ def _export_summary_json(dataset, path):
 
 
 def _build_protocol(dataset):
+    manifest = build_repro_manifest(dataset)
     return {
         "protocol_version": 2,
-        "plugin": {"name": "dsh-singlecell-workbench", "version": PLUGIN_VERSION},
+        "plugin": {"name": "dsh-singlecell", "version": PLUGIN_VERSION},
         "generated_at": _now_iso(),
         "dataset": {
             "id": dataset.id,
@@ -3372,17 +3900,36 @@ def _build_protocol(dataset):
                 "path": dataset.path,
                 "demo_generator": "test/make_sample.py" if dataset.source == "demo" else None,
             },
+            "version": int(dataset.version),
+            "revision": int(dataset.revision),
             "n_obs": dataset.n_obs,
             "n_vars": dataset.n_vars,
             "obs_columns": [column["key"] for column in _obs_columns(dataset)],
             "steps": list(dataset.steps),
             "params": _jsonable(dataset.params),
+            "matrix_kind": getattr(dataset, "matrix_kind", None),
+            "counts_source": getattr(dataset, "counts_source", None),
+            "counts_verified": bool(getattr(dataset, "counts_verified", True)),
             "warnings": list(dataset.warnings),
         },
         "engine": _engine_info(),
         "seed": SEED,
         "software": dict(PACKAGE_VERSIONS),
         "history": _jsonable(dataset.history),
+        # EXPORT-01：Methods 与 protocol 共用同一份结构化执行记录
+        "execution_record": _jsonable(execution_records(dataset)),
+        # EXPORT-02：复现清单摘要（完整清单嵌入导出的 replay 脚本）
+        "replay": {
+            "manifest_version": REPLAY_MANIFEST_VERSION,
+            "input": manifest.get("input"),
+            "n_operations": len(manifest.get("operations") or []),
+            "not_replayable": manifest.get("not_replayable"),
+            "expectations": {
+                "structural": (manifest.get("expectations") or {}).get("structural"),
+                "hashes": (manifest.get("expectations") or {}).get("hashes"),
+            },
+            "reference_migration": manifest.get("reference_migration"),
+        },
         "figures": _jsonable(
             [
                 {
@@ -3414,146 +3961,1428 @@ def _params_for_methods(dataset, step):
 
 
 def _build_methods(dataset):
-    versions = PACKAGE_VERSIONS
-    steps = set(dataset.steps)
-    # 产物存在也算该步骤已完成（UI 可能直接用 markers 命令而不是 run step=markers）
-    if dataset.markers is not None:
-        steps.add("markers")
-    if "X_emb" in dataset.obsm:
-        steps.add("embed")
-    if ENGINE_MODE == "scanpy":
-        engine_text = "scanpy %s backend" % (versions.get("scanpy") or "?")
-    else:
-        engine_text = "builtin NumPy/SciPy/scikit-learn implementation"
-    lines = []
-    lines.append("## Methods")
-    lines.append("")
-    lines.append(
-        "Single-cell RNA-seq data were analysed with **dsh-singlecell-workbench** v%s (%s; Python %s; "
-        "NumPy %s; SciPy %s; scikit-learn %s; AnnData %s; matplotlib %s)."
+    """Methods 从结构化执行记录生成（EXPORT-01）：只描述真实成功、当前版本有效的步骤。"""
+    records = execution_records(dataset)
+    return "\n".join(_methods_lines(dataset, records))
+
+def _fmt_version(value):
+    return str(value) if value not in (None, "") else "未记录"
+
+
+def _methods_software_text(software):
+    software = software or {}
+    return (
+        "Python %s; NumPy %s; SciPy %s; scikit-learn %s; pandas %s; AnnData %s; matplotlib %s; "
+        "scanpy %s; umap-learn %s; leidenalg %s"
         % (
-            PLUGIN_VERSION,
-            engine_text,
-            PY_VERSION,
-            versions.get("numpy") or "?",
-            versions.get("scipy") or "?",
-            versions.get("sklearn") or "?",
-            versions.get("anndata") or "?",
-            versions.get("matplotlib") or "?",
+            _fmt_version(software.get("python")),
+            _fmt_version(software.get("numpy")),
+            _fmt_version(software.get("scipy")),
+            _fmt_version(software.get("sklearn")),
+            _fmt_version(software.get("pandas")),
+            _fmt_version(software.get("anndata")),
+            _fmt_version(software.get("matplotlib")),
+            _fmt_version(software.get("scanpy")),
+            _fmt_version(software.get("umap")),
+            _fmt_version(software.get("leidenalg")),
         )
     )
-    lines.append("")
-    if "qc" in steps or "filter" in steps:
-        filter_params = _params_for_methods(dataset, "filter") or _params_for_methods(dataset, "qc")
-        filter_info = dataset.filter_info or {}
-        parts = []
-        if filter_params.get("min_genes") not in (None, ""):
-            parts.append("at least %s detected genes per cell" % _fmt_num(filter_params.get("min_genes")))
-        if filter_params.get("max_genes") not in (None, ""):
-            parts.append("at most %s detected genes per cell" % _fmt_num(filter_params.get("max_genes")))
-        if filter_params.get("min_counts") not in (None, ""):
-            parts.append("at least %s total counts" % _fmt_num(filter_params.get("min_counts")))
-        if filter_params.get("max_pct_mt") not in (None, ""):
-            parts.append("mitochondrial counts below %s%% of total counts" % _fmt_num(filter_params.get("max_pct_mt")))
-        sentence = "Cells were retained when they had " + ", ".join(parts) + "."
-        if filter_params.get("min_cells") not in (None, ""):
-            sentence += " Genes detected in fewer than %s cells were discarded." % _fmt_num(filter_params.get("min_cells"))
-        if filter_info:
-            sentence += " This retained %s of %s cells and %s of %s genes." % (
-                _fmt_num(filter_info.get("n_obs_after")), _fmt_num(filter_info.get("n_obs_before")),
-                _fmt_num(filter_info.get("n_vars_after")), _fmt_num(filter_info.get("n_vars_before")),
-            )
-        lines.append(sentence)
-        lines.append("")
-    if "normalize" in steps:
-        params = _params_for_methods(dataset, "normalize")
-        lines.append(
+
+
+def _methods_params_text(record, skip=()):
+    params = record.get("params_effective") or {}
+    parts = []
+    for key in sorted(params):
+        if key in skip or key == "engine":
+            continue
+        value = params[key]
+        if value in (None, "", {}, []):
+            continue
+        if isinstance(value, bool):
+            text = "true" if value else "false"
+        elif isinstance(value, (int, float)):
+            text = _fmt_num(value)
+        elif isinstance(value, (dict, list)):
+            text = json.dumps(_jsonable(value), ensure_ascii=False)
+        else:
+            text = str(value)
+        parts.append("%s = %s" % (key, text))
+    return ", ".join(parts)
+
+
+def _method_record_suffix(record):
+    parts = []
+    requested = record.get("requested_method")
+    if requested not in (None, ""):
+        parts.append("requested method: `%s`" % requested)
+    parts.append("actual method: `%s`" % (record.get("actual_method") or "未记录"))
+    if record.get("method_provenance"):
+        parts.append("implementation: %s" % record.get("method_provenance"))
+    fallback = record.get("fallback_reason")
+    parts.append(
+        "fallback reason: %s" % (fallback if fallback else "none (the requested method was executed)")
+    )
+    parts.append("seed = %s" % (record.get("seed") if record.get("seed") is not None else "未记录"))
+    software = record.get("software") or {}
+    parts.append(
+        "software: dsh-singlecell v%s, Python %s, NumPy %s, scikit-learn %s, scipy %s"
+        % (
+            _fmt_version(software.get("dsh-singlecell") or PLUGIN_VERSION),
+            _fmt_version(software.get("python")),
+            _fmt_version(software.get("numpy")),
+            _fmt_version(software.get("sklearn")),
+            _fmt_version(software.get("scipy")),
+        )
+    )
+    return "; ".join(parts)
+
+
+def _methods_qc_section(dataset, step_records):
+    qc_record = step_records.get("qc")
+    filter_record = step_records.get("filter")
+    if qc_record is None and filter_record is None:
+        return []
+    lines = ["### Quality control and filtering", ""]
+    params = dict(((filter_record or {}).get("params_effective") or (qc_record or {}).get("params_effective") or {}))
+    parts = []
+    if params.get("min_genes") not in (None, ""):
+        parts.append("at least %s detected genes per cell" % _fmt_num(params.get("min_genes")))
+    if params.get("max_genes") not in (None, ""):
+        parts.append("at most %s detected genes per cell" % _fmt_num(params.get("max_genes")))
+    if params.get("min_counts") not in (None, ""):
+        parts.append("at least %s total counts" % _fmt_num(params.get("min_counts")))
+    if params.get("max_pct_mt") not in (None, ""):
+        parts.append("mitochondrial counts below %s%% of total counts" % _fmt_num(params.get("max_pct_mt")))
+    sentence = ""
+    if qc_record is not None:
+        sentence += (
+            "QC metrics (detected genes, total counts and mitochondrial fraction per cell) were computed "
+            "on the raw count matrix with the builtin implementation (actual method: `qc_metrics(builtin)`; "
+            "requested method: `builtin`; fallback reason: none; seed = %s). "
+            % (qc_record.get("seed") if qc_record.get("seed") is not None else "未记录")
+        )
+    sentence += "Cells were retained when they had " + ", ".join(parts) + "."
+    if params.get("min_cells") not in (None, ""):
+        sentence += " Genes detected in fewer than %s cells were discarded." % _fmt_num(params.get("min_cells"))
+    if filter_record is not None:
+        sentence += (
+            " Thresholds were applied by the builtin filter (actual method: `threshold_filter(builtin)`; "
+            "requested method: `threshold_filter`; fallback reason: none; seed = %s)."
+            % (filter_record.get("seed") if filter_record.get("seed") is not None else "未记录")
+        )
+    filter_info = dataset.filter_info or {}
+    if filter_info:
+        sentence += " This retained %s of %s cells and %s of %s genes." % (
+            _fmt_num(filter_info.get("n_obs_after")), _fmt_num(filter_info.get("n_obs_before")),
+            _fmt_num(filter_info.get("n_vars_after")), _fmt_num(filter_info.get("n_vars_before")),
+        )
+    lines.append(sentence)
+    return lines
+
+
+def _methods_step_section(dataset, step, record):
+    """单个流程步骤的 Methods 段落（内容全部来自该步骤的执行记录）。"""
+    params = record.get("params_effective") or {}
+    titles = {
+        "normalize": "Normalisation",
+        "hvg": "Highly variable genes",
+        "pca": "Principal component analysis",
+        "neighbors": "Nearest-neighbour graph",
+        "cluster": "Clustering",
+        "embed": "Two-dimensional embedding",
+        "markers": "Marker genes",
+        "annotate": "Cell-type annotation",
+    }
+    title = titles.get(step)
+    if title is None:
+        return []
+    input_scale = record.get("input_scale") or "未记录"
+    output_scale = record.get("output_scale") or "未记录"
+    lines = ["### " + title, ""]
+    if step == "normalize":
+        sentence = (
             "Counts were scaled to a target library size of %s per cell and log1p-transformed "
-            "(log(1 + x))." % _fmt_num(params.get("target_sum", 10000))
+            "(log(1 + x)); input matrix scale: %s; output matrix scale: %s. %s."
+            % (_fmt_num(params.get("target_sum", 10000)), input_scale, output_scale,
+               _method_record_suffix(record))
         )
-        lines.append("")
-    if "hvg" in steps:
-        params = _params_for_methods(dataset, "hvg")
+    elif step == "hvg":
         selected = (dataset.uns.get("hvg") or {}).get("n_selected")
-        lines.append(
-            "Highly variable genes were selected using the Seurat-style mean-binned normalised "
-            "dispersion method (20 equal-frequency mean bins, top %s genes%s)."
-            % (
-                _fmt_num(params.get("n_top_genes")),
-                "; %s genes selected" % _fmt_num(selected) if selected is not None else "",
-            )
+        sentence = (
+            "Highly variable genes were selected with the Seurat-style mean-binned normalised "
+            "dispersion method (20 equal-frequency mean bins; n_top_genes = %s%s; input matrix scale: %s). %s."
+            % (_fmt_num(params.get("n_top_genes")),
+               "; %s genes selected" % _fmt_num(selected) if selected is not None else "",
+               input_scale, _method_record_suffix(record))
         )
-        lines.append("")
-    if "pca" in steps:
-        params = _params_for_methods(dataset, "pca")
+    elif step == "pca":
         n_pcs = dataset.uns.get("pca_n_pcs") or params.get("n_pcs")
         pc1 = None
         ratios = dataset.uns.get("pca_variance_ratio") or []
         if ratios:
             pc1 = float(ratios[0]) * 100.0
-        solver = dataset.uns.get("pca_solver", "randomized")
-        lines.append(
-            "Principal component analysis was performed on the scaled highly variable genes "
-            "with %s components (%s SVD, random seed %d)%s."
-            % (
-                _fmt_num(n_pcs),
-                solver,
-                SEED,
-                "; PC1 explained %.1f%% of the variance" % pc1 if pc1 is not None else "",
-            )
+        sentence = (
+            "Principal component analysis was run on the scaled highly variable genes with %s components%s; "
+            "input matrix scale: %s. %s."
+            % (_fmt_num(n_pcs),
+               "; PC1 explained %.1f%% of the variance" % pc1 if pc1 is not None else "",
+               input_scale, _method_record_suffix(record))
         )
-        lines.append("")
-    if "neighbors" in steps:
-        params = _params_for_methods(dataset, "neighbors")
-        lines.append(
-            "A k-nearest-neighbour graph (k = %s, distance metric = %s) was built in PCA space "
-            "and symmetrised." % (_fmt_num(params.get("n_neighbors", 15)), params.get("metric", "cosine"))
+    elif step == "neighbors":
+        neighbor_meta = dataset.uns.get("neighbors") or {}
+        sentence = (
+            "A k-nearest-neighbour graph (k = %s, distance metric = %s) was built in PCA space and "
+            "symmetrised; input matrix scale: %s. %s."
+            % (_fmt_num(neighbor_meta.get("n_neighbors", params.get("n_neighbors"))),
+               neighbor_meta.get("metric", params.get("metric")), input_scale,
+               _method_record_suffix(record))
         )
-        lines.append("")
-    if "cluster" in steps:
-        params = _params_for_methods(dataset, "cluster")
+    elif step == "cluster":
         cluster_meta = dataset.uns.get("cluster") or {}
         n_clusters = cluster_meta.get("n_clusters")
-        lines.append(
-            "Cells were clustered with Louvain community detection (resolution = %s) on the kNN "
-            "graph; communities were numbered by decreasing size%s."
-            % (
-                _fmt_num(params.get("resolution", 1.0)),
-                " (%s clusters)" % _fmt_num(n_clusters) if n_clusters is not None else "",
-            )
-        )
-        lines.append("")
-    if "embed" in steps:
-        params = _params_for_methods(dataset, "embed")
-        embed_meta = dataset.uns.get("embed") or {}
-        layout = str(embed_meta.get("layout") or params.get("layout") or "tsne")
-        if layout == "tsne":
-            lines.append(
-                "Two-dimensional visualisation was produced with t-SNE (perplexity = %s, "
-                "PCA initialisation, random seed %d)."
-                % (_fmt_num(embed_meta.get("perplexity") or params.get("perplexity", 30)), SEED)
-            )
-        elif layout == "umap":
-            lines.append("Two-dimensional visualisation was produced with UMAP (random seed %d)." % SEED)
+        if n_clusters is None:
+            categories, _codes = dataset.cluster_codes()
+            n_clusters = len(categories) if categories is not None else None
+        actual = str(record.get("actual_method") or "")
+        if actual.lower().startswith("louvain"):
+            headline = "Cells were clustered with **Louvain community detection (builtin pure-Python implementation)**"
+        elif actual.lower().startswith("leiden"):
+            headline = "Cells were clustered with **Leiden community detection (scanpy implementation)**"
         else:
-            lines.append("Two-dimensional visualisation used the first two principal components.")
-        lines.append("")
-    if "markers" in steps:
-        params = _params_for_methods(dataset, "markers")
-        lines.append(
-            "Cluster marker genes were identified with one-vs-rest Welch t-tests on log-normalised "
-            "expression (top %s genes per cluster); p-values were adjusted with the "
-            "Benjamini-Hochberg procedure." % _fmt_num(params.get("top_n", 10))
+            headline = "Cells were clustered with **%s**" % actual
+        sentence = (
+            "%s on the k-nearest-neighbour graph. %s; resolution = %s; random seed = %s; "
+            "input matrix scale: %s. %s clusters were obtained."
+            % (headline,
+               _method_record_suffix(record),
+               _fmt_num(cluster_meta.get("resolution", params.get("resolution"))),
+               record.get("seed") if record.get("seed") is not None else "未记录",
+               input_scale,
+               _fmt_num(n_clusters) if n_clusters is not None else "未记录")
         )
-        lines.append("")
-    if "annotate" in steps:
-        params = _params_for_methods(dataset, "annotate")
+    elif step == "embed":
+        embed_meta = dataset.uns.get("embed") or {}
+        layout = str(embed_meta.get("layout") or dataset.layout or params.get("layout") or "")
+        if layout == "tsne":
+            headline = "Two-dimensional visualisation was produced with t-SNE (perplexity = %s, PCA initialisation)" % _fmt_num(
+                embed_meta.get("perplexity") or params.get("perplexity"))
+        elif layout == "umap":
+            headline = "Two-dimensional visualisation was produced with UMAP"
+        elif layout.startswith("umap"):
+            headline = "Two-dimensional visualisation was produced with %s" % layout
+        else:
+            headline = "Two-dimensional visualisation used the first two principal components"
+        sentence = "%s. %s." % (headline, _method_record_suffix(record))
+    elif step == "markers":
+        sentence = (
+            "Cluster marker genes were identified with one-vs-rest Welch t-tests on log-normalised "
+            "expression, with p-values adjusted by the Benjamini-Hochberg procedure (top_n = %s, "
+            "groupby = %s). %s."
+            % (_fmt_num(params.get("top_n", 10)), params.get("groupby", "clusters"),
+               _method_record_suffix(record))
+        )
+    else:  # annotate
         mapping = params.get("mapping") or {}
-        if mapping:
-            pairs = ", ".join("%s -> %s" % (key, value) for key, value in list(mapping.items())[:20])
-            lines.append("Cluster labels were manually curated as: %s." % pairs)
+        pairs = ", ".join("%s -> %s" % (key, value) for key, value in list(mapping.items())[:20])
+        sentence = "Cluster labels were manually curated as: %s. %s." % (
+            pairs if pairs else "（空映射，cell_type 暂时保持簇号）",
+            _method_record_suffix(record),
+        )
+    lines.append(sentence)
+    return lines
+
+
+def _methods_provenance(dataset, records):
+    lines = ["### Data import and provenance", ""]
+    import_record = next((entry for entry in records if entry.get("kind") == "open"), None)
+    source_format = getattr(dataset, "source_format", None) or dataset.source or "unknown"
+    full_obs = getattr(dataset, "full_obs", None)
+    full_n_obs = int(full_obs.shape[0]) if full_obs is not None else dataset.n_obs
+    full_n_vars = int(len(getattr(dataset, "full_var_names", None) or dataset.var_names))
+    lines.append(
+        "- Source: `%s` (format: %s; import record: %s)."
+        % (dataset.path or "demo generator (test/make_sample.py)", source_format,
+           "recorded" if import_record is not None else "未记录")
+    )
+    lines.append(
+        "- Matrix scale of the current X: %s; counts layer source: %s (counts_verified=%s)."
+        % (_matrix_scale(dataset), getattr(dataset, "counts_source", None) or "未记录",
+           bool(getattr(dataset, "counts_verified", False)))
+    )
+    lines.append(
+        "- Input size: %s cells × %s genes; current size: %s cells × %s genes."
+        % (_fmt_num(full_n_obs), _fmt_num(full_n_vars), _fmt_num(dataset.n_obs), _fmt_num(dataset.n_vars))
+    )
+    if import_record is not None:
+        args = import_record.get("args") or {}
+        if args:
+            preview = json.dumps(_jsonable(args), ensure_ascii=False)
+            if len(preview) > 240:
+                preview = preview[:240] + "…（完整参数见 protocol/复现清单）"
+            lines.append("- Import arguments recorded: `%s`." % preview)
+    return lines
+
+
+def _methods_unrecorded_section(dataset, step_records):
+    missing = [step for step in STEP_ORDER if step in dataset.steps and step not in step_records]
+    if not missing:
+        return []
+    import_state = (getattr(dataset, "uns", {}) or {}).get("import_state") or {}
+    details = import_state.get("details") or {}
+    lines = ["### Steps without an execution record", ""]
+    for step in missing:
+        hint = "该步骤来自导入数据或对象自带结果，本插件没有成功执行记录，不能补写具体算法。"
+        if details.get("source_class"):
+            hint += " Imported object class: %s." % details.get("source_class")
+        lines.append("- %s: 未记录 (not recorded). %s" % (step, hint))
+    lines.append("")
+    return lines
+
+
+def _methods_manual_sections(dataset, records):
+    lines = []
+    manual = [entry for entry in records if entry.get("kind") in ("command", "subset")]
+    if manual:
+        lines.extend(["### Manual metadata edits", ""])
+        for entry in manual:
+            replayable = "yes" if entry.get("replayable", True) else "no (%s)" % (
+                entry.get("not_replayable_reason") or "只能作为记录/示例")
+            columns = ", ".join(entry.get("obs_columns") or []) or "none"
+            lines.append(
+                "- %s: `%s` — %s; affected obs columns: %s; replayable: %s."
+                % (entry.get("at"), entry.get("command"),
+                   entry.get("actual_method") or "未记录", columns, replayable)
+            )
+        lines.append("")
+    external = [entry for entry in records if entry.get("kind") in ("analysis", "external")]
+    if external:
+        lines.extend(["### Analyses and external tools", ""])
+        for entry in external:
+            method = entry.get("actual_method") or "未记录"
+            if entry.get("kind") == "external":
+                lines.append(
+                    "- %s: external tool `%s` — method: %s; 未能重放（外部 R/Python 依赖），"
+                    "相关结果只能作为记录/示例." % (entry.get("at"), entry.get("command"), method)
+                )
+            else:
+                lines.append(
+                    "- %s: analysis `%s` — method: %s; the recorded call is re-invoked on replay, "
+                    "but analysis-specific numeric outputs are not value-checked."
+                    % (entry.get("at"), (entry.get("args") or {}).get("id"), method)
+                )
+        lines.append("")
+    return lines
+
+
+def _methods_lines(dataset, records):
+    step_records = {}
+    for entry in records:
+        if entry.get("kind") == "step" and entry.get("step"):
+            step_records[entry.get("step")] = entry
+    step_software = [entry for entry in records if entry.get("kind") == "step"]
+    software = ((step_software[-1].get("software") if step_software else None) or _record_software())
+    lines = ["## Methods", ""]
+    lines.append(
+        "Single-cell RNA-seq data (%s cells × %s genes in the current matrix; dataset version v%s, revision %s) "
+        "were analysed with **dsh-singlecell** v%s (%s; %s)."
+        % (
+            _fmt_num(dataset.n_obs), _fmt_num(dataset.n_vars), dataset.version, dataset.revision,
+            PLUGIN_VERSION,
+            "builtin NumPy/SciPy/scikit-learn engine" if ENGINE_MODE != "scanpy"
+            else "scanpy %s backend" % _fmt_version(PACKAGE_VERSIONS.get("scanpy")),
+            _methods_software_text(software),
+        )
+    )
+    lines.append("")
+    lines.extend(_methods_provenance(dataset, records))
+    lines.append("")
+    qc_lines = _methods_qc_section(dataset, step_records)
+    if qc_lines:
+        lines.extend(qc_lines)
+        lines.append("")
+    for step in STEP_ORDER:
+        if step in ("qc", "filter"):
+            continue
+        record = step_records.get(step)
+        if record is None:
+            continue
+        section = _methods_step_section(dataset, step, record)
+        if section:
+            lines.extend(section)
             lines.append("")
-    lines.append("All random seeds were fixed at %d, and all figures were generated with matplotlib." % SEED)
+    lines.extend(_methods_manual_sections(dataset, records))
+    lines.extend(_methods_unrecorded_section(dataset, step_records))
+    lines.extend(["### Software and reproducibility", ""])
+    lines.append(
+        "All random seeds were fixed at %s. %s." % (SEED, _methods_software_text(software))
+    )
+    lines.append("")
+    lines.append(
+        "This section was generated from the structured execution record of dataset version v%s "
+        "(revision %s); only steps that were actually executed successfully and still belong to the "
+        "current data version are described. Values that could not be recovered from the record are "
+        "marked \"未记录\" instead of being inferred from interface labels." % (dataset.version, dataset.revision)
+    )
+    return lines
+
+
+def _replay_snapshot(dataset):
+    """导出时的期望结果快照；重放后用同一函数计算并逐项比较。"""
+    categories, codes = dataset.cluster_codes()
+    x_fp = _matrix_fingerprint(dataset.X)
+    counts_fp = _matrix_fingerprint(dataset.counts)
+    pca = dataset.obsm.get("X_pca")
+    pca_fp = _matrix_fingerprint(pca)
+    embed = dataset.obsm.get("X_emb")
+    structural = {
+        "n_obs": int(dataset.n_obs),
+        "n_vars": int(dataset.n_vars),
+        "steps": list(dataset.steps),
+        "matrix_scale": _matrix_scale(dataset),
+        "counts_source": getattr(dataset, "counts_source", None),
+        "counts_verified": bool(getattr(dataset, "counts_verified", False)),
+        "n_clusters": int(len(categories)) if categories is not None else None,
+        "layout": dataset.layout,
+        "pca_n_pcs": dataset.uns.get("pca_n_pcs"),
+        "cluster_method": (dataset.uns.get("cluster") or {}).get("method"),
+        "filter": (
+            {
+                "n_obs_before": dataset.filter_info.get("n_obs_before"),
+                "n_obs_after": dataset.filter_info.get("n_obs_after"),
+                "n_vars_before": dataset.filter_info.get("n_vars_before"),
+                "n_vars_after": dataset.filter_info.get("n_vars_after"),
+            }
+            if dataset.filter_info else None
+        ),
+    }
+    hashes = {"X": x_fp["sha256"] if x_fp else None, "counts": counts_fp["sha256"] if counts_fp else None}
+    if categories is not None:
+        hashes["clusters"] = _obs_digest(dataset.obs["clusters"])
+    for column in _tracked_obs_columns(dataset):
+        hashes["obs:" + column] = _obs_digest(dataset.obs[column])
+    cluster_sizes = []
+    if codes is not None:
+        cluster_sizes = sorted(int(value) for value in np.bincount(codes, minlength=len(categories)))
+    markers = {}
+    if isinstance(dataset.markers, dict):
+        for group in dataset.markers.get("groups") or []:
+            markers[str(group.get("id"))] = [
+                [
+                    str(record.get("gene")),
+                    round(float(record.get("score") or 0.0), 10),
+                    round(float(record.get("logfc") or 0.0), 10),
+                ]
+                for record in (group.get("genes") or [])[:5]
+            ]
+    numbers = {
+        "cluster_sizes": cluster_sizes,
+        "pca_variance_ratio": [round(float(value), 12) for value in (dataset.uns.get("pca_variance_ratio") or [])],
+        "markers": markers,
+        "embed": (
+            {
+                "shape": [int(value) for value in np.asarray(embed).shape],
+                "sum": float(np.nansum(embed)),
+                "min": float(np.nanmin(embed)),
+                "max": float(np.nanmax(embed)),
+            }
+            if embed is not None and np.asarray(embed).ndim == 2 else None
+        ),
+    }
+    return {
+        "structural": structural,
+        "hashes": hashes,
+        "numbers": numbers,
+        "fingerprints": {"X": x_fp, "counts": counts_fp, "X_pca": pca_fp},
+    }
+
+
+def _check_close(actual, expected, rel=1e-6, absolute=1e-9):
+    try:
+        actual = float(actual)
+        expected = float(expected)
+    except Exception:  # noqa: BLE001
+        return False
+    if not (math.isfinite(actual) and math.isfinite(expected)):
+        return False
+    return abs(actual - expected) <= absolute + rel * max(abs(actual), abs(expected))
+
+
+def compare_replay_snapshots(expected, actual, *, exact=True, skipped_steps=()):
+    """比较记录期望与重放结果；exact=False 时对浮点/矩阵使用预定义容差。"""
+    checks = []
+
+    def add(identifier, ok, expected_value=None, actual_value=None, mode="exact", detail=""):
+        checks.append({
+            "id": identifier,
+            "ok": bool(ok),
+            "mode": mode,
+            "expected": _jsonable(expected_value),
+            "actual": _jsonable(actual_value),
+            "detail": detail,
+            "required": True,
+        })
+        return bool(ok)
+
+    expected_structural = expected.get("structural") or {}
+    actual_structural = actual.get("structural") or {}
+    skipped = set(str(step) for step in skipped_steps or ())
+    for key in ("n_obs", "n_vars", "matrix_scale", "counts_source", "counts_verified",
+                "layout", "pca_n_pcs", "cluster_method", "filter"):
+        add("structural:" + key, expected_structural.get(key) == actual_structural.get(key),
+            expected_structural.get(key), actual_structural.get(key))
+    expected_steps = [str(step) for step in expected_structural.get("steps") or [] if str(step) not in skipped]
+    add("structural:steps", expected_steps == [str(step) for step in actual_structural.get("steps") or []],
+        expected_steps, actual_structural.get("steps"),
+        detail=("跳过不可重放步骤：%s" % ", ".join(sorted(skipped))) if skipped else "")
+    if skipped:
+        add("structural:n_clusters", True, expected_structural.get("n_clusters"),
+            actual_structural.get("n_clusters"), mode="record_only",
+            detail="聚类步骤不可重放，簇数仅作记录")
+    else:
+        add("structural:n_clusters", expected_structural.get("n_clusters") == actual_structural.get("n_clusters"),
+            expected_structural.get("n_clusters"), actual_structural.get("n_clusters"))
+
+    expected_hashes = expected.get("hashes") or {}
+    actual_hashes = actual.get("hashes") or {}
+    expected_fp = expected.get("fingerprints") or {}
+    actual_fp = actual.get("fingerprints") or {}
+    expected_numbers = expected.get("numbers") or {}
+    actual_numbers = actual.get("numbers") or {}
+
+    for name in ("X", "counts"):
+        if exact:
+            add("matrix:%s" % name, expected_hashes.get(name) == actual_hashes.get(name),
+                expected_hashes.get(name), actual_hashes.get(name), mode="exact",
+                detail="逐值（float32 指纹）比较")
+        else:
+            left = expected_fp.get(name) or {}
+            right = actual_fp.get(name) or {}
+            ok = (
+                left.get("shape") == right.get("shape")
+                and left.get("nnz") == right.get("nnz")
+                and _check_close(right.get("sum"), left.get("sum"), rel=1e-6)
+                and _check_close(right.get("min"), left.get("min"), rel=1e-6)
+                and _check_close(right.get("max"), left.get("max"), rel=1e-6)
+            )
+            add("matrix:%s" % name, ok, left.get("sha256"), right.get("sha256"), mode="tolerance",
+                detail="依赖版本不同：按 shape/nnz/sum/min/max 容差比较（rel=1e-6）")
+
+    for key, value in expected_hashes.items():
+        if not key.startswith("obs:"):
+            continue
+        actual_value = actual_hashes.get(key)
+        if actual_value is None and skipped:
+            add(key, True, value, actual_value, mode="record_only",
+                detail="相关步骤不可重放，该 obs 列只作为记录")
+        else:
+            add(key, value == actual_value, value, actual_value)
+
+    if "clusters" in expected_hashes:
+        if exact and not skipped:
+            add("clusters:labels", expected_hashes.get("clusters") == actual_hashes.get("clusters"),
+                expected_hashes.get("clusters"), actual_hashes.get("clusters"), mode="exact",
+                detail="Louvain 为确定性实现，标签逐值比较")
+        elif skipped:
+            add("clusters:labels", True, "recorded", None, mode="record_only",
+                detail="聚类步骤不可重放，标签只作为记录")
+        else:
+            left_sizes = expected_numbers.get("cluster_sizes") or []
+            right_sizes = actual_numbers.get("cluster_sizes") or []
+            add("clusters:labels", left_sizes == right_sizes,
+                left_sizes, right_sizes, mode="tolerance",
+                detail="依赖版本不同：只比较簇大小分布")
+
+    expected_variance = expected_numbers.get("pca_variance_ratio") or []
+    if expected_variance:
+        actual_variance = actual_numbers.get("pca_variance_ratio") or []
+        if exact:
+            ok = len(actual_variance) == len(expected_variance) and all(
+                _check_close(actual_variance[index], expected_variance[index], rel=0.0, absolute=0.0)
+                for index in range(len(expected_variance))
+            )
+            mode = "exact"
+        else:
+            ok = len(actual_variance) == len(expected_variance) and all(
+                _check_close(actual_variance[index], expected_variance[index], rel=1e-6)
+                for index in range(len(expected_variance))
+            )
+            mode = "tolerance"
+        add("pca:variance_ratio", ok, len(expected_variance), len(actual_variance), mode=mode)
+
+    expected_markers = expected_numbers.get("markers") or {}
+    actual_markers = actual_numbers.get("markers") or {}
+    if expected_markers:
+        expected_genes = {group: [item[0] for item in items] for group, items in expected_markers.items()}
+        actual_genes = {group: [item[0] for item in items] for group, items in actual_markers.items()}
+        add("markers:genes", expected_genes == actual_genes, expected_genes, actual_genes)
+        score_ok = True
+        for group, items in expected_markers.items():
+            actual_items = actual_markers.get(group) or []
+            if len(actual_items) != len(items):
+                score_ok = False
+                break
+            for left, right in zip(items, actual_items):
+                rel = 0.0 if exact else 1e-4
+                if not (_check_close(right[1], left[1], rel=rel) and _check_close(right[2], left[2], rel=rel)):
+                    score_ok = False
+        add("markers:scores", score_ok, "gene scores", "gene scores",
+            mode="exact" if exact else "tolerance")
+
+    expected_embed = expected_numbers.get("embed")
+    if expected_embed:
+        actual_embed = actual_numbers.get("embed") or {}
+        ok = (
+            expected_embed.get("shape") == actual_embed.get("shape")
+            and _check_close(actual_embed.get("sum"), expected_embed.get("sum"), rel=1e-5)
+            and _check_close(actual_embed.get("min"), expected_embed.get("min"), rel=1e-5)
+            and _check_close(actual_embed.get("max"), expected_embed.get("max"), rel=1e-5)
+        )
+        add("embed:coordinates", ok, expected_embed.get("shape"), actual_embed.get("shape"),
+            mode="tolerance", detail="t-SNE/UMAP 预定义容差：shape 精确，统计量 rel=1e-5")
+    return checks
+
+
+def _operation_payload(dataset, record):
+    kind = str(record.get("kind") or "")
+    base = {
+        "kind": kind,
+        "at": record.get("at"),
+        "actual_method": record.get("actual_method"),
+        "replayable": bool(record.get("replayable", True)),
+        "not_replayable_reason": record.get("not_replayable_reason"),
+    }
+    if kind == "open":
+        base.update({
+            "command": "open",
+            "args": record.get("args") or {},
+            "source_format": record.get("source_format"),
+            "input_n_obs": record.get("input_n_obs"),
+            "input_n_vars": record.get("input_n_vars"),
+        })
+        return base
+    if kind == "step":
+        replayable, reason = _step_replayable(record)
+        base.update({
+            "step": record.get("step"),
+            "requested_method": record.get("requested_method"),
+            "actual_method": record.get("actual_method"),
+            "method_provenance": record.get("method_provenance"),
+            "fallback_reason": record.get("fallback_reason"),
+            "params_requested": record.get("params_requested") or {},
+            "params_effective": record.get("params_effective") or {},
+            "replay_params": record.get("replay_params") or {},
+            "input_scale": record.get("input_scale"),
+            "output_scale": record.get("output_scale"),
+            "seed": record.get("seed"),
+            "software": record.get("software"),
+            "n_obs_after": record.get("n_obs_after"),
+            "n_vars_after": record.get("n_vars_after"),
+            "replayable": replayable,
+            "not_replayable_reason": reason,
+        })
+        return base
+    if kind in ("command", "analysis"):
+        args = dict(record.get("args") or {})
+        base.update({
+            "command": "analysis" if kind == "analysis" else record.get("command"),
+            "args": args,
+            "obs_columns": record.get("obs_columns") or [],
+            "replayable": bool(record.get("replayable", True)),
+            "not_replayable_reason": record.get("not_replayable_reason"),
+            "method_provenance": record.get("method_provenance"),
+        })
+        if kind == "analysis":
+            base["analysis_id"] = args.get("id")
+        return base
+    base.update({
+        "command": record.get("command"),
+        "args": record.get("args") or {},
+    })
+    return base
+
+
+def _step_replayable(record):
+    actual = str(record.get("actual_method") or "").lower()
+    provenance = str(record.get("method_provenance") or "").lower()
+    # 只有真正的外部 Seurat 实现才不可重放；hvg 的 seurat_binned_dispersion 是内置实现
+    if actual.startswith("seurat::") or "seurat 6.0" in provenance or "seurat6" in provenance:
+        return False, "需要 Seurat 6.0 + R 桥（外部依赖）；该步骤只能作为记录/示例"
+    if actual.startswith("leiden"):
+        return False, "需要 scanpy + leidenalg（外部依赖），不能保证同算法结果"
+    return True, None
+
+
+def _input_manifest(dataset, records):
+    import_record = next((entry for entry in records if entry.get("kind") == "open"), None)
+    args = dict((import_record or {}).get("args") or {})
+    if not args and getattr(dataset, "path", None):
+        args = {"path": dataset.path}
+    replayable = bool((import_record or {}).get("replayable", True))
+    reason = (import_record or {}).get("not_replayable_reason")
+    kind = "path"
+    if args.get("url"):
+        kind = "url"
+        replayable, reason = False, "URL 输入依赖网络与远端文件；该产物只能作为记录/示例"
+    elif args.get("demo"):
+        kind = "demo"
+    elif args.get("paths") or args.get("samples"):
+        kind = "merged"
+    if str(getattr(dataset, "source", "")) == "subset":
+        kind = "subset"
+        replayable, reason = False, "子集数据集需要先重放父数据集；该产物只能作为记录/示例"
+    files = []
+    if kind != "url":
+        for path in _input_files(dataset, args):
+            size = None
+            try:
+                size = int(Path(path).stat().st_size)
+            except Exception:  # noqa: BLE001
+                size = None
+            files.append({"path": path, "sha256": _sha256_file(path), "bytes": size})
+    if not files and kind == "path":
+        replayable, reason = False, "没有记录到本地输入文件；该产物只能作为记录/示例"
+    full_obs = getattr(dataset, "full_obs", dataset.obs)
+    full_var_names = list(getattr(dataset, "full_var_names", None) or dataset.var_names)
+    cells = [str(value) for value in full_obs.index]
+    genes = [str(value) for value in full_var_names]
+    return {
+        "kind": kind,
+        "open_args": _jsonable(args),
+        "format": getattr(dataset, "source_format", None) or dataset.source,
+        "path": dataset.path,
+        "sha256": (files[0].get("sha256") if files else None),
+        "demo_generator": "test/make_sample.py" if str(getattr(dataset, "source", "")) == "demo" else None,
+        "files": files,
+        "n_obs": len(cells),
+        "n_vars": len(genes),
+        "current_n_obs": int(dataset.n_obs),
+        "current_n_vars": int(dataset.n_vars),
+        "cells": {"n": len(cells), "sha256": _sha256_json(cells),
+                  "head": cells[:5], "tail": cells[-5:]},
+        "genes": {"n": len(genes), "sha256": _sha256_json(genes),
+                  "head": genes[:5], "tail": genes[-5:]},
+        "obs_columns": [str(column) for column in dataset.obs.columns],
+        "samples": _jsonable((dataset.uns or {}).get("samples") or []),
+        "groups": _summary_groups(dataset),
+        "group_column": (dataset.uns or {}).get("group_column"),
+        "matrix_kind": getattr(dataset, "matrix_kind", None),
+        "counts_source": getattr(dataset, "counts_source", None),
+        "counts_verified": bool(getattr(dataset, "counts_verified", True)),
+        "replayable": replayable,
+        "not_replayable_reason": reason,
+    }
+
+
+def _reference_migration_payload(dataset, records):
+    step_records = {
+        entry.get("step"): entry for entry in records
+        if entry.get("kind") == "step" and entry.get("step")
+    }
+    differences = []
+    cluster = step_records.get("cluster")
+    if cluster is None:
+        differences.append("- clustering: 没有执行记录（未记录），参考迁移脚本不包含聚类步骤。")
+    else:
+        actual = str(cluster.get("actual_method") or "")
+        resolution = (cluster.get("params_effective") or {}).get("resolution")
+        if actual.lower().startswith("louvain"):
+            differences.append(
+                "- clustering: 实际执行 = louvain(builtin)（内置纯 Python 实现，resolution=%s）；"
+                "参考脚本调用 sc.tl.louvain（scanpy 的另一实现），簇编号/边界可能不同；"
+                "sc.tl.leiden（Leiden 算法）与 Louvain 是不同算法，不能用来替代本次结果。" % _fmt_num(resolution)
+            )
+        elif actual.lower().startswith("leiden"):
+            differences.append(
+                "- clustering: 实际执行 = Leiden（scanpy %s，resolution=%s）；参考脚本同样调用 "
+                "sc.tl.leiden，但依赖版本不同时结果可能不同。"
+                % (_fmt_version((cluster.get("software") or {}).get("scanpy")), _fmt_num(resolution))
+            )
+        else:
+            differences.append(
+                "- clustering: 实际执行 = %s（外部实现），scanpy 无法等价复现。" % (actual or "未记录")
+            )
+    hvg = step_records.get("hvg")
+    if hvg is not None:
+        differences.append(
+            "- hvg: 实际执行 = seurat_binned_dispersion(builtin)；参考脚本的 "
+            "sc.pp.highly_variable_genes(flavor='seurat') 是近似等价实现，选出的基因可能不同。"
+        )
+    pca = step_records.get("pca")
+    if pca is not None:
+        differences.append(
+            "- pca: 实际执行 = %s（固定 seed）；参考脚本的 sc.tl.pca 使用同一类随机化 SVD，"
+            "但数值实现/依赖版本不同时解释方差可能略有差异。" % (pca.get("actual_method") or "未记录")
+        )
+    embed = step_records.get("embed")
+    if embed is not None:
+        differences.append(
+            "- embedding: 实际执行 = %s；参考脚本的 sc.tl.tsne / sc.tl.umap 是不同实现，"
+            "二维坐标不做逐值等价承诺。" % (embed.get("actual_method") or "未记录")
+        )
+    markers = step_records.get("markers")
+    if markers is not None:
+        differences.append(
+            "- markers: 实际执行 = Welch t-test(builtin)+BH；参考脚本的 "
+            "sc.tl.rank_genes_groups(method='t-test') 只做近似等价，P 值/排名可能不同。"
+        )
+    differences.append(
+        "- filtering/counts: 参考脚本在 AnnData 上原地过滤，counts 层随切片同步（不回填过滤前矩阵）；"
+        "数值与本次一致的前提是过滤阈值、矩阵方向与输入完全相同。"
+    )
+    return {
+        "title": "参考迁移脚本（Reference Scanpy migration script）",
+        "note": (
+            "参考迁移脚本只是迁移参考，不是重放路径；标称可重放的是导出文件前半部分的 "
+            "REPLAY_MANIFEST 驱动（走同一套 builtin 实现并经逐值/容差校验）。"
+        ),
+        "differences": differences,
+    }
+
+
+def build_repro_manifest(dataset):
+    """导出/重放共用的复现清单：输入清单+校验值、操作序列、实际参数、期望结果。"""
+    records = execution_records(dataset)
+    operations = [_operation_payload(dataset, record) for record in records]
+    manifest = {
+        "manifest_version": REPLAY_MANIFEST_VERSION,
+        "generated_at": _now_iso(),
+        "plugin": {"name": "dsh-singlecell", "version": PLUGIN_VERSION},
+        "seed": SEED,
+        "software": {
+            "engine": {
+                "sc_engine_path": str(Path(__file__).resolve()),
+                "engine_mode": ENGINE_MODE,
+                "python": PY_VERSION,
+                "plugin_version": PLUGIN_VERSION,
+                "seed": SEED,
+                "packages": dict(PACKAGE_VERSIONS),
+            },
+            "fingerprint": _software_fingerprint(),
+        },
+        "dataset": {
+            "id": dataset.id,
+            "name": dataset.name,
+            "version": int(dataset.version),
+            "revision": int(dataset.revision),
+            "steps": list(dataset.steps),
+            "n_obs": int(dataset.n_obs),
+            "n_vars": int(dataset.n_vars),
+        },
+        "input": _input_manifest(dataset, records),
+        "operations": operations,
+        "expectations": _replay_snapshot(dataset),
+        "reference_migration": _reference_migration_payload(dataset, records),
+        "not_replayable": [
+            {
+                "kind": op.get("kind"),
+                "step": op.get("step"),
+                "command": op.get("command"),
+                "reason": op.get("not_replayable_reason"),
+            }
+            for op in operations if op.get("replayable") is False
+        ],
+    }
+    return manifest
+
+
+def _operation_file_problem(op):
+    """command/analysis 操作引用的本地文件缺失或被改动时，返回不可重放原因。"""
+    args = op.get("args") or {}
+    if not args.get("path"):
+        return None
+    expected = args.get("sha256")
+    path = str(args.get("path"))
+    if not Path(path).exists():
+        return "操作引用的文件不存在：%s" % path
+    if expected:
+        actual = _sha256_file(path)
+        if actual and actual != expected:
+            return "操作引用的文件校验值已变化：%s" % path
+    return None
+
+
+def _replay_finish(out_dir, result):
+    path = Path(out_dir) / "replay_manifest.json"
+    result["out_files"] = dict(result.get("out_files") or {})
+    result["out_files"]["replay_manifest.json"] = str(path)
+    try:
+        path.write_text(json.dumps(_jsonable(result), ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception as error:  # noqa: BLE001
+        result["warnings"].append("无法写出 replay_manifest.json：%s" % error)
+    return result
+
+
+def run_replay(manifest, out_dir, *, reference_script=None, progress=None):
+    """按清单重放：校验输入 → 用真实命令入口重跑 → 用同一快照函数逐项比较。
+
+    返回 {"status", "exit_code", "checks", "skipped_operations", ...}。
+    status: verified / verified_with_tolerance / partial（记录/示例）/ failed / input_error /
+            record_only。
+    """
+    out = Path(out_dir)
+    try:
+        out.mkdir(parents=True, exist_ok=True)
+    except Exception as error:  # noqa: BLE001
+        raise EngineError("bad_request", "无法创建重放输出目录（%s）：%s" % (out, error))
+    say = progress if callable(progress) else (lambda message: None)
+    result = {
+        "status": "failed",
+        "exit_code": 1,
+        "message": "",
+        "checks": [],
+        "skipped_operations": [],
+        "failed_operations": [],
+        "warnings": [],
+        "out_files": {},
+        "software": _software_fingerprint(),
+        "engine": {"lib": str(Path(__file__).resolve()), "plugin_version": PLUGIN_VERSION},
+        "generated_at": _now_iso(),
+        "input": {},
+    }
+
+    def finish(status, exit_code, message):
+        result["status"] = status
+        result["exit_code"] = exit_code
+        result["message"] = message
+        say("replay status: %s（%s）" % (status, message))
+        return _replay_finish(out, result)
+
+    manifest = manifest if isinstance(manifest, dict) else {}
+    version = manifest.get("manifest_version")
+    if version != REPLAY_MANIFEST_VERSION:
+        return finish("record_only", 3,
+                      "复现清单版本不匹配（%s），该导出产物只能作为记录/示例" % version)
+    fingerprint = manifest.get("software", {}).get("fingerprint") or {}
+    exact = _software_fingerprint() == fingerprint
+    if not exact:
+        result["warnings"].append(
+            "依赖/插件版本与原执行不同：矩阵与统计量改用预定义容差比较，方法名与规模仍要求一致"
+        )
+
+    input_info = manifest.get("input") or {}
+    result["input"] = {
+        "kind": input_info.get("kind"),
+        "format": input_info.get("format"),
+        "path": input_info.get("path"),
+        "sha256": [(item.get("path"), item.get("sha256")) for item in (input_info.get("files") or [])],
+        "replayable": input_info.get("replayable", True),
+    }
+    if not input_info.get("replayable", True):
+        return finish("record_only", 3, "该导出产物只能作为记录/示例：%s"
+                      % (input_info.get("not_replayable_reason") or "输入不可重放"))
+    for file_info in input_info.get("files") or []:
+        path = file_info.get("path")
+        if not path:
+            continue
+        if not Path(path).exists():
+            return finish("input_error", 2,
+                          "输入文件不存在，拒绝重放；该导出产物只能作为记录/示例：%s" % path)
+        expected_sha = file_info.get("sha256")
+        actual_sha = _sha256_file(path)
+        if expected_sha and actual_sha and expected_sha != actual_sha:
+            return finish("input_error", 2,
+                          "输入文件 SHA-256 与导出记录不一致，拒绝重放；该导出产物只能作为记录/示例：%s" % path)
+
+    operations = list(manifest.get("operations") or [])
+    open_op = next((op for op in operations if op.get("kind") == "open"), None)
+    if open_op is None:
+        return finish("record_only", 3, "复现清单没有导入记录，无法定位原始输入；该产物只能作为记录/示例")
+    if open_op.get("replayable") is False:
+        return finish("record_only", 3, "输入不可重放：%s；该导出产物只能作为记录/示例"
+                      % (open_op.get("not_replayable_reason") or "未记录原因"))
+    say("open  输入：%s（%s）" % (input_info.get("path"), input_info.get("format")))
+    recorded_paths = {
+        os.path.realpath(str(item.get("path")))
+        for item in (input_info.get("files") or []) if item.get("path")
+    }
+    for key, existing in list(DATASETS.items()):
+        existing_path = getattr(existing, "path", None)
+        if existing_path and os.path.realpath(str(existing_path)) in recorded_paths:
+            DATASETS.pop(key, None)
+    try:
+        opened = cmd_open(dict(open_op.get("args") or {}))
+    except EngineError as error:
+        status = "input_error" if error.code in ("unsupported", "bad_request", "prerequisite") else "failed"
+        return finish(status, 2 if status == "input_error" else 1,
+                      "重新导入输入失败（%s）：%s；该导出产物只能作为记录/示例" % (error.code, error.message))
+    dataset_id = str((opened.get("dataset") or {}).get("id") or "")
+    if dataset_id not in DATASETS:
+        return finish("failed", 1, "重新导入输入后没有可用数据集，无法重放")
+    replayed = DATASETS[dataset_id]
+    initial_checks = []
+    expected_input_n_obs = int(input_info.get("n_obs") or 0)
+    expected_input_n_vars = int(input_info.get("n_vars") or 0)
+    if expected_input_n_obs:
+        initial_checks.append({
+            "id": "open:n_obs", "ok": int(replayed.n_obs) == expected_input_n_obs,
+            "mode": "exact", "expected": expected_input_n_obs, "actual": int(replayed.n_obs),
+            "required": True, "detail": "从同一输入恢复的细胞数",
+        })
+    if expected_input_n_vars:
+        initial_checks.append({
+            "id": "open:n_vars", "ok": int(replayed.n_vars) == expected_input_n_vars,
+            "mode": "exact", "expected": expected_input_n_vars, "actual": int(replayed.n_vars),
+            "required": True, "detail": "从同一输入恢复的基因数",
+        })
+
+    skipped_steps = []
+    skipped_step_set = set()
+    analysis_replayed = False
+    for index, op in enumerate(operations, start=1):
+        if op is open_op:
+            continue
+        kind = op.get("kind")
+        label = op.get("step") or op.get("command") or kind
+        # 依赖步骤不可重放时，下游步骤只能跳过（否则会以 prerequisite 失败伪装成真实失败）
+        blocked_by = []
+        if kind == "step":
+            blocked_by = [dep for dep in (STEP_DEPS.get(op.get("step")) or []) if dep in skipped_step_set]
+        elif kind == "command" and op.get("command") == "markers":
+            blocked_by = [dep for dep in ("normalize", "cluster") if dep in skipped_step_set]
+        if blocked_by:
+            reason = "依赖步骤不可重放：%s" % ", ".join(blocked_by)
+            result["skipped_operations"].append({
+                "index": index, "kind": kind, "step": op.get("step"),
+                "command": op.get("command"), "reason": reason,
+            })
+            if op.get("step"):
+                skipped_steps.append(op.get("step"))
+                skipped_step_set.add(op.get("step"))
+            say("skip  %s：%s" % (label, reason))
+            continue
+        if not op.get("replayable", True):
+            reason = op.get("not_replayable_reason") or "标记为不可重放"
+            result["skipped_operations"].append({
+                "index": index, "kind": kind, "step": op.get("step"),
+                "command": op.get("command"), "reason": reason,
+            })
+            if op.get("step"):
+                skipped_steps.append(op.get("step"))
+                skipped_step_set.add(op.get("step"))
+            say("skip  %s：%s" % (label, reason))
+            continue
+        file_problem = _operation_file_problem(op)
+        if file_problem:
+            result["skipped_operations"].append({
+                "index": index, "kind": kind, "step": op.get("step"),
+                "command": op.get("command"), "reason": file_problem,
+            })
+            if op.get("step"):
+                skipped_steps.append(op.get("step"))
+                skipped_step_set.add(op.get("step"))
+            say("skip  %s：%s" % (label, file_problem))
+            continue
+        try:
+            if kind == "step":
+                params = dict(op.get("replay_params") or op.get("params_effective") or {})
+                cmd_run({"dataset": dataset_id, "step": op.get("step"), "params": params})
+            elif kind == "analysis":
+                args = dict(op.get("args") or {})
+                args["dataset"] = dataset_id
+                cmd_analysis(args)
+                analysis_replayed = True
+            elif kind == "command":
+                command = str(op.get("command") or "")
+                if command not in REPLAYABLE_COMMANDS:
+                    raise EngineError("unsupported", "命令 %s 不在可重放白名单里" % command)
+                args = dict(op.get("args") or {})
+                args["dataset"] = dataset_id
+                COMMANDS[command](args)
+            else:
+                raise EngineError("unsupported", "未知操作类型：%s" % kind)
+        except EngineError as error:
+            if error.code == "unsupported":
+                result["skipped_operations"].append({
+                    "index": index, "kind": kind, "step": op.get("step"),
+                    "command": op.get("command"),
+                    "reason": "重放环境缺少依赖：%s" % error.message,
+                })
+                if op.get("step"):
+                    skipped_steps.append(op.get("step"))
+                    skipped_step_set.add(op.get("step"))
+                say("skip  %s：%s" % (label, error.message))
+                continue
+            if error.code == "prerequisite" and skipped_step_set:
+                result["skipped_operations"].append({
+                    "index": index, "kind": kind, "step": op.get("step"),
+                    "command": op.get("command"),
+                    "reason": "依赖步骤不可重放：%s" % error.message,
+                })
+                if op.get("step"):
+                    skipped_steps.append(op.get("step"))
+                    skipped_step_set.add(op.get("step"))
+                say("skip  %s：%s" % (label, error.message))
+                continue
+            result["failed_operations"].append({
+                "index": index, "kind": kind, "step": op.get("step"),
+                "command": op.get("command"), "code": error.code,
+                "message": error.message,
+            })
+            say("fail  %s：%s" % (label, error.message))
+            continue
+        replayed = DATASETS[dataset_id]
+        say("ok    %s（%d cells × %d genes）" % (label, replayed.n_obs, replayed.n_vars))
+        after_checks = []
+        expected_n_obs = op.get("n_obs_after")
+        expected_n_vars = op.get("n_vars_after")
+        if expected_n_obs is not None:
+            after_checks.append({
+                "id": "op:%02d:%s:n_obs" % (index, label),
+                "ok": int(replayed.n_obs) == int(expected_n_obs),
+                "mode": "exact", "expected": int(expected_n_obs),
+                "actual": int(replayed.n_obs), "required": True,
+            })
+        if expected_n_vars is not None:
+            after_checks.append({
+                "id": "op:%02d:%s:n_vars" % (index, label),
+                "ok": int(replayed.n_vars) == int(expected_n_vars),
+                "mode": "exact", "expected": int(expected_n_vars),
+                "actual": int(replayed.n_vars), "required": True,
+            })
+        if kind == "step":
+            step_records = [
+                entry for entry in replayed.execution_record
+                if entry.get("kind") == "step" and entry.get("step") == op.get("step")
+            ]
+            actual_method = step_records[-1].get("actual_method") if step_records else None
+            after_checks.append({
+                "id": "op:%02d:%s:actual_method" % (index, label),
+                "ok": str(actual_method) == str(op.get("actual_method")),
+                "mode": "exact", "expected": op.get("actual_method"),
+                "actual": actual_method, "required": True,
+                "detail": "重放必须走记录里的实际方法（含回退后的方法）",
+            })
+        result["checks"].extend(after_checks)
+
+    snapshot = _replay_snapshot(DATASETS[dataset_id])
+    comparison = compare_replay_snapshots(
+        manifest.get("expectations") or {}, snapshot, exact=exact, skipped_steps=skipped_steps,
+    )
+    result["checks"] = initial_checks + result["checks"] + comparison
+    result["actual_snapshot"] = {
+        "structural": snapshot.get("structural"),
+        "hashes": snapshot.get("hashes"),
+        "numbers": snapshot.get("numbers"),
+    }
+
+    out_files = {}
+    try:
+        h5ad_path = out / "reproduced.h5ad"
+        _export_h5ad(DATASETS[dataset_id], h5ad_path)
+        out_files["h5ad"] = str(h5ad_path)
+    except Exception as error:  # noqa: BLE001
+        result["warnings"].append("无法写出 reproduced.h5ad：%s" % error)
+    try:
+        obs_path = out / "reproduced_obs.csv"
+        _export_obs_csv(DATASETS[dataset_id], obs_path)
+        out_files["obs_csv"] = str(obs_path)
+    except Exception as error:  # noqa: BLE001
+        result["warnings"].append("无法写出 reproduced_obs.csv：%s" % error)
+    try:
+        summary_path = out / "reproduced_summary.json"
+        _export_summary_json(DATASETS[dataset_id], summary_path)
+        out_files["summary_json"] = str(summary_path)
+    except Exception as error:  # noqa: BLE001
+        result["warnings"].append("无法写出 reproduced_summary.json：%s" % error)
+    if reference_script:
+        try:
+            reference_path = out / "reference_scanpy_migration.py"
+            reference_path.write_text(str(reference_script), encoding="utf-8")
+            out_files["reference_scanpy"] = str(reference_path)
+        except Exception as error:  # noqa: BLE001
+            result["warnings"].append("无法写出参考迁移脚本：%s" % error)
+    if analysis_replayed:
+        result["warnings"].append(
+            "native analysis 已按记录重新调用，但分析输出未逐值校验（只校验数据快照）"
+        )
+    result["out_files"] = out_files
+
+    required = [check for check in result["checks"] if check.get("required", True)]
+    bad = [check for check in required if not check.get("ok")]
+    if result["failed_operations"]:
+        return finish("failed", 1, "有可重放操作执行失败（%d 项），不能声称已重放"
+                      % len(result["failed_operations"]))
+    if bad:
+        return finish("failed", 1, "重放结果与记录不一致（%d 项检查失败），不能声称已重放：%s"
+                      % (len(bad), ", ".join(str(check.get("id")) for check in bad[:5])))
+    if result["skipped_operations"]:
+        return finish("partial", 3,
+                      "部分操作不可重放（%d 项）；该导出产物只能作为记录/示例"
+                      % len(result["skipped_operations"]))
+    if exact:
+        return finish("verified", 0, "已从同一输入按记录重放；确定性步骤逐值一致")
+    return finish("verified_with_tolerance", 0,
+                  "已从同一输入按记录重放；依赖版本不同，确定性步骤按预定义容差比较通过")
+
+
+def _scanpy_load_block(input_info):
+    """参考迁移脚本的输入读取段（按格式给出可执行代码或明确迁移说明）。"""
+    kind = str(input_info.get("kind") or "path")
+    fmt = str(input_info.get("format") or "")
+    path = input_info.get("path")
+    lines = []
+    if kind == "demo":
+        generator = input_info.get("demo_generator") or "test/make_sample.py"
+        lines.append("# demo 输入：与引擎相同的生成器 %s" % generator)
+        lines.append("import sys, pathlib")
+        lines.append("sys.path.insert(0, str(pathlib.Path.cwd() / 'test'))")
+        lines.append("from make_sample import demo_adata")
+        lines.append("adata = demo_adata()")
+    elif kind == "merged":
+        lines.append("# 合并导入（%s 个文件）：参考脚本只演示第一个文件的读取；")
+        lines.append("# 完整合并请按导出清单 input.files 逐个读取后取基因交集。")
+        first = (input_info.get("files") or [{}])[0].get("path") or path
+        if fmt == "h5ad" or str(first).endswith(".h5ad"):
+            lines.append("adata = sc.read_h5ad(%r)" % first)
+        else:
+            lines.append("frame = pd.read_csv(%r, index_col=0)" % first)
+            lines.append("adata = AnnData(X=frame.T.to_numpy(dtype=np.float32))")
+    elif str(path or "").endswith(".h5ad") or fmt == "h5ad":
+        lines.append("adata = sc.read_h5ad(%r)" % path)
+        lines.append("if 'counts' in adata.layers:")
+        lines.append("    adata.layers['counts'] = adata.layers['counts'].copy()")
+        lines.append("else:")
+        lines.append("    adata.layers['counts'] = adata.X.copy()")
+    elif fmt in ("matrix_text", "csv", "tsv", "txt") or str(path or "").endswith((".csv", ".tsv", ".txt")):
+        lines.append("# 文本矩阵：按导出记录的方向读取（原执行由导入器自动判断并可能转置）")
+        lines.append("frame = pd.read_csv(%r, sep=',', index_col=0)" % path)
+        lines.append("adata = AnnData(X=frame.T.to_numpy(dtype=np.float32))")
+        lines.append("adata.layers['counts'] = adata.X.copy()")
+    elif fmt == "rds" or fmt == "rdata":
+        lines.append("# RDS/RData 输入：请先用 R（SeuratDisk / sceasy）转换为 h5ad，")
+        lines.append("# 再把下面的读取语句换成 sc.read_h5ad('converted.h5ad')。")
+        lines.append("raise SystemExit('参考迁移脚本需要先把 RDS/RData 转换为 h5ad')")
+    else:
+        lines.append("# 该格式（%s）请先用 scanpy 对应读取函数载入；输入路径：%r" % (fmt, path))
+    return lines
+
+
+def _reference_scanpy_script(manifest):
+    """生成「参考迁移脚本」：明确标注不是重放路径，并列出与原执行的差异。"""
+    input_info = manifest.get("input") or {}
+    operations = manifest.get("operations") or []
+    reference = manifest.get("reference_migration") or {}
+    lines = []
+    lines.append("#!/usr/bin/env python3")
+    lines.append("# -*- coding: utf-8 -*-")
+    lines.append("# =====================================================================")
+    lines.append("# REFERENCE SCANPY MIGRATION SCRIPT (参考迁移脚本) — NOT the replay path")
+    lines.append("# 该文件由 dsh-singlecell v%s 导出，仅作为迁移到 scanpy 的参考实现；" % PLUGIN_VERSION)
+    lines.append("# 它**不是**本次分析的可重放路径（标称可重放的是导出文件前半部分的 REPLAY_MANIFEST 驱动）。")
+    lines.append("# 与原执行方式的差异（逐条核对，不要据此声称结果一致）：")
+    for difference in reference.get("differences") or []:
+        lines.append("#   " + str(difference))
+    lines.append("# =====================================================================")
+    lines.append("")
+    lines.append("import pandas as pd")
+    lines.append("import scanpy as sc")
+    lines.append("from anndata import AnnData")
+    lines.append("")
+    lines.append("SEED = %d" % int(manifest.get("seed") or 0))
+    lines.append("")
+    lines.append("# ---------------------------------------------------------------------")
+    lines.append("# 1. 读取同一输入")
+    lines.extend(_scanpy_load_block(input_info))
+    lines.append("")
+    step_index = 1
+    for op in operations:
+        if op.get("kind") != "step":
+            continue
+        step = str(op.get("step"))
+        params = dict(op.get("params_effective") or {})
+        replay_params = dict(op.get("replay_params") or {})
+        lines.append("# ---------------------------------------------------------------------")
+        lines.append("# %d. %s（实际方法：%s）" % (step_index, step, op.get("actual_method") or "未记录"))
+        step_index += 1
+        if step == "qc":
+            lines.append("adata.var['mt'] = adata.var_names.str.upper().str.startswith('MT-')")
+            lines.append("sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)")
+        elif step == "filter":
+            keep = []
+            if params.get("min_genes") not in (None, ""):
+                keep.append("(adata.obs['n_genes_by_counts'] >= %s)" % _fmt_num(params.get("min_genes")))
+            if params.get("max_genes") not in (None, ""):
+                keep.append("(adata.obs['n_genes_by_counts'] <= %s)" % _fmt_num(params.get("max_genes")))
+            if params.get("min_counts") not in (None, ""):
+                keep.append("(adata.obs['total_counts'] >= %s)" % _fmt_num(params.get("min_counts")))
+            if params.get("max_pct_mt") not in (None, ""):
+                keep.append("(adata.obs['pct_counts_mt'] < %s)" % _fmt_num(params.get("max_pct_mt")))
+            if keep:
+                lines.append("keep = " + " & ".join(keep))
+                lines.append("adata = adata[keep].copy()")
+            if params.get("min_cells") not in (None, ""):
+                lines.append("sc.pp.filter_genes(adata, min_cells=%s)" % _fmt_num(params.get("min_cells")))
+            lines.append("# counts 层随 AnnData 同步切片，不回填过滤前矩阵")
+        elif step == "normalize":
+            lines.append("sc.pp.normalize_total(adata, target_sum=%s)" % _fmt_num(params.get("target_sum", 10000)))
+            lines.append("sc.pp.log1p(adata)")
+        elif step == "hvg":
+            lines.append("sc.pp.highly_variable_genes(adata, n_top_genes=%s, flavor='seurat')"
+                         % _fmt_num(params.get("n_top_genes", 2000)))
+            lines.append("adata = adata[:, adata.var['highly_variable']].copy()")
+        elif step == "pca":
+            lines.append("sc.tl.pca(adata, n_comps=%s, svd_solver='randomized', random_state=SEED)"
+                         % _fmt_num(params.get("n_pcs", 30)))
+        elif step == "neighbors":
+            lines.append("sc.pp.neighbors(adata, n_neighbors=%s, metric=%r, random_state=SEED)"
+                         % (_fmt_num(params.get("n_neighbors", 15)), str(params.get("metric", "cosine"))))
+        elif step == "cluster":
+            actual = str(op.get("actual_method") or "")
+            resolution = replay_params.get("resolution", params.get("resolution", 0.2))
+            if actual.lower().startswith("leiden"):
+                lines.append("sc.tl.leiden(adata, resolution=%s, random_state=SEED, key_added='clusters')"
+                             % _fmt_num(resolution))
+            elif actual.lower().startswith("louvain"):
+                lines.append("# 差异：实际执行 = louvain(builtin)（纯 Python）；scanpy 用 sc.tl.louvain 是另一实现，")
+                lines.append("# 簇编号可能不同；sc.tl.leiden（Leiden 算法）不能用来替代本次 Louvain 结果。")
+                lines.append("sc.tl.louvain(adata, resolution=%s, random_state=SEED, key_added='clusters')"
+                             % _fmt_num(resolution))
+            else:
+                lines.append("# 实际聚类方法为 %r，scanpy 无等价调用；请保留原工具结果。" % actual)
+            if actual.lower().startswith(("leiden", "louvain")):
+                lines.append("adata.obs['clusters'] = adata.obs['clusters'].astype(str)")
+        elif step == "embed":
+            layout = str((op.get("replay_params") or {}).get("layout") or "")
+            if layout == "tsne":
+                lines.append("sc.tl.tsne(adata, perplexity=%s, random_state=SEED)"
+                             % _fmt_num(params.get("perplexity", 30)))
+            elif layout == "umap":
+                lines.append("sc.tl.umap(adata, random_state=SEED)")
+            else:
+                lines.append("# 实际回退到 PCA 前两维")
+                lines.append("adata.obsm['X_emb'] = adata.obsm['X_pca'][:, :2]")
+        elif step == "markers":
+            lines.append("sc.tl.rank_genes_groups(adata, %r, method='t-test', n_genes=%s)"
+                         % (str(params.get("groupby", "clusters")), _fmt_num(params.get("top_n", 10))))
+        elif step == "annotate":
+            mapping = params.get("mapping") or {}
+            lines.append("annotation_mapping = %r" % (mapping,))
+            lines.append("adata.obs['cell_type'] = adata.obs['clusters'].map(annotation_mapping).fillna(adata.obs['clusters'])")
+        else:
+            lines.append("# 未知步骤：%s" % step)
+        lines.append("")
+    lines.append("# ---------------------------------------------------------------------")
+    lines.append("# 保存参考结果（不是重放结果）")
+    lines.append("adata.write_h5ad('reference_scanpy_result.h5ad')")
+    text = "\n".join(lines) + "\n"
+    # 嵌入到驱动文件里的 r\"\"\" 字符串不能出现三引号
+    return text.replace('"""', "'''")
+
+
+def _build_script(dataset):
+    """导出可重放驱动（前半部分）+ 参考迁移脚本（后半部分，明确标注）。"""
+    manifest = build_repro_manifest(dataset)
+    reference = _reference_scanpy_script(manifest)
+    manifest_json = json.dumps(_jsonable(manifest), ensure_ascii=True, indent=1, sort_keys=False)
+    if '"""' in manifest_json:  # 正常 JSON 不会出现；防御性兜底
+        manifest_json = manifest_json.replace('"""', '\\"\\"\\"')
+    lines = []
+    lines.append("#!/usr/bin/env python3")
+    lines.append("# -*- coding: utf-8 -*-")
+    lines.append('"""Replayable workflow export — dsh-singlecell v%s' % PLUGIN_VERSION)
+    lines.append("")
+    lines.append("Dataset: %s (%s)" % (dataset.name, dataset.id))
+    lines.append("Recorded: %s ; dataset version v%s, revision %s" % (manifest.get("generated_at"), dataset.version, dataset.revision))
+    lines.append("")
+    lines.append("This file has two clearly separated parts.")
+    lines.append("")
+    lines.append("[1] REPLAY DRIVER (the top part of this file). It replays the recorded workflow")
+    lines.append("    through the SAME implementation that produced the original results")
+    lines.append("    (dsh-singlecell lib/sc_engine.py):")
+    lines.append("      * input files are verified by SHA-256 before use;")
+    lines.append("      * every recorded operation is executed in order with its effective parameters;")
+    lines.append("      * the recorded ACTUAL method is replayed (e.g. builtin Louvain, never Leiden);")
+    lines.append("      * counts are sliced together with the filtered AnnData, never restored from a")
+    lines.append("        pre-filter matrix;")
+    lines.append("      * deterministic steps are compared value-by-value with the recorded expectations.")
+    lines.append("")
+    lines.append("[2] REFERENCE SCANPY MIGRATION SCRIPT (参考迁移脚本, at the bottom of this file as the")
+    lines.append("    REFERENCE_SCANPY_SCRIPT constant). It is a migration reference, NOT the replay path,")
+    lines.append("    and it lists item-by-item differences from the actual execution (see the manifest")
+    lines.append("    section 'reference_migration'). It is also written to the replay output directory.")
+    lines.append("")
+    lines.append("Usage:")
+    lines.append("    python3 <this file> --out replay_out")
+    lines.append("    python3 <this file> --engine-lib /path/to/plugins/dsh-singlecell/lib")
+    lines.append("    python3 <this file> --dump-manifest      # 打印记录清单 JSON")
+    lines.append("    python3 <this file> --no-reference       # 不写参考迁移脚本")
+    lines.append("")
+    lines.append("Exit codes: 0 verified / verified_with_tolerance, 1 mismatch or failure,")
+    lines.append("            2 input error, 3 record-only or partial (记录/示例), 4 engine unavailable.")
+    lines.append('"""')
+    lines.append("")
+    lines.append("import argparse")
+    lines.append("import importlib.util")
+    lines.append("import json")
+    lines.append("import os")
+    lines.append("import sys")
+    lines.append("from pathlib import Path")
+    lines.append("")
+    lines.append("REPLAY_MANIFEST = json.loads(r'''")
+    lines.append(manifest_json)
+    lines.append("''')")
+    lines.append("")
+    lines.append("")
+    lines.append("def load_engine(explicit=None):")
+    lines.append('    """按记录路径 / --engine-lib / DSH_SINGLECELL_LIB 加载同一套真实执行入口。"""')
+    lines.append("    candidates = []")
+    lines.append("    if explicit:")
+    lines.append("        candidates.append(Path(explicit))")
+    lines.append("    env = os.environ.get('DSH_SINGLECELL_LIB')")
+    lines.append("    if env:")
+    lines.append("        candidates.append(Path(env))")
+    lines.append("    recorded = (REPLAY_MANIFEST.get('software') or {}).get('engine') or {}")
+    lines.append("    if recorded.get('sc_engine_path'):")
+    lines.append("        candidates.append(Path(recorded['sc_engine_path']))")
+    lines.append("    for candidate in candidates:")
+    lines.append("        path = candidate / 'sc_engine.py' if candidate.is_dir() else candidate")
+    lines.append("        if path.exists():")
+    lines.append("            spec = importlib.util.spec_from_file_location('dsh_singlecell_sc_engine', str(path))")
+    lines.append("            module = importlib.util.module_from_spec(spec)")
+    lines.append("            sys.modules['dsh_singlecell_sc_engine'] = module")
+    lines.append("            spec.loader.exec_module(module)")
+    lines.append("            return module")
+    lines.append("    raise SystemExit('engine_unavailable: 找不到 dsh-singlecell lib/sc_engine.py；请用 --engine-lib 或环境变量 DSH_SINGLECELL_LIB 指定。没有执行入口时该导出物只能作为记录。')")
+    lines.append("")
+    lines.append("")
+    lines.append("REFERENCE_SCANPY_SCRIPT = r'''")
+    lines.append(reference.rstrip("\n"))
+    lines.append("'''")
+    lines.append("")
+    lines.append("")
+    lines.append("def main(argv=None):")
+    lines.append("    parser = argparse.ArgumentParser(description='dsh-singlecell replay driver')")
+    lines.append("    parser.add_argument('--out', default='replay_out')")
+    lines.append("    parser.add_argument('--engine-lib', default=None)")
+    lines.append("    parser.add_argument('--dump-manifest', action='store_true')")
+    lines.append("    parser.add_argument('--no-reference', action='store_true')")
+    lines.append("    args = parser.parse_args(argv)")
+    lines.append("    if args.dump_manifest:")
+    lines.append("        print(json.dumps(REPLAY_MANIFEST, ensure_ascii=False, indent=2))")
+    lines.append("        return 0")
+    lines.append("    os.environ.setdefault('MPLBACKEND', 'Agg')")
+    lines.append("    engine_module = load_engine(args.engine_lib)")
+    lines.append("    result = engine_module.run_replay(")
+    lines.append("        REPLAY_MANIFEST, args.out,")
+    lines.append("        reference_script=None if args.no_reference else REFERENCE_SCANPY_SCRIPT,")
+    lines.append("        progress=lambda line: print(line, flush=True),")
+    lines.append("    )")
+    lines.append("    print('replay status: %s' % result.get('status'))")
+    lines.append("    print('message: %s' % result.get('message'))")
+    lines.append("    checks = result.get('checks') or []")
+    lines.append("    failed = [item for item in checks if item.get('required', True) and not item.get('ok')]")
+    lines.append("    print('checks: %d total, %d failed' % (len(checks), len(failed)))")
+    lines.append("    for item in failed[:10]:")
+    lines.append("        print('  FAIL %-42s expected=%r actual=%r' % (item.get('id'), item.get('expected'), item.get('actual')))")
+    lines.append("    for item in result.get('skipped_operations') or []:")
+    lines.append("        print('  SKIPPED %-30s %s' % (item.get('step') or item.get('command'), item.get('reason')))")
+    lines.append("    print('outputs: %s' % json.dumps(result.get('out_files') or {}, ensure_ascii=False))")
+    lines.append("    return int(result.get('exit_code', 1))")
+    lines.append("")
+    lines.append("")
+    lines.append("if __name__ == '__main__':")
+    lines.append("    raise SystemExit(main())")
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -3573,7 +5402,7 @@ def _build_report(dataset, report_path):
         lines.append("- **来源**：内置 demo 生成器（test/make_sample.py）")
     lines.append("- **规模**：%d 个细胞 × %d 个基因" % (dataset.n_obs, dataset.n_vars))
     lines.append(
-        "- **引擎**：%s（Python %s；dsh-singlecell-workbench v%s）"
+        "- **引擎**：%s（Python %s；dsh-singlecell v%s）"
         % ("scanpy" if ENGINE_MODE == "scanpy" else "builtin", PY_VERSION, PLUGIN_VERSION)
     )
     lines.append("- **生成时间**：%s" % _now_iso())
@@ -3727,174 +5556,6 @@ def _export_report(dataset, path):
     Path(path).write_text(content, encoding="utf-8")
 
 
-def _build_script(dataset):
-    versions = PACKAGE_VERSIONS
-    lines = []
-    lines.append("#!/usr/bin/env python3")
-    lines.append('"""Reproducible analysis script exported by dsh-singlecell-workbench.')
-    lines.append("")
-    lines.append("Dataset : %s (%s)" % (dataset.name, dataset.id))
-    lines.append(
-        "Engine  : %s ; Python %s ; NumPy %s ; scikit-learn %s"
-        % (
-            "scanpy %s" % (versions.get("scanpy") or "?") if ENGINE_MODE == "scanpy" else "builtin (NumPy/SciPy/scikit-learn)",
-            PY_VERSION,
-            versions.get("numpy") or "?",
-            versions.get("sklearn") or "?",
-        )
-    )
-    lines.append("Seed    : %d" % SEED)
-    lines.append("")
-    lines.append("This scanpy-style script reproduces the recorded workflow. The builtin engine")
-    lines.append("implements the same steps; comments note the equivalent builtin parameters.")
-    lines.append('"""')
-    lines.append("")
-    lines.append("import numpy as np")
-    lines.append("import pandas as pd")
-    lines.append("import scanpy as sc")
-    lines.append("")
-    lines.append("# ------------------------------------------------------------------")
-    lines.append("# 1. Load data")
-    if dataset.path:
-        lines.append("adata = sc.read_h5ad(%r)" % dataset.path)
-        lines.append("adata.layers['counts'] = adata.layers['counts'].copy() if 'counts' in adata.layers else adata.X.copy()")
-    else:
-        lines.append("# Demodata -> same generator as the engine (test/make_sample.py)")
-        lines.append("import sys, pathlib")
-        lines.append("sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / 'test'))")
-        lines.append("from make_sample import demo_adata")
-        lines.append("adata = demo_adata()")
-        lines.append("adata.layers['counts'] = adata.X.copy()")
-    lines.append("")
-    lines.append("# Keep raw counts for the 'counts' layer before normalisation")
-    lines.append("raw_counts = adata.layers['counts'].copy()")
-    lines.append("")
-
-    steps = set(dataset.steps)
-    if dataset.markers is not None:
-        steps.add("markers")
-    if "X_emb" in dataset.obsm:
-        steps.add("embed")
-    index = 1
-    if "qc" in steps:
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. QC metrics (equivalent to builtin qc: n_genes / n_counts / pct_counts_mt)" % index)
-        index += 1
-        lines.append("adata.var['mt'] = adata.var_names.str.upper().str.startswith('MT-')")
-        lines.append(
-            "sc.pp.calculate_qc_metrics(adata, qc_vars=['mt'], percent_top=None, log1p=False, inplace=True)"
-        )
-        lines.append("")
-    if "filter" in steps:
-        params = _params_for_methods(dataset, "filter")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Cell / gene filtering (builtin engine: qc thresholds applied on raw counts)" % index)
-        index += 1
-        if params.get("min_genes") not in (None, ""):
-            lines.append("sc.pp.filter_cells(adata, min_genes=%s)" % _fmt_num(params.get("min_genes")))
-        if params.get("max_genes") not in (None, ""):
-            lines.append("adata = adata[adata.obs['n_genes_by_counts'] <= %s].copy()" % _fmt_num(params.get("max_genes")))
-        if params.get("min_counts") not in (None, ""):
-            lines.append("adata = adata[adata.obs['total_counts'] >= %s].copy()" % _fmt_num(params.get("min_counts")))
-        if params.get("max_pct_mt") not in (None, ""):
-            lines.append("adata = adata[adata.obs['pct_counts_mt'] < %s].copy()" % _fmt_num(params.get("max_pct_mt")))
-        if params.get("min_cells") not in (None, ""):
-            lines.append("sc.pp.filter_genes(adata, min_cells=%s)" % _fmt_num(params.get("min_cells")))
-        lines.append("")
-    if "normalize" in steps:
-        params = _params_for_methods(dataset, "normalize")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Normalisation: scale to target sum then log1p" % index)
-        index += 1
-        lines.append("sc.pp.normalize_total(adata, target_sum=%s)" % _fmt_num(params.get("target_sum", 10000)))
-        lines.append("sc.pp.log1p(adata)")
-        lines.append("")
-    if "hvg" in steps:
-        params = _params_for_methods(dataset, "hvg")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Highly variable genes (builtin: mean-binned normalised dispersion)" % index)
-        index += 1
-        lines.append(
-            "sc.pp.highly_variable_genes(adata, n_top_genes=%s, flavor=%r)"
-            % (_fmt_num(params.get("n_top_genes", 2000)), str(params.get("flavor", "seurat")))
-        )
-        lines.append("")
-    if "pca" in steps:
-        params = _params_for_methods(dataset, "pca")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. PCA" % index)
-        index += 1
-        lines.append(
-            "sc.tl.pca(adata, n_comps=%s, svd_solver='randomized', random_state=%d)"
-            % (_fmt_num(params.get("n_pcs", 30)), SEED)
-        )
-        lines.append("")
-    if "neighbors" in steps:
-        params = _params_for_methods(dataset, "neighbors")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. kNN graph" % index)
-        index += 1
-        lines.append(
-            "sc.pp.neighbors(adata, n_neighbors=%s, metric=%r, random_state=%d)"
-            % (_fmt_num(params.get("n_neighbors", 15)), str(params.get("metric", "cosine")), SEED)
-        )
-        lines.append("")
-    if "cluster" in steps:
-        params = _params_for_methods(dataset, "cluster")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Clustering (builtin engine: pure-Python Louvain, same resolution)" % index)
-        index += 1
-        lines.append(
-            "sc.tl.leiden(adata, resolution=%s, random_state=%d, key_added='clusters')"
-            % (_fmt_num(params.get("resolution", 1.0)), SEED)
-        )
-        lines.append("adata.obs['clusters'] = adata.obs['clusters'].astype(str)")
-        lines.append("")
-    if "embed" in steps:
-        params = _params_for_methods(dataset, "embed")
-        embed_meta = dataset.uns.get("embed") or {}
-        layout = str(embed_meta.get("layout") or params.get("layout") or "tsne")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Two-dimensional embedding" % index)
-        index += 1
-        if layout == "umap":
-            lines.append("sc.tl.umap(adata, random_state=%d)" % SEED)
-        elif layout == "tsne":
-            lines.append(
-                "sc.tl.tsne(adata, perplexity=%s, random_state=%d)"
-                % (_fmt_num(embed_meta.get("perplexity") or params.get("perplexity", 30)), SEED)
-            )
-        else:
-            lines.append("# Builtin engine fell back to PCA: first two principal components")
-            lines.append("adata.obsm['X_emb'] = adata.obsm['X_pca'][:, :2]")
-        lines.append("")
-    if "markers" in steps:
-        params = _params_for_methods(dataset, "markers")
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Marker genes (one-vs-rest Welch t-test + Benjamini-Hochberg)" % index)
-        index += 1
-        lines.append(
-            "sc.tl.rank_genes_groups(adata, %r, method='t-test', n_genes=%s)"
-            % (str(params.get("groupby", "clusters")), _fmt_num(params.get("top_n", 10)))
-        )
-        lines.append("")
-    if "annotate" in steps:
-        params = _params_for_methods(dataset, "annotate")
-        mapping = params.get("mapping") or {}
-        lines.append("# ------------------------------------------------------------------")
-        lines.append("# %d. Manual cell-type annotation" % index)
-        index += 1
-        lines.append("annotation_mapping = %r" % (mapping or {}))
-        lines.append("adata.obs['cell_type'] = adata.obs['clusters'].map(annotation_mapping).fillna(adata.obs['clusters'])")
-        lines.append("")
-    lines.append("# ------------------------------------------------------------------")
-    lines.append("# Save")
-    lines.append("adata.layers['counts'] = raw_counts")
-    lines.append("adata.write_h5ad('reproduced.h5ad')")
-    lines.append("")
-    return "\n".join(lines)
-
-
 def _export_script(dataset, path):
     Path(path).write_text(_build_script(dataset), encoding="utf-8")
 
@@ -4020,6 +5681,7 @@ def cmd_open(args):
             if dataset.source == "demo":
                 return _open_payload(dataset)
         dataset = _load_demo_dataset()
+        _record_import(dataset, {"demo": True}, source_format="demo")
         DATASETS[dataset.id] = dataset
         return _open_payload(dataset)
     merge_paths = args.get("paths")
@@ -4063,10 +5725,28 @@ def cmd_open(args):
     dataset.source_format = str(loaded.get("format") or "auto")
     dataset.notes = list(loaded.get("notes") or [])
     dataset.meta = dict(loaded.get("meta") or {})
+    # SC-02：记录 counts 的来源与语义；未提供独立 counts 层时按数值判断是否可信
+    meta = dataset.meta
+    if meta.get("counts_verified") is not None:
+        dataset.counts_verified = bool(meta.get("counts_verified"))
+        dataset.counts_source = str(meta.get("counts_source") or "n/a")
+    elif counts is not None:
+        dataset.counts_verified = _integer_like(counts)
+        dataset.counts_source = str(loaded.get("format") or "loader") + ":counts"
+    else:
+        dataset.counts_verified = _integer_like(matrix)
+        dataset.counts_source = "assumed_from_X"
+    dataset.matrix_kind = str(meta.get("matrix_kind") or ("counts" if _integer_like(matrix) else "lognorm"))
     if counts is None:
-        dataset.warnings.append(
-            "该格式没有独立 counts 层，已把表达矩阵当作原始计数使用（若矩阵已标准化，QC 指标会失真）"
-        )
+        if dataset.counts_verified:
+            dataset.warnings.append(
+                "该格式没有独立 counts 层，已把表达矩阵当作原始计数使用（数值像整数计数）"
+            )
+        else:
+            dataset.warnings.append(
+                "该格式没有独立 counts 层，且表达矩阵不像整数计数：counts 语义未验证，"
+                "log-normalize 等依赖原始计数的步骤会被拒绝执行"
+            )
     if isinstance(dataset.meta.get("warnings"), list):
         dataset.warnings.extend(str(item) for item in dataset.meta["warnings"])
     # 已跑过一半的数据：RDS/RData 总能检测；h5ad 需要带嵌入（obsm）才认作续跑
@@ -4074,6 +5754,7 @@ def cmd_open(args):
         str(loaded.get("format") or "") in ("rds", "rdata")
         or (loaded.get("import_state") and loaded.get("obsm"))
     ) else None
+    _record_import(dataset, args, source_format=str(loaded.get("format") or "auto"))
     DATASETS[dataset.id] = dataset
     return _open_payload(dataset)
 
@@ -4139,6 +5820,7 @@ def _open_selected(args):
         dataset.uns.update(merged.get("meta") or {})
     if counts is None:
         dataset.warnings.append("部分样本没有独立 counts 层，已把表达矩阵当作原始计数使用")
+    _record_import(dataset, args, source_format="merged")
     DATASETS[dataset.id] = dataset
     return _open_payload(dataset)
 
@@ -4237,6 +5919,7 @@ def _open_merged(args):
         dataset.uns.update(merged.get("meta") or {})
     if counts is None:
         dataset.warnings.append("部分样本没有独立 counts 层，已把表达矩阵当作原始计数使用")
+    _record_import(dataset, args, source_format="merged")
     DATASETS[dataset.id] = dataset
     return _open_payload(dataset)
 
@@ -4382,6 +6065,14 @@ def cmd_analysis(args):
     dataset.analyses_run.append({"id": analysis_id, "params": _jsonable(params), "at": _now_iso()})
     if len(dataset.analyses_run) > 50:
         dataset.analyses_run = dataset.analyses_run[-50:]
+    _record_operation(
+        dataset, "analysis", "analysis", {"id": analysis_id, "params": params},
+        str(payload.get("method") or "未记录"),
+        method_provenance=str(payload.get("method") or "") or None,
+        replayable=True,
+        obs_columns=[str(column) for column in merged],
+        extra={"analysis_id": analysis_id, "analysis_title": payload.get("title")},
+    )
     return payload
 
 
@@ -4473,6 +6164,18 @@ def cmd_markers(args):
     if "normalize" not in dataset.steps:
         raise EngineError("prerequisite", "markers 需要先完成 normalize 步骤")
     groups = _compute_markers(dataset, groupby, top_n, method)
+    dataset.uns["markers"] = {
+        "groupby": groupby,
+        "top_n": int(top_n),
+        "requested_method": method,
+        "actual_method": "Welch t-test(builtin, one-vs-rest)+Benjamini-Hochberg",
+        "fallback_reason": None,
+        "n_groups": len(groups),
+    }
+    _record_operation(
+        dataset, "command", "markers", {"groupby": groupby, "top_n": top_n, "method": method},
+        "Welch t-test(builtin, one-vs-rest)+Benjamini-Hochberg",
+    )
     return {"groups": groups, "groupby": groupby, "top_n": top_n, "method": "t-test(builtin)"}
 
 
@@ -4527,7 +6230,15 @@ def cmd_samples_remove(args):
             pass
     dataset.warnings.append("已移除样本 %s（%d 个细胞）；聚类/嵌入等下游结果已重置，请重新运行降维聚类" % (
         ", ".join(names), removed_cells))
+    dataset.touch("samples_remove")
     dataset.history.append("samples_remove: %s (%d cells)" % (", ".join(names), removed_cells))
+    # 步骤被重置，旧执行记录随数据版本失效；本次移除本身要作为可重放操作记录下来
+    _prune_execution_records(dataset)
+    _record_operation(
+        dataset, "command", "samples_remove", {"samples": names},
+        "manual sample removal (%d cells removed)" % removed_cells,
+        extra={"removed_cells": removed_cells, "removed_samples": names},
+    )
     summary = _dataset_summary(dataset)
     return {"dataset": summary, "removed_cells": removed_cells, "removed_samples": names}
 
@@ -4574,6 +6285,15 @@ def cmd_subset(args):
     subset.steps = [step for step in ("qc", "filter", "normalize", "hvg") if step in dataset.steps]
     subset.notes = ["从「%s」提取 %s 列簇 %s：%d 个细胞（父数据集 %s）" % (
         dataset.name, column, ", ".join(values), subset_cells, dataset.id)]
+    _record_operation(
+        subset, "subset", "subset",
+        {"parent": dataset.id, "parent_path": dataset.path, "clusters": values,
+         "column": column, "parent_version": int(dataset.version)},
+        "subset extraction from parent dataset",
+        replayable=False,
+        not_replayable_reason="子集数据集需要先重放父数据集，当前导出物只能作为记录",
+        extra={"parent": dataset.id, "subset_cells": subset_cells},
+    )
     DATASETS[subset.id] = subset
     return {
         "dataset": _dataset_summary(subset),
@@ -4704,6 +6424,14 @@ def cmd_external_run(args):
     dataset.analyses_run.append({"id": tool_id, "params": _jsonable(params), "at": _now_iso(), "external": True})
     if len(dataset.analyses_run) > 50:
         dataset.analyses_run = dataset.analyses_run[-50:]
+    _record_operation(
+        dataset, "external", "external_run", {"id": tool_id, "params": params},
+        str(payload.get("method") or "未记录"),
+        method_provenance=str(payload.get("method") or ""),
+        replayable=False,
+        not_replayable_reason="外部工具依赖独立的 R / Python 环境，导出物只能作为记录/示例",
+        obs_columns=[str(column) for column in (payload.get("obs_merged") or [])],
+    )
     return payload
 
 
@@ -4730,11 +6458,20 @@ def cmd_obs_list(args):
 
 def cmd_samples_update(args):
     dataset = _resolve_dataset(args)
+    before_columns = set(dataset.obs.columns)
     result = _meta_call(
         _meta_module().samples_update, dataset,
         args.get("samples") or [], groups=args.get("groups"),
         sample_column=str(args.get("sample_column") or "sample"),
         group_column=str(args.get("group_column") or "group"),
+    )
+    dataset.touch("samples_update")
+    _record_operation(
+        dataset, "command", "samples_update",
+        {"samples": args.get("samples") or [], "groups": args.get("groups"),
+         "sample_column": args.get("sample_column"), "group_column": args.get("group_column")},
+        "manual sample table edit (sample names / groups)",
+        obs_columns=_new_obs_columns(dataset, before_columns),
     )
     result["dataset"] = _dataset_summary(dataset)
     return result
@@ -4745,8 +6482,17 @@ def cmd_samples_auto_group(args):
     pattern = args.get("pattern")
     if not pattern:
         raise EngineError("bad_request", "auto_group 需要 pattern（正则，第 1 个捕获组=大组）")
-    return _meta_call(_meta_module().samples_auto_group, dataset, pattern,
-                      sample_column=str(args.get("sample_column") or "sample"))
+    before_columns = set(dataset.obs.columns)
+    result = _meta_call(_meta_module().samples_auto_group, dataset, pattern,
+                        sample_column=str(args.get("sample_column") or "sample"))
+    dataset.touch("samples_auto_group")
+    _record_operation(
+        dataset, "command", "samples_auto_group",
+        {"pattern": pattern, "sample_column": args.get("sample_column")},
+        "manual group assignment by regex (samples_auto_group)",
+        obs_columns=_new_obs_columns(dataset, before_columns),
+    )
+    return result
 
 
 def cmd_samples_import_map(args):
@@ -4754,8 +6500,22 @@ def cmd_samples_import_map(args):
     path = args.get("path")
     if not path:
         raise EngineError("bad_request", "import_map 需要 path（样本→大组 对照 CSV）")
+    before_columns = set(dataset.obs.columns)
     result = _meta_call(_meta_module().samples_import_map, dataset, path,
                         sample_column=args.get("sample_column"), group_column=args.get("group_column"))
+    if args.get("apply"):
+        dataset.touch("samples_import_map")
+        sha = _sha256_file(path)
+        replayable = sha is not None
+        _record_operation(
+            dataset, "command", "samples_import_map",
+            {"path": str(path), "sample_column": args.get("sample_column"),
+             "group_column": args.get("group_column"), "apply": True, "sha256": sha},
+            "manual group assignment from imported sample map",
+            replayable=replayable,
+            not_replayable_reason=None if replayable else "样本对照表不存在，只能作为记录",
+            obs_columns=_new_obs_columns(dataset, before_columns),
+        )
     result["dataset"] = _dataset_summary(dataset) if args.get("apply") else None
     return result
 
@@ -4763,6 +6523,12 @@ def cmd_samples_import_map(args):
 def cmd_obs_set_group(args):
     dataset = _resolve_dataset(args)
     result = _meta_call(_meta_module().obs_set_group, dataset, args.get("column") or "")
+    dataset.touch("obs_set_group")
+    _record_operation(
+        dataset, "command", "obs_set_group", {"column": args.get("column") or ""},
+        "manual group column selection (obs_set_group)",
+        extra={"group_column": (dataset.uns or {}).get("group_column")},
+    )
     result["dataset"] = _dataset_summary(dataset)
     return result
 
@@ -4772,17 +6538,39 @@ def cmd_obs_join(args):
     path = args.get("path")
     if not path:
         raise EngineError("bad_request", "obs_join 需要 path（metadata CSV）")
+    before_columns = set(dataset.obs.columns)
     result = _meta_call(_meta_module().obs_join, dataset, path, key=args.get("key"), cell_column=args.get("cell_column"))
+    dataset.touch("obs_join")
+    sha = _sha256_file(path)
+    _record_operation(
+        dataset, "command", "obs_join",
+        {"path": str(path), "key": args.get("key"), "cell_column": args.get("cell_column"),
+         "sha256": sha},
+        "manual metadata join (obs_join)",
+        replayable=sha is not None,
+        not_replayable_reason=None if sha is not None else "metadata CSV 不存在，只能作为记录",
+        obs_columns=_new_obs_columns(dataset, before_columns),
+    )
     result["dataset"] = _dataset_summary(dataset)
     return result
 
 
 def cmd_obs_derive(args):
     dataset = _resolve_dataset(args)
+    before_columns = set(dataset.obs.columns)
     result = _meta_call(
         _meta_module().obs_derive, dataset,
         args.get("name") or "", source=str(args.get("source") or "cell_name"),
         pattern=args.get("pattern"), group=int(args.get("group") or 1), value=args.get("value"),
+    )
+    dataset.touch("obs_derive")
+    _record_operation(
+        dataset, "command", "obs_derive",
+        {"name": args.get("name") or "", "source": str(args.get("source") or "cell_name"),
+         "pattern": args.get("pattern"), "group": int(args.get("group") or 1),
+         "value": args.get("value")},
+        "manual metadata derivation (obs_derive)",
+        obs_columns=_new_obs_columns(dataset, before_columns),
     )
     result["dataset"] = _dataset_summary(dataset)
     return result

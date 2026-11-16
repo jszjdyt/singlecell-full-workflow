@@ -21,6 +21,19 @@ import pandas as pd
 
 STEP_ORDER = ["qc", "filter", "normalize", "hvg", "pca", "neighbors", "cluster", "embed", "markers", "annotate"]
 
+STEP_DEPS = {
+    "qc": [],
+    "filter": ["qc"],
+    "normalize": ["filter"],
+    "hvg": ["normalize"],
+    "pca": ["hvg"],
+    "neighbors": ["pca"],
+    "cluster": ["neighbors"],
+    "embed": ["pca"],
+    "markers": ["cluster"],
+    "annotate": ["cluster"],
+}
+
 CLUSTER_NAME_HINTS = (
     "clusters", "cluster", "seurat_clusters", "leiden", "louvain", "snn_res",
     "clusters_res", "kmeans", "subcluster", "cluster_r",
@@ -158,11 +171,14 @@ def detect(dataset, loaded=None):
     obs = dataset.obs
     details = {}
     detected = set()
+    # SC-03：qc/filter 只是「导入数据一般已质控」的假设，不是证据，单独记录
+    assumed = {"qc", "filter"}
 
     # QC / filter：导入的数据默认已质控过滤（RDS/RData 基本都是分析中途存档）
     qc_columns = _obs_qc_columns(obs)
     details["qc_columns"] = qc_columns
-    detected.update({"qc", "filter"})
+    if qc_columns:
+        detected.update({"qc", "filter"})
 
     # normalize
     lognorm = _x_is_lognormalized(dataset)
@@ -235,7 +251,8 @@ def detect(dataset, loaded=None):
         cluster_count = len(set(labels))
         details["cluster_column"] = cluster_column
         details["n_clusters"] = cluster_count
-        detected.update({"pca", "neighbors", "cluster"})
+        # SC-03：有聚类结果只说明「cluster 有结果」，不能顺手当成 pca/邻接图也做过
+        detected.add("cluster")
         if "clusters" not in obs.columns or cluster_column != "clusters":
             if "clusters" not in obs.columns:
                 dataset.obs["clusters"] = pd.Series(labels, index=obs.index, dtype=object)
@@ -275,12 +292,21 @@ def detect(dataset, loaded=None):
             "mapped": {"cluster_column": None, "celltype_column": None, "n_clusters": None,
                        "n_variable_features": len(variable_features), "has_pca": False, "has_embed": False},
         }
-    # 步骤取到"检测到的最高步"的连续前缀（保证依赖完整，可继续往下跑）
-    highest = -1
-    for index, step in enumerate(STEP_ORDER):
-        if step in detected:
-            highest = index
-    steps = [step for step in STEP_ORDER[: highest + 1]] if highest >= 0 else []
+    # SC-03：steps 只记录**真实有证据**的步骤（qc/filter 作为假设一并放入），
+    # 不再用「连续前缀」把 normalize/hvg/pca/neighbors 补齐 —— 那会让 X 明显是
+    # 原始 counts 的数据被标成已标准化，后续 marker/基因集会直接拿错矩阵。
+    steps = [step for step in STEP_ORDER if step in (detected | assumed)]
+    missing_prereq = {}
+    for step in steps:
+        deps = STEP_DEPS.get(step) or []
+        lacking = [dep for dep in deps if dep not in steps]
+        if lacking:
+            missing_prereq[step] = lacking
+    details["steps_evidence"] = [step for step in STEP_ORDER if step in detected]
+    details["steps_assumed"] = [step for step in STEP_ORDER if step in assumed and step not in detected]
+    details["normalize_detected"] = "normalize" in detected
+    if missing_prereq:
+        details["missing_prerequisites"] = missing_prereq
     return {
         "steps": steps,
         "current": steps[-1] if steps else None,
@@ -292,6 +318,8 @@ def detect(dataset, loaded=None):
             "n_variable_features": len(variable_features),
             "has_pca": "pca" in detected,
             "has_embed": "embed" in detected,
+            "normalize_detected": "normalize" in detected,
+            "missing_prerequisites": missing_prereq,
         },
     }
 

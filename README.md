@@ -1,4 +1,4 @@
-# dsh-singlecell-workbench — 单细胞分析工作台（DeepSeek Harness 插件）
+# dsh-singlecell — 单细胞分析工作台（DeepSeek Harness 插件）
 
 在 Harness Web GUI 里提供一个**可视化、可点、可被 Agent 驱动**的单细胞分析工作台：
 导入数据（GEO 上能下到的格式 + R 的 `.rds`/`.RData`）→ 跑标准流程（QC/过滤/标准化/HVG/PCA/聚类/嵌入/标记基因）→
@@ -8,18 +8,6 @@
 [Claude for Life Sciences](https://www.anthropic.com/news/claude-for-life-sciences) 这类成熟方案：
 **每个产物都有可审计的历史与运行环境、有确定性复核、有可复用预设流程、可视化产物可交互迭代、参数可对比**。
 单细胞领域沿用 CellxGene 的交互嵌入、Cellenics/Galaxy 的流程卡片与历史、CellMarker/PanglaoDB 式参考 marker 面板、scanpy 最佳实践。
-
-## UI：步骤向导式工作台（v0.9）
-
-不再是 7 个横向 tab，而是按「单细胞分析器」的步骤向导：
-
-- **欢迎页**（无数据）：导入 / 示例 / 最近数据集；**顶栏**：数据集选择器 · 导入 · 刷新 · 引擎状态 · ☰ 运行日志 / 🤖 Agent 抽屉
-- **左侧步骤导航**：01 数据读取·分组·质控 → 02 降维聚类 → 03 细胞标注 → 04 高级分析·结果（状态点：未开始/进行中/已完成/warning）
-- **Step1**：扫描根目录导入 + 样本&分组编辑 + QC 参数卡（pro.R 参数）+ QC/过滤运行
-- **Step2**：Seurat6 + IntegrateLayers（Harmony/RPCA/未整合）三套预设一键跑 + resolution 滑块 + 交互 UMAP + 三套结果对比 + warnings；**高变基因数收进「进阶/参考参数」折叠区**（默认 3000，对齐 pro.R，仅作参考）
-- **Step3（三段式）**：① 先输入「细胞类型 + marker 基因」方案（含人/鼠内置参考方案、粘贴 CSV）→ ② 按键出 **DotPlot/热图**（按类型分组+分隔线）与 **FeaturePlot** → ③ 最后把每个 cluster 分配给细胞类型保存注释（注释表/覆盖率/按注释着色）；可提取为小亚群二次聚类
-- **Step4**：分组结果画廊（lightbox）+ 高级分析目录 + 记录 + 导出（h5ad/protocol/methods/report/script）
-- 右侧抽屉：运行日志 + Agent（输入一句话 → 建议卡 → 直接运行）；保留「进阶：逐步运行」折叠区；移动端单列
 
 ## 一、数据导入：GEO 上能下到的格式都能读
 
@@ -92,17 +80,6 @@ R 对象会带上原始 `obs` 元数据（`seurat_clusters`、`celltype`、`grou
 - 输入一句话（如「加 harmony」「resolution 调到 0.3」「找 marker」「组间差异」「导出报告」）→ 本地规则解析出 2–4 张建议卡，每张带 **[直接运行]** 与 [复制指令]；
 - 直接运行对应 `/recipe /run /markers /plot /embedding /analysis /audit /export`，完成后刷新状态并显示结果摘要。
 
-
-### 点图样式（对齐「点图plus版.r」）
-
-Step3「看表达 → 出 DotPlot」默认就是这套样式：
-
-- **基因按细胞类型分面**（列），粗体类型标题 + 自动换行 + 组间分隔线
-- **行 = cluster**；点大小 = 表达比例（图例 25/50/75/100%）；颜色 = 按基因 z-score 的 **蓝-白-红**（#3366CC → #FFFFFF → #DC3912，图例 average expression level）
-- 坐标轴无标题、基因名 45° 旋转
-
-![dotplot-plus 样式](docs/images/dotplot-plus-style-example.png)
-
 ## 三、高级分析（能力图全量登记）
 
 「高级分析」tab 按 7 大类列出全部条目。**原生分析**（下面标 native）在本机零配置可跑；**外部工具**灰显并给出原因与本插件替代方案，不会伪装成可运行。
@@ -151,7 +128,7 @@ resolution_scan / recipe / analyses / analysis / plot / export / close / reset`�
 
 ## 六、安装与环境
 
-插件已安装在本机 desktop profile（`dsh-singlecell-workbench` bundle，linked 安装，改代码即生效）。
+插件已安装在本机 desktop profile（`dsh-singlecell` bundle，linked 安装，改代码即生效）。
 重装：让 Agent 执行 `plugin_manager install_bundle target=<绝对路径>`；替换版本需先 `remove_bundle`。
 
 - **Python**：3.10+，需要 `numpy pandas scipy scikit-learn anndata matplotlib h5py`。检测到 scanpy 会自动切 scanpy 模式（Leiden/UMAP），否则用内置引擎（纯 Python Louvain + t-SNE）。
@@ -162,8 +139,8 @@ resolution_scan / recipe / analyses / analysis / plot / export / close / reset`�
 配置（`cordis.patch.yml`）：
 
 ```yaml
-- id: dsh-singlecell-workbench
-  name: dsh-singlecell-workbench
+- id: dsh-singlecell
+  name: dsh-singlecell
   config:
     python: /opt/homebrew/bin/python3   # 可选
     workdir: /tmp/my-sc-workdir         # 可选（导入解包/图/导出都在这里）

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell-workbench — 基因集 / 通路 / 表达矩阵类高级分析模块（sc-analysis-a）。
+"""dsh-singlecell — 基因集 / 通路 / 表达矩阵类高级分析模块（sc-analysis-a）。
 
-契约：plugins/dsh-singlecell-workbench/CONTRACT.md §9.2（模块 API / ctx / 结果结构）、§9.3 表格。
+契约：plugins/dsh-singlecell/CONTRACT.md §9.2（模块 API / ctx / 结果结构）、§9.3 表格。
 本文件只依赖 numpy / pandas / scipy / scikit-learn / matplotlib（本机无 scanpy、
 gseapy、decoupler），所有算法均在本文件内实现，不 import 引擎（EngineError 本地定义，
 引擎按 ``.code`` / ``.message`` 属性识别）。
@@ -24,6 +24,7 @@ gseapy、decoupler），所有算法均在本文件内实现，不 import 引擎
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import math
@@ -40,7 +41,7 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 os.environ.setdefault("MPLBACKEND", "Agg")
 if not os.environ.get("MPLCONFIGDIR"):
-    _MPL_FALLBACK = Path(tempfile.gettempdir()) / "dsh-singlecell-workbench-mpl"
+    _MPL_FALLBACK = Path(tempfile.gettempdir()) / "dsh-singlecell-mpl"
     try:
         _MPL_FALLBACK.mkdir(parents=True, exist_ok=True)
         os.environ["MPLCONFIGDIR"] = str(_MPL_FALLBACK)
@@ -648,12 +649,12 @@ def _enrichr_ora(genes, library):
     try:
         payload = urllib.parse.urlencode({
             "list": "\n".join(genes),
-            "description": "dsh-singlecell-workbench ORA",
+            "description": "dsh-singlecell ORA",
         }).encode("utf-8")
         request = urllib.request.Request(
             "https://maayanlab.cloud/Enrichr/addList",
             data=payload,
-            headers={"User-Agent": "dsh-singlecell-workbench/0.1", "Content-Type": "application/x-www-form-urlencoded"},
+            headers={"User-Agent": "dsh-singlecell/0.1", "Content-Type": "application/x-www-form-urlencoded"},
         )
         with urllib.request.urlopen(request, timeout=20) as response:
             added = json.loads(response.read().decode("utf-8"))
@@ -861,6 +862,11 @@ ANALYSES = [
             {"key": "group2", "label": "组 2", "type": "string", "default": ""},
             {"key": "min_cells", "label": "每组最少细胞数", "type": "number", "default": 10},
             {"key": "top_n", "label": "每类返回基因数", "type": "number", "default": 50},
+            {"key": "unit", "label": "统计单位", "type": "select", "default": "cell",
+             "options": ["cell", "donor"],
+             "hint": "cell=细胞级（探索性，p 值仅供参考）；donor=按供体 pseudobulk，患者级结论需每组 ≥2 个供体"},
+            {"key": "donor", "label": "生物学重复列", "type": "column", "default": ""},
+            {"key": "donor_min_cells", "label": "每个供体最少细胞数", "type": "number", "default": 3},
         ],
         "needs": ["groups:group", "clusters"],
     },
@@ -1552,15 +1558,47 @@ def _obs_signature(ctx):
 
 
 def _de_cache_key(ctx, params):
+    """DE 结果缓存键（SC-04）。
+
+    以前只有「数据集 id + obs 行数 + 列名 + 参数」，所以互换分组标签、改注释、
+    换一批同数量细胞、重新标准化之后仍会命中旧结果。现在把内容指纹（obs 取值 +
+    矩阵统计）、数据集 revision 和相关列的名字一起纳入键。
+    """
+    group_column = str(params.get("group") or "group")
+    cell_column = str(params.get("cell_type") or "")
     return (
         str(_ctx_get(ctx, "dataset_id", "ds")),
+        int(_ctx_get(ctx, "dataset_version", 0) or 0),
+        int(_ctx_get(ctx, "dataset_revision", 0) or 0),
+        str(_ctx_get(ctx, "content_revision", "") or ""),
         _obs_signature(ctx),
-        str(params.get("group") or "group"),
-        str(params.get("cell_type") or ""),
+        _column_digest(ctx, group_column),
+        _column_digest(ctx, cell_column) if cell_column else "",
+        group_column,
+        cell_column,
         str(params.get("group1") or ""),
         str(params.get("group2") or ""),
         int(params.get("min_cells", 10) or 10),
+        str(params.get("unit") or "cell"),
+        str(params.get("donor") or ""),
     )
+
+
+def _column_digest(ctx, column):
+    """某一 obs 列的取值指纹（分组/注释改了必须重算）。"""
+    if not column:
+        return ""
+    try:
+        obs = _ctx_obs(ctx)
+    except EngineError:
+        return ""
+    if column not in obs.columns:
+        return ""
+    try:
+        values = [str(item) for item in obs[column].tolist()]
+    except Exception:  # noqa: BLE001
+        return ""
+    return hashlib.md5("|".join(values).encode()).hexdigest()
 
 
 def _de_cache_put(key, payload):
@@ -1569,6 +1607,53 @@ def _de_cache_put(key, payload):
     _DE_CACHE[key] = payload
     while len(_DE_CACHE) > _DE_CACHE_LIMIT:
         _DE_CACHE.pop(next(iter(_DE_CACHE)))
+
+
+_DONOR_COLUMN_HINTS = (
+    "donor", "sample", "sample_id", "patient", "subject", "orig.ident", "orig_ident",
+    "individual", "mouse", "animal", "replicate",
+)
+
+
+def _resolve_donor_column(ctx, params):
+    """找生物学重复列（SC-05）：显式 params.donor 优先，其次按常见命名自动识别。"""
+    obs = _ctx_obs(ctx)
+    explicit = str(params.get("donor") or "").strip()
+    if explicit:
+        if explicit not in obs.columns:
+            raise EngineError("bad_request", "obs 里没有 %s 列（params.donor 指定的生物学重复列）" % explicit)
+        return explicit
+    lowered = {str(column).lower(): str(column) for column in obs.columns}
+    for hint in _DONOR_COLUMN_HINTS:
+        if hint in lowered:
+            return lowered[hint]
+    for lower, original in lowered.items():
+        if any(hint in lower for hint in _DONOR_COLUMN_HINTS):
+            return original
+    return ""
+
+
+def _donor_values(ctx, column):
+    if not column:
+        return None
+    obs = _ctx_obs(ctx)
+    return np.asarray([str(value) for value in obs[column].tolist()], dtype=object)
+
+
+def _pseudobulk_stats(matrix, rows, donors, donor_levels):
+    """把一个组里每个供体的细胞取平均表达，返回 (均值向量组, 供体数, 每供体细胞数)。"""
+    means = []
+    sizes = []
+    for donor in donor_levels:
+        subset = np.asarray([int(row) for row in rows if donors[row] == donor], dtype=np.int64)
+        if subset.size == 0:
+            continue
+        block = matrix[subset]
+        means.append(np.asarray(block.mean(axis=0)).ravel().astype(np.float64))
+        sizes.append(int(subset.size))
+    if not means:
+        return None, 0, []
+    return np.vstack(means), len(means), sizes
 
 
 def _compute_de(ctx, params, warnings):
@@ -1598,6 +1683,46 @@ def _compute_de(ctx, params, warnings):
     cell_values, cell_levels, cell_masks = _cell_type_labels(ctx, params, warnings)
     min_cells = int(params.get("min_cells", 10) or 10)
     genes = _var_names(ctx)
+    # SC-05：组间推断的统计单位。细胞不是生物学重复，默认不能再把细胞数当 n 去谈"患者组间显著性"。
+    unit = str(params.get("unit") or "cell").lower()
+    if unit in ("pseudobulk", "donor", "sample", "biological"):
+        unit = "donor"
+    else:
+        unit = "cell"
+    donor_column = _resolve_donor_column(ctx, params)
+    donor_values = _donor_values(ctx, donor_column) if donor_column else None
+    donors_in: list[str] = []
+    donors_out: list[str] = []
+    if donor_values is not None:
+        donors_in = sorted({str(donor_values[i]) for i in np.where(masks[group1])[0]})
+        donors_out = sorted({str(donor_values[i]) for i in np.where(masks[group2])[0]})
+    donor_min_cells = int(params.get("donor_min_cells", 3) or 3)
+    if unit == "donor":
+        if not donor_column:
+            raise EngineError(
+                "prerequisite",
+                "按供体做组间推断需要生物学重复列（如 sample/donor/patient）：obs 里没有，"
+                "请用 params.donor 指定，或改用 unit=cell 的探索性比较",
+            )
+        if len(donors_in) < 2 or len(donors_out) < 2:
+            raise EngineError(
+                "prerequisite",
+                "按供体做组间推断要求每组至少 2 个生物学重复；当前 %s 组 %d 个、%s 组 %d 个。"
+                "没有重复时只能做描述性/探索性比较（unit=cell），不能给出患者组间统计结论"
+                % (group1, len(donors_in), group2, len(donors_out)),
+            )
+    elif donor_column:
+        warnings.append(
+            "组间比较的统计单位是「细胞」：%s 列里同一供体的细胞不是独立生物学重复，"
+            "p 值只作探索性参考；要做供体级结论请设 unit=donor（每组需 ≥2 个供体）"
+            % donor_column
+        )
+        if len(donors_in) < 2 or len(donors_out) < 2:
+            warnings.append(
+                "本数据 %s 组有 %d 个生物学重复、%s 组有 %d 个（含 <2 的组），不构成患者组间推断的条件"
+                % (group1, len(donors_in), group2, len(donors_out))
+            )
+
     per_type = {}
     skipped = []
     for cell_type in cell_levels:
@@ -1609,20 +1734,40 @@ def _compute_de(ctx, params, warnings):
             continue
         rows_in = np.where(in_group)[0]
         rows_out = np.where(out_group)[0]
-        mean_in, var_in, _ = _group_stats(matrix, rows_in)
-        mean_out, var_out, _ = _group_stats(matrix, rows_out)
-        t_stat, _, pvalue = _welch_t(mean_in, var_in, n_in, mean_out, var_out, n_out)
-        pvalue = np.asarray(pvalue, dtype=np.float64)
-        padj = _bh_fdr(pvalue)
         pct_in = _pct_expressed(matrix, rows_in)
         pct_out = _pct_expressed(matrix, rows_out)
+        if unit == "donor":
+            levels_in = sorted({str(donor_values[i]) for i in rows_in})
+            levels_out = sorted({str(donor_values[i]) for i in rows_out})
+            bulk_in, k_in, sizes_in = _pseudobulk_stats(matrix, rows_in, donor_values, levels_in)
+            bulk_out, k_out, sizes_out = _pseudobulk_stats(matrix, rows_out, donor_values, levels_out)
+            usable_in = [i for i, size in enumerate(sizes_in) if size >= donor_min_cells]
+            usable_out = [i for i, size in enumerate(sizes_out) if size >= donor_min_cells]
+            if bulk_in is None or bulk_out is None or len(usable_in) < 2 or len(usable_out) < 2:
+                skipped.append((cell_type, len(usable_in), len(usable_out)))
+                continue
+            mean_in = bulk_in[usable_in].mean(axis=0)
+            mean_out = bulk_out[usable_out].mean(axis=0)
+            var_in = bulk_in[usable_in].var(axis=0, ddof=1)
+            var_out = bulk_out[usable_out].var(axis=0, ddof=1)
+            t_stat, _, pvalue = _welch_t(mean_in, var_in, len(usable_in), mean_out, var_out, len(usable_out))
+            n_in_stat, n_out_stat = len(usable_in), len(usable_out)
+        else:
+            mean_in, var_in, _ = _group_stats(matrix, rows_in)
+            mean_out, var_out, _ = _group_stats(matrix, rows_out)
+            t_stat, _, pvalue = _welch_t(mean_in, var_in, n_in, mean_out, var_out, n_out)
+            n_in_stat, n_out_stat = n_in, n_out
+        pvalue = np.asarray(pvalue, dtype=np.float64)
+        padj = _bh_fdr(pvalue)
         per_type[cell_type] = {
-            "n_in": n_in, "n_out": n_out,
+            "n_in": n_in_stat, "n_out": n_out_stat,
+            "n_cells_in": n_in, "n_cells_out": n_out,
             "mean_in": mean_in, "mean_out": mean_out,
             "logfc": mean_in - mean_out,
             "t_stat": np.asarray(t_stat, dtype=np.float64),
             "pvalue": pvalue, "padj": np.asarray(padj, dtype=np.float64),
             "pct_in": pct_in, "pct_out": pct_out,
+            "unit": unit,
         }
     if not per_type:
         raise EngineError(
@@ -1645,6 +1790,11 @@ def _compute_de(ctx, params, warnings):
         "genes": genes,
         "skipped": skipped,
         "min_cells": min_cells,
+        "unit": unit,
+        "donor_column": donor_column,
+        "n_donors_in": len(donors_in),
+        "n_donors_out": len(donors_out),
+        "donor_min_cells": donor_min_cells,
     }
     _de_cache_put(cache_key, payload)
     return payload
@@ -1809,9 +1959,20 @@ def _run_de_group(ctx, params, outdir):
     figure.tight_layout()
     figures = [_save_figure(figure, ctx, outdir, "de_group", "de_volcano",
                             "Differential genes per cell type")]
+    unit = str(data.get("unit") or "cell")
+    if unit == "donor":
+        unit_line = ("统计单位：供体（pseudobulk 平均表达，%s 列；%s 组 %d 个、%s 组 %d 个重复）"
+                     % (data.get("donor_column"), data["group1"], data.get("n_donors_in"),
+                        data["group2"], data.get("n_donors_out")))
+    elif data.get("donor_column"):
+        unit_line = ("统计单位：细胞（%s 列有生物学重复但本次按细胞比较，p 值仅作探索性参考；"
+                     "供体级结论请设 unit=donor）" % data.get("donor_column"))
+    else:
+        unit_line = "统计单位：细胞（没有检测到生物学重复列，结果属探索性，不能作为患者组间结论）"
     bullets = [
         "分组：%s vs %s（列 %s）；检验细胞类型：%s" % (
             data["group1"], data["group2"], data["group_column"], "、".join(data["cell_types"][:10])),
+        unit_line,
         "逐细胞类型 Welch t + BH FDR；表格含每类 top %d 差异基因与汇总" % top_n,
         "火山图展示前 %d 个细胞类型（按细胞数顺序）" % min(len(panels), 6),
     ]
@@ -1821,6 +1982,11 @@ def _run_de_group(ctx, params, outdir):
         "n_genes_tested": len(data["genes"]),
         "group1": data["group1"],
         "group2": data["group2"],
+        "statistical_unit": unit,
+        "donor_column": data.get("donor_column") or None,
+        "n_donors_in": data.get("n_donors_in"),
+        "n_donors_out": data.get("n_donors_out"),
+        "patient_level_inference": bool(unit == "donor"),
     }
     return _result("de_group", bullets, metrics, tables, figures, warnings=warnings)
 
@@ -1966,20 +2132,74 @@ def _run_proportion_test(ctx, params, outdir):
     for i, group in enumerate(group_levels):
         for j, cell_type in enumerate(cell_type_levels):
             counts[i, j] = int(np.sum(group_masks[group] & (cell_type_values == cell_type)))
+    # SC-08：先处理「过滤后为空的分组/细胞类型」，否则卡方无法计算，且异常分支里的
+    # expected_full 会变成未定义变量导致 UnboundLocalError。
+    empty_rows = [i for i in range(len(group_levels)) if int(counts[i].sum()) == 0]
+    if empty_rows:
+        warnings.append(
+            "这些分组在 min_cells 过滤后没有任何细胞，已从比例检验中排除：%s"
+            % "、".join(group_levels[i] for i in empty_rows)
+        )
+        keep_rows = [i for i in range(len(group_levels)) if i not in set(empty_rows)]
+        if len(keep_rows) < 2:
+            raise EngineError(
+                "prerequisite",
+                "过滤后只有 %d 个分组还有细胞（需要至少 2 组）才能比较比例：%s"
+                % (len(keep_rows), "、".join(group_levels[i] for i in keep_rows) or "无"),
+            )
+        group_levels = [group_levels[i] for i in keep_rows]
+        counts = counts[keep_rows]
+    empty_cols = [j for j in range(counts.shape[1]) if int(counts[:, j].sum()) == 0]
+    if empty_cols:
+        warnings.append(
+            "这些细胞类型在任何分组里都没有细胞，已排除：%s"
+            % "、".join(cell_type_levels[j] for j in empty_cols)
+        )
+        keep_cols = [j for j in range(counts.shape[1]) if j not in set(empty_cols)]
+        cell_type_levels = [cell_type_levels[j] for j in keep_cols]
+        counts = counts[:, keep_cols]
+    if counts.shape[0] < 2 or counts.shape[1] < 2:
+        raise EngineError("prerequisite", "过滤后列联表不足 2 组 × 2 个细胞类型，无法做比例检验")
     row_totals = counts.sum(axis=1).astype(np.float64)
     col_totals = counts.sum(axis=0).astype(np.float64)
     grand_total = float(counts.sum())
-    expected = np.outer(row_totals, col_totals) / max(grand_total, 1.0)
     if grand_total <= 0:
         raise EngineError("prerequisite", "分组 × 细胞类型列联表为空")
+    # SC-05：比例检验同样按细胞计数，存在生物学重复时要说明统计单位
+    donor_column = _resolve_donor_column(ctx, params)
+    donor_values = _donor_values(ctx, donor_column) if donor_column else None
+    donors_per_group = {}
+    if donor_values is not None:
+        for group in group_levels:
+            donors_per_group[group] = sorted({str(donor_values[i]) for i in np.where(group_masks[group])[0]})
+        replicate_ok = all(len(donors_per_group[group]) >= 2 for group in group_levels)
+        if not replicate_ok:
+            warnings.append(
+                "生物学重复不足：%s 组的重复数分别为 %s；比例卡方把每个细胞当独立观测，"
+                "不能据此得出患者组间显著结论（仅供参考）"
+                % (donor_column, "、".join("%s=%d" % (g, len(donors_per_group[g])) for g in group_levels))
+            )
+        else:
+            warnings.append(
+                "数据里有生物学重复列 %s（每组 %s 个）。当前比例卡方以细胞为单位，"
+                "正规做法是先算每样本比例再做样本级检验（见 analysis 的供体级方案）"
+                % (donor_column, "/".join(str(len(donors_per_group[g])) for g in group_levels))
+            )
+    expected = np.outer(row_totals, col_totals) / max(grand_total, 1.0)
+    # 检验失败时结果标记为「未计算」，绝不伪造 p=1 当成正常结果
+    chi2, chi_p, dof, expected_full = float("nan"), None, 0, expected
+    chi_computed = False
     try:
         chi2, chi_p, dof, expected_full = _stats.chi2_contingency(counts + 0.0, correction=False)
-    except Exception:
-        chi2, chi_p, dof = 0.0, 1.0, 0
-    cramers_v = math.sqrt(chi2 / max(grand_total * (min(counts.shape) - 1), 1e-12)) if chi2 >= 0 else 0.0
-    if chi_p < 0.05:
+        chi_computed = True
+    except Exception as error:  # noqa: BLE001
+        warnings.append("整体卡方检验无法计算（%s）：该指标标记为未计算" % error)
+        chi2, chi_p, dof = float("nan"), None, 0
+    cramers_v = math.sqrt(chi2 / max(grand_total * (min(counts.shape) - 1), 1e-12)) \
+        if chi_computed and chi2 >= 0 else None
+    if chi_computed and chi_p is not None and chi_p < 0.05:
         warnings.append("整体卡方检验显著（p=%.3g），比例分布在组间存在差异" % chi_p)
-    low_expected = int(np.sum(expected_full < 5)) if expected_full is not None else 0
+    low_expected = int(np.sum(np.asarray(expected_full) < 5)) if expected_full is not None else 0
     if low_expected:
         warnings.append("有 %d 个格子的期望频数 <5，卡方近似可能不稳（可增大样本）" % low_expected)
 
@@ -2001,11 +2221,15 @@ def _run_proportion_test(ctx, params, outdir):
         for i, group in enumerate(group_levels):
             inside = int(np.sum(group_masks[group] & in_type))
             table[i] = [inside, int(np.sum(group_masks[group])) - inside]
+        type_p = None
         try:
+            if table.sum() <= 0 or np.any(table.sum(axis=1) <= 0) or np.any(table.sum(axis=0) <= 0):
+                raise ValueError("该细胞类型在某个分组里没有细胞，2×G 表退化")
             _, type_p, _, _ = _stats.chi2_contingency(table, correction=False)
-        except Exception:
-            type_p = 1.0
-        pvalues.append(_safe_p(type_p))
+        except Exception as error:  # noqa: BLE001
+            warnings.append("细胞类型 %s 的卡方检验未计算：%s" % (cell_type, error))
+            type_p = None
+        pvalues.append(_safe_p(type_p) if type_p is not None else None)
         standardized = (counts[:, j] - expected[:, j]) / np.sqrt(np.maximum(expected[:, j], 1e-9))
         best_group_index = int(np.argmax(standardized))
         observed = float(counts[best_group_index, j])
@@ -2029,10 +2253,16 @@ def _run_proportion_test(ctx, params, outdir):
             "pval_adj": None,
             "direction": direction,
         })
-    adjusted = _bh_fdr(np.asarray(pvalues, dtype=np.float64))
+    # 只对真正算出来的 p 值做 BH；未计算的保持空值（不能拿 p=1 冒充结果）
+    adjusted = np.full(len(proportion_rows), np.nan, dtype=np.float64)
+    finite = [i for i, value in enumerate(pvalues) if value is not None]
+    if finite:
+        corrected = _bh_fdr(np.asarray([pvalues[i] for i in finite], dtype=np.float64))
+        for position, row_index in enumerate(finite):
+            adjusted[row_index] = float(corrected[position])
     for row, value in zip(proportion_rows, adjusted):
-        row["pval_adj"] = _num(value)
-    proportion_rows.sort(key=lambda row: (row["pval_adj"] if row["pval_adj"] is not None else 1.0,
+        row["pval_adj"] = None if not np.isfinite(value) else _num(value)
+    proportion_rows.sort(key=lambda row: (row["pval_adj"] if row["pval_adj"] is not None else 2.0,
                                           row["cell_type"]))
     proportion_columns = [
         _col("cell_type", "Cell type"), _col("total_cells", "Cells", "number"),
@@ -2066,7 +2296,8 @@ def _run_proportion_test(ctx, params, outdir):
     axis.set_xticklabels([_fig_label(group, "group %d" % (i + 1)) for i, group in enumerate(group_levels)])
     axis.set_ylabel("Percent of cells (%)")
     axis.set_xlabel("Group")
-    axis.set_title("Cell type composition by group (chi-square p=%.3g)" % chi_p)
+    axis.set_title("Cell type composition by group (chi-square p=%s)" % (
+        "not computed" if chi_p is None else "%.3g" % chi_p))
     axis.set_ylim(0, 100)
     axis.legend(frameon=False, bbox_to_anchor=(1.02, 1.0), loc="upper left", fontsize=7)
     _style_axis(axis)
@@ -2074,10 +2305,11 @@ def _run_proportion_test(ctx, params, outdir):
     figures = [_save_figure(figure, ctx, outdir, "proportion_test", "proportion_bar",
                             "Cell type composition by group")]
     bullets = [
-        "列联表：%d 组 × %d 个细胞类型，整体卡方 p=%.3g（Cramér's V=%.3f）" % (
-            len(group_levels), len(cell_type_levels), chi_p, cramers_v),
+        "列联表：%d 组 × %d 个细胞类型，整体卡方 %s" % (
+            len(group_levels), len(cell_type_levels),
+            "未计算" if chi_p is None else "p=%.3g（Cramér's V=%.3f）" % (chi_p, cramers_v or 0.0)),
         "比例显著差异（FDR<0.05）的细胞类型：%d / %d" % (
-            int(np.sum(adjusted < 0.05)), len(adjusted)),
+            int(np.sum(np.isfinite(adjusted) & (adjusted < 0.05))), len(adjusted)),
         "每组占比与富集方向见 proportion_enrichment 表（含 95%% 后验区间）",
     ]
     metrics = {
@@ -2085,7 +2317,12 @@ def _run_proportion_test(ctx, params, outdir):
         "n_cell_types": len(cell_type_levels),
         "chi2_p": _num(chi_p),
         "cramers_v": _num(cramers_v),
-        "n_significant": int(np.sum(adjusted < 0.05)),
+        "n_significant": int(np.sum(np.isfinite(adjusted) & (adjusted < 0.05))),
+        "n_computed": int(len(finite)),
+        "chi2_computed": bool(chi_computed),
+        "statistical_unit": "cell",
+        "donor_column": donor_column or None,
+        "n_donors_per_group": {g: len(donors_per_group[g]) for g in group_levels} if donor_values is not None else None,
     }
     return _result("proportion_test", bullets, metrics, tables, figures, warnings=warnings)
 

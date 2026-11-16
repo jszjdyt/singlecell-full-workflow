@@ -1,5 +1,5 @@
 """
-dsh-singlecell-workbench — 高级分析注册表（Host 侧，Lead 维护）
+dsh-singlecell — 高级分析注册表（Host 侧，Lead 维护）
 
 职责：
   1. 把 sc_analyses_sets.py / sc_analyses_dynamics.py 两个模块的 ANALYSES 合并成一份目录；
@@ -21,6 +21,8 @@ import struct
 import sys
 import traceback
 from pathlib import Path
+
+import hashlib
 
 import numpy as np
 import pandas as pd
@@ -220,6 +222,59 @@ def diagnostics():
 # ---------------------------------------------------------------------------
 
 
+def _x_is_lognormalized(dataset) -> bool:
+    """当前 X 是否 log 尺度（数值判断，不看 steps 记录，SC-03）。"""
+    matrix = getattr(dataset, "X", None)
+    if matrix is None:
+        return False
+    try:
+        if hasattr(matrix, "data"):
+            sample = np.asarray(matrix.data[: min(2000, matrix.nnz)], dtype=np.float64)
+        else:
+            sample = np.asarray(matrix).reshape(-1)[:2000].astype(np.float64)
+    except Exception:  # noqa: BLE001
+        return False
+    sample = sample[np.isfinite(sample)]
+    if sample.size == 0:
+        return False
+    if np.all(np.abs(sample - np.round(sample)) < 1e-6):
+        return False
+    return bool(float(np.max(sample)) < 60.0)
+
+
+def _content_digest(dataset) -> str:
+    """数据内容指纹：obs 取值 + 矩阵统计（SC-04 缓存失效用）。
+
+    只看「数据集 id + 行数 + 列名」会漏掉分组互换、注释修改、同形状替换细胞、
+    重新标准化等情况；这里把相关内容也算进去。
+    """
+    hasher = hashlib.md5()
+    obs = getattr(dataset, "obs", None)
+    if isinstance(obs, pd.DataFrame):
+        hasher.update(str(tuple(obs.shape)).encode())
+        for column in obs.columns:
+            series = obs[column]
+            try:
+                values = [str(item) for item in series.tolist()]
+            except Exception:  # noqa: BLE001
+                continue
+            if len(values) > 200000:
+                values = values[:200000]
+            hasher.update(str(column).encode())
+            hasher.update("|".join(values).encode())
+    matrix = getattr(dataset, "X", None)
+    if matrix is not None:
+        try:
+            hasher.update(str(tuple(matrix.shape)).encode())
+            hasher.update(("%.6g" % float(matrix.sum())).encode())
+            data = getattr(matrix, "data", None)
+            if data is not None:
+                hasher.update(("%.6g" % float(np.sum(data[: min(5000, data.size)]))).encode())
+        except Exception:  # noqa: BLE001
+            pass
+    return hasher.hexdigest()
+
+
 def build_ctx(dataset, engine_mode="builtin"):
     obs = dataset.obs.copy()
     clusters = None
@@ -249,9 +304,14 @@ def build_ctx(dataset, engine_mode="builtin"):
         if value is not None:
             obsm[key] = np.asarray(value)
 
-    x_kind = "lognorm" if "normalize" in getattr(dataset, "steps", []) else "counts"
+    # SC-03：X 的尺度必须看当前矩阵本身，而不是「steps 里有没有 normalize」
+    x_kind = "lognorm" if _x_is_lognormalized(dataset) else "counts"
     return {
         "dataset_id": str(getattr(dataset, "id", "ds")),
+        "dataset_version": int(getattr(dataset, "version", 0) or 0),
+        "dataset_revision": int(getattr(dataset, "revision", 0) or 0),
+        "content_revision": _content_digest(dataset),
+        "X_kind_source": "matrix_scan" if x_kind == "lognorm" else "raw_like",
         "name": str(getattr(dataset, "name", "dataset")),
         "n_obs": int(dataset.n_obs),
         "n_vars": int(dataset.n_vars),

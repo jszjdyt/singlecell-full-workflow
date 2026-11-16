@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell-workbench — SCENIC 官方 R 转录调控（CONTRACT §10.3）
+# dsh-singlecell — SCENIC 官方 R 转录调控（CONTRACT §10.3）
 #
 # 工具链（全部官方 R 包）：
 #   GENIE3 1.28.0  共表达网络（TF → target 权重）
@@ -34,8 +34,8 @@ sc_find_scenic_feather <- function(db_dir, species) {
   candidates <- unique(c(
     db_dir,
     if (nzchar(db_dir)) dirname(db_dir) else "",
-    if (species == "mouse") path.expand("~/scenic_databases/mouse")
-    else path.expand("~/scenic_databases/human"),
+    if (species == "mouse") "/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/mouse"
+    else "/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/human",
     path.expand("~/cisTarget_databases")
   ))
   candidates <- candidates[nzchar(candidates)]
@@ -93,7 +93,7 @@ sc_run("scenic_r", "SCENIC(R) 官方转录调控",
          # ---- 1. 数据库
          db_dir <- trimws(as.character(params$db_dir %||% Sys.getenv("DS_SC_SCENIC_DB")))
          if (!nzchar(db_dir)) {
-           db_dir <- path.expand("~/scenic_databases/human")
+           db_dir <- "/Users/dingyuntao/Desktop/单细胞工作站/SCINCE尝试/human/python用"
          }
          db_dir <- path.expand(db_dir)
          feather <- sc_find_scenic_feather(db_dir, species)

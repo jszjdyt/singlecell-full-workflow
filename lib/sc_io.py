@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell-workbench — 全格式导入层（CONTRACT §8）
+"""dsh-singlecell — 全格式导入层（CONTRACT §8）
 
 把 GEO 上实际能下到的单细胞数据格式统一读成
   X: scipy.sparse.csr_matrix (cells × genes, float32)
@@ -159,6 +159,31 @@ def _string_list(values, length, prefix="gene"):
     return items
 
 
+def _unique_index(index, name="cell"):
+    """生成**严格唯一且稳定**的细胞 ID（SC-07）。
+
+    旧实现用 `duplicated(keep=False)` 的布尔值当后缀计数，所以 [bc,bc,bc] 会变成
+    [bc_1,bc_1,bc_1]，索引仍然重复。这里按出现顺序编号，并检查与已有名字的碰撞：
+    重复 barcode → bc_1 / bc_2 / bc_3；若 bc_1 本身已存在也不冲突。
+    """
+    labels = [str(item) for item in list(index)]
+    seen = set()
+    counts = {}
+    out = []
+    for base in labels:
+        counts[base] = counts.get(base, 0) + 1
+        candidate = base if counts[base] == 1 else "%s_%d" % (base, counts[base])
+        # 与「本来就长这样」的名字碰撞时继续加后缀，保证全局唯一
+        while candidate in seen:
+            counts[base] += 1
+            candidate = "%s_%d" % (base, counts[base])
+        seen.add(candidate)
+        out.append(candidate)
+    if len(set(out)) != len(out):
+        out = ["%s_%d" % (name, i + 1) for i in range(len(out))]
+    return pd.Index(out, name=name)
+
+
 def _payload(fmt, source, matrix, obs=None, var_names=None, counts=None, var=None,
              warnings=None, notes=None, meta=None, name=None):
     X = _as_csr(matrix)
@@ -178,11 +203,7 @@ def _payload(fmt, source, matrix, obs=None, var_names=None, counts=None, var=Non
     else:
         obs_frame = pd.DataFrame(index=pd.Index(["cell_%d" % (i + 1) for i in range(n_obs)], name="cell"))
     if obs_frame.index.has_duplicates:
-        obs_frame.index = pd.Index(
-            ["%s_%d" % (str(item), dup) if dup else str(item) for dup, item in
-             zip(obs_frame.index.duplicated(keep=False).astype(int), obs_frame.index)],
-            name=obs_frame.index.name or "cell",
-        )
+        obs_frame.index = _unique_index(obs_frame.index, obs_frame.index.name or "cell")
     counts_csr = _as_csr(counts) if counts is not None else None
     if counts_csr is not None and counts_csr.shape != X.shape:
         counts_csr = None
@@ -246,7 +267,7 @@ def _gse_suppl_dir(gse):
 
 
 def _http_get(url, timeout=60):
-    request = urllib.request.Request(url, headers={"User-Agent": "dsh-singlecell-workbench/0.3"})
+    request = urllib.request.Request(url, headers={"User-Agent": "dsh-singlecell/0.3"})
     return urllib.request.urlopen(request, timeout=timeout)
 
 
@@ -656,6 +677,85 @@ def _read_h5_adata_group(path):
         return None
 
 
+def _looks_integer(matrix) -> bool:
+    """矩阵是否「像整数计数」。"""
+    try:
+        dtype = matrix.dtype
+        if np.issubdtype(dtype, np.integer):
+            return True
+    except Exception:  # noqa: BLE001
+        return False
+    try:
+        if sp.issparse(matrix):
+            if not matrix.nnz:
+                return True
+            sample = matrix.data[: min(2000, matrix.nnz)]
+        else:
+            flat = np.asarray(matrix).ravel()
+            if not flat.size:
+                return True
+            sample = flat[: min(2000, flat.size)]
+        return bool(np.all(np.abs(np.asarray(sample, dtype=np.float64) - np.round(np.asarray(sample, dtype=np.float64))) < 1e-6))
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _align_raw_counts(data, warnings, notes, meta):
+    """把 adata.raw 的 counts 显式对齐到当前 var_names（SC-01/SC-02）。
+
+    旧实现直接取 raw.X 再配当前 var_names：一旦当前 var 顺序与 raw.var 不同，
+    基因与表达值就整体错位（AnnData 切 var 不会同步切 raw）。这里：
+      * 按原始基因 ID 做映射，逐列重排；
+      * raw 缺少当前基因 / 重复 ID / 无法判定基因名 → 明确放弃并记录，绝不按 shape 硬套；
+      * 记录来源与映射结果，供后续步骤判断 counts 语义。
+    """
+    raw = getattr(data, "raw", None)
+    if raw is None or raw.X is None:
+        return None, None
+    current = [str(gene) for gene in data.var_names]
+    raw_var_names = getattr(raw, "var_names", None)
+    raw_names = [] if raw_var_names is None else [str(gene) for gene in raw_var_names]
+    raw_X = raw.X
+    if not raw_names:
+        if getattr(raw_X, "shape", (0, 0))[1] == len(current):
+            warnings.append("adata.raw 没有保存基因名，只能按列位置使用（无法校验基因顺序）")
+            meta["counts_alignment"] = "raw_position_only"
+            return raw_X, "raw"
+        warnings.append(
+            "adata.raw 没有基因名且列数与当前基因数不一致：已放弃使用 raw 作为 counts"
+        )
+        meta["counts_alignment"] = "raw_dropped_no_names"
+        return None, None
+    if len(raw_names) != len(set(raw_names)):
+        warnings.append("adata.raw 的基因名有重复，无法可靠对齐：已放弃使用 raw 作为 counts")
+        meta["counts_alignment"] = "raw_dropped_duplicate_genes"
+        return None, None
+    index_of = {gene: i for i, gene in enumerate(raw_names)}
+    missing = [gene for gene in current if gene not in index_of]
+    if missing:
+        warnings.append(
+            "adata.raw 缺少当前矩阵里的 %d 个基因（如 %s）：已放弃使用 raw 作为 counts，"
+            "不会把缺失基因当成 0 或改用已标准化的 X" % (len(missing), "、".join(missing[:5]))
+        )
+        meta["counts_alignment"] = "raw_dropped_missing_genes"
+        meta["counts_missing_genes"] = len(missing)
+        return None, None
+    order = [index_of[gene] for gene in current]
+    try:
+        aligned = raw_X[:, order]
+    except Exception as error:  # noqa: BLE001
+        warnings.append("按基因名重排 adata.raw 失败：%s；已放弃使用 raw 作为 counts" % error)
+        meta["counts_alignment"] = "raw_dropped_reorder_failed"
+        return None, None
+    meta["counts_alignment"] = "raw_by_gene_id"
+    if len(raw_names) > len(current):
+        notes.append(
+            "adata.raw 含 %d 个基因，当前矩阵 %d 个；已按基因 ID 取交集对齐"
+            % (len(raw_names), len(current))
+        )
+    return aligned, "raw"
+
+
 def _load_h5ad(path, options=None):
     if ad is None:
         raise _err("unsupported", "缺少 anndata，无法读取 .h5ad（可在 Host 的 Python 环境安装 anndata）")
@@ -668,28 +768,40 @@ def _load_h5ad(path, options=None):
     if data.X is None:
         raise _err("bad_request", "h5ad 里没有 X 表达矩阵：%s" % Path(path).name)
     warnings = []
+    notes = []
+    meta = {"assays": ["RNA"]}
     counts = None
+    counts_source = "none"
     layers = getattr(data, "layers", None) or {}
     if "counts" in layers:
         counts = layers["counts"]
-    elif getattr(data, "raw", None) is not None and data.raw.X is not None:
-        counts = data.raw.X
-        warnings.append("未找到 layers['counts']，已用 adata.raw.X 作为原始计数")
+        counts_source = "layers.counts"
+    else:
+        counts, counts_source = _align_raw_counts(data, warnings, notes, meta)
+        if counts is not None:
+            warnings.append("未找到 layers['counts']，已按基因 ID 对齐 adata.raw.X 作为原始计数")
     matrix = data.X
-    try:
-        dtype = matrix.dtype
-        integer_like = np.issubdtype(dtype, np.integer)
-    except Exception:
-        integer_like = False
-    if not integer_like and sp.issparse(matrix) and matrix.nnz:
+    counts_verified = False
+    if counts is not None:
+        if _looks_integer(counts):
+            counts_verified = True
+        else:
+            warnings.append(
+                "counts 层不像整数计数（可能保存的是 log-normalized 表达）：已标记为未验证，"
+                "依赖原始 counts 的步骤会提示而不是直接使用"
+            )
+    matrix_integer = _looks_integer(matrix)
+    if not matrix_integer and sp.issparse(matrix) and matrix.nnz:
         sample = matrix.data[: min(1000, matrix.nnz)]
         if not np.all(np.abs(sample - np.round(sample)) < 1e-6) and float(np.max(sample)) < 30:
             warnings.append("X 看起来已 log 标准化；内置流程的 normalize 会基于 counts 重算")
+    meta["matrix_kind"] = "counts" if matrix_integer else "lognorm"
+    meta["counts_source"] = counts_source
+    meta["counts_verified"] = bool(counts_verified)
     obs = data.obs.copy() if data.obs is not None else None
     var = data.var.copy() if data.var is not None else None
-    meta = {"assays": ["RNA"]}
     payload = _payload("h5ad", path, matrix, obs=obs, var_names=list(map(str, data.var_names)),
-                       counts=counts, var=var, warnings=warnings, meta=meta)
+                       counts=counts, var=var, warnings=warnings, notes=notes, meta=meta)
     obsm = {}
     try:
         if "X_pca" in data.obsm:
@@ -1607,7 +1719,7 @@ def load_source(source, *, workdir, options=None, progress=None):
 if __name__ == "__main__":  # 手动调试用：python3 lib/sc_io.py <path|url>
     import argparse
 
-    parser = argparse.ArgumentParser(description="dsh-singlecell-workbench import layer debug CLI")
+    parser = argparse.ArgumentParser(description="dsh-singlecell import layer debug CLI")
     parser.add_argument("source")
     parser.add_argument("--workdir", default=tempfile.mkdtemp(prefix="sc-io-"))
     parser.add_argument("--format", default=None)

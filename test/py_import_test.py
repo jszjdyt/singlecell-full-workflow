@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""dsh-singlecell-workbench — 全格式导入层测试（CONTRACT §8.5，sc-io 所有）
+"""dsh-singlecell — 全格式导入层测试（CONTRACT §8.5，sc-io 所有）
 
 对 `lib/sc_io.py` 的 `inspect_source` / `load_source` 跑全套格式回归：
   1. §8.2 每个格式 load 后与 truth.json 校验（n_obs/n_vars/前几个基因/首细胞某基因值/obs 列）；
@@ -590,12 +590,10 @@ def test_urls(io, manifest, work, report, make_formats):
 
 
 def test_real_rds(io, manifest, work, report):
-    report.start("7. 真实 Seurat rds 只读验收（可选：DSH_SC_TEST_RDS_DIR/*.rds）")
+    report.start("7. 真实 Seurat rds 只读验收（neu_analysis/objects/*.rds）")
     files = list(manifest.get("real_rds", {}).get("files") or [])
     if not files:
-        # 开源仓库里没有用户私有 rds：设置 DSH_SC_TEST_RDS_DIR 指向含 *.rds 的目录才会执行本段
-        report.check("真实 rds 存在（可选，跳过）", True,
-                     "未设置 DSH_SC_TEST_RDS_DIR，跳过真实 rds 验收（不影响其它格式）")
+        report.check("真实 rds 存在", False, "没找到 %s/*.rds" % manifest.get("real_rds", {}).get("dir"))
         return
     report.check("真实 rds 数量", len(files) >= 5, "找到 %d 个：%s" % (len(files), [Path(p).name for p in files]))
     loaded_info = []
@@ -664,7 +662,7 @@ def test_real_rds(io, manifest, work, report):
 
 def main(argv=None) -> int:
     started = time.time()
-    print("dsh-singlecell-workbench 全格式导入层测试（CONTRACT §8.5）")
+    print("dsh-singlecell 全格式导入层测试（CONTRACT §8.5）")
     print("  python        : %s" % sys.version.split()[0])
     print("  sc_io         : %s" % (LIB_DIR / "sc_io.py"))
     if not (LIB_DIR / "sc_io.py").exists():

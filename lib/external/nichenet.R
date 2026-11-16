@@ -1,7 +1,7 @@
 #!/usr/bin/env Rscript
 # -*- coding: utf-8 -*-
 # =============================================================================
-# dsh-singlecell-workbench — NicheNet 官方配体-靶基因（CONTRACT §10.3）
+# dsh-singlecell — NicheNet 官方配体-靶基因（CONTRACT §10.3）
 #
 # 工具：nichenetr 2.2.1（官方 predict_ligand_activities + 官方先验模型）
 # 先验：<nichenetPriors>/ligand_target_matrix_nsga2r_final.rds
@@ -80,7 +80,7 @@ sc_run("nichenet", "NicheNet 官方配体-靶基因", "nichenetr 2.2.1（官方 
          # ---- 1. 先验模型
          priors <- trimws(as.character(params$priors_dir %||% Sys.getenv("DS_SC_NICHENET_PRIORS")))
          if (!nzchar(priors)) {
-           priors <- path.expand("~/nichenet_priors")
+           priors <- "/Users/dingyuntao/Desktop/祖传R语言单细胞代码/crosstalk"
          }
          priors <- path.expand(priors)
          if (!dir.exists(priors)) sc_prerequisite(sprintf("NicheNet 先验模型目录不存在：%s", priors))

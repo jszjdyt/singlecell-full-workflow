@@ -1,4 +1,4 @@
-# dsh-singlecell-workbench 内部契约（Single-cell workbench）
+# dsh-singlecell 内部契约（Single-cell workbench）
 
 > 本文件是三个并行开发者的**唯一事实来源**。任何实现与本契约冲突，以本契约为准；确需改协议，先在 `/singlecell` 群聊里说明并同步更新本文件。
 
@@ -17,7 +17,7 @@
 ## 1. 目录与归属（写权限严格隔离）
 
 ```
-plugins/dsh-singlecell-workbench/
+plugins/dsh-singlecell/
   CONTRACT.md                    # 本文件（Lead 维护）
   README.md                      # Lead（用户文档）
   package.json / cordis.patch.yml / icon.svg / locale/*.json   # Lead
@@ -223,9 +223,9 @@ plugins/dsh-singlecell-workbench/
 ### 4.1 形态（照抄 `plugins/dsh-paper-reader/client.js` 的结构）
 
 - 整文件 `;(function(){'use strict' ...})()`；顶部是**纯函数层**（不碰 DOM、不 require react），在 `typeof window==='undefined'` 时挂到 `globalThis.__SC_TEST__`，供 node 测试 import。
-- 浏览器层用 `window.__ModuleLoader__.load({id:'dsh-singlecell-workbench', factory(require){...}})`，**只 `require('react')`**，绝不 require 任何 `@deepseek-ai/*` 包。
+- 浏览器层用 `window.__ModuleLoader__.load({id:'dsh-singlecell', factory(require){...}})`，**只 `require('react')`**，绝不 require 任何 `@deepseek-ai/*` 包。
 - `inject: ['slots','locale']`；`apply(ctx)` 里：
-  - `locale.register('dsh-singlecell-workbench', {zh:DICT_ZH, en:DICT_EN})`（用 `ctx.effect` 包起来，照抄 paper-reader）
+  - `locale.register('dsh-singlecell', {zh:DICT_ZH, en:DICT_EN})`（用 `ctx.effect` 包起来，照抄 paper-reader）
   - `slots.inject('main', () => slots.register({name:'main', key:'singlecell', locale:NS}, WorkbenchPage))`
   - `slots.inject('sidebar.panellist', () => slots.register({name:'sidebar.panellist', id:'singlecell', order:3, label:()=>T('nav'), locale:NS}, SidebarIcon))`
 - 所有数据走**同源相对路径** `/singlecell/*`（`fetch`），不 import Host 模块。
@@ -270,7 +270,7 @@ plugins/dsh-singlecell-workbench/
 
 ## 5. 环境事实（所有人必读）
 
-- macOS，工作目录 `/Users/dingyuntao/Desktop/deepseek harness`，插件目录 `plugins/dsh-singlecell-workbench`。
+- macOS，工作目录 `/Users/dingyuntao/Desktop/deepseek harness`，插件目录 `plugins/dsh-singlecell`。
 - Python：`python3` → `/Library/Frameworks/Python.framework/Versions/3.14/bin/python3`（3.14.2），有 numpy 2.5 / pandas 2.3 / scipy 1.17 / sklearn 1.9 / anndata 0.12 / matplotlib 3.11 / h5py；**无 scanpy、无 igraph/leidenalg、无 umap-learn**。
 - `~/.matplotlib` 不可写：Python 侧必须 `os.environ["MPLBACKEND"]="Agg"` 且把 `MPLCONFIGDIR` 指到 `--workdir` 下（Host 已设，引擎里再兜底一次）。
 - 宿主 Electron 进程的 PATH 可能很窄：Host 探测 Python 时按候选列表逐个 `-c "import numpy,anndata,sklearn"` 试。
@@ -711,39 +711,3 @@ R 读法：`m <- Matrix::readMM("counts.mtx"); m <- t(m)`（得到 cells×genes�
 - 预设：`seurat6`（Harmony 0.8）、`pro-rpca`（RPCA 0.8）、`pro-unintegrated`（PCA 0.5），均带 pro.R QC 参数
 - 簇列：当前结果写 `clusters`；整合结果额外保留 `clusters_harmony` / `clusters_rpca`
 - 修复：按样本 merge 构建多层对象会打乱细胞顺序 → 曾导致簇标签错位（ARI≈0）；已改回单对象 + split 路径
-
-
----
-
-## §17 UI v8：Step3 三段式注释 + HVG 降权（v0.9.0）
-
-Step3 按「先方案 → 再出图 → 最后分簇」重排：
-1. 标记方案卡：细胞类型名 + marker 基因可编辑表格；内置人/鼠各 18 类参考方案；粘贴 CSV；校验空/重复/无基因/超限；基因大小写不敏感去重。
-2. 看表达卡：[出 DotPlot]/[出热图] → `/plot {params:{genes, gene_groups, groupby:"clusters"}}`；[画 FeaturePlot] → `/embedding {color_by:{kind:"gene",key}}`。
-3. cluster 分配卡：每簇下拉/手输 → [全部保存注释] → `/run annotate mapping`；注释表/覆盖率/按注释着色；保留小亚群提取。
-
-Step2：`n_top_genes` 移入「进阶/参考参数」折叠区（默认 3000，对齐 pro.R，仅参考）；`defaultDimredParams()/buildDimredPayload()` 保证折叠不丢值。
-
-### 17.1 gene_groups 出图（后端）
-
-`POST /singlecell/plot`（dotplot/heatmap）`params.gene_groups = [{"label":"T cell","genes":[...]}, ...]`：按类型展平、组间分隔线 + 类型名；缺失基因忽略并 warning；同时给 `genes` 时以 gene_groups 为准。
-
-
----
-
-## §15 UI v7：步骤向导式 Shell + §16 小亚群（v0.8.0）
-
-- 三段布局：左侧步骤导航（Step1 数据读取·分组·质控 / Step2 降维聚类 / Step3 细胞标注 / Step4 高级分析·结果）+ 主区步骤页 + 右侧可折叠抽屉（运行日志/Agent）；欢迎页；结果画廊按来源分组/new→old/去重/上限 60/lightbox；≤900px 单列；保留 PipelinePanel 折叠区。
-- 小亚群：`POST /singlecell/dataset/subset {dataset, clusters:["3","7"], column?="clusters", name?}` → 新数据集（steps 重置 qc/filter/normalize/hvg，uns 记录 parent/subset_clusters/subset_column）；Agent `action=subset`；UI 在 Step3「提取为小亚群数据集」。
-
-
----
-
-## §18 点图样式对齐「点图plus版.r」（v0.9.1）
-
-`POST /singlecell/plot` `kind=dotplot`（尤其配合 `params.gene_groups`）输出对齐用户 R 脚本样式：
-
-- 列 = 基因，按细胞类型分面（`gene_groups` 的 label）：粗体标题、自动换行（width=10）、组间虚线分隔与空隙；
-- 行 = cluster（自然序）；点大小 = 表达比例（pct.exp），图例 `Expressing proportions (%)` 25/50/75/100%；
-- 颜色 = 按基因在 cluster 间 z-score 的 avg.exp.scaled，色带 `#3366CC → #FFFFFF → #DC3912`（clip ±2.5），图例 `average expression level`；
-- 坐标轴无标题，基因名 45° 旋转，无标题/白底。
